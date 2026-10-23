@@ -87,9 +87,20 @@ npm run build    # production build
 npm run start    # serve the production build
 ```
 
-## Deploy
+## Deploy (Render)
 
-The app is a standard Next.js project with no server-side secrets, so it deploys to Vercel as-is: import the repository in Vercel, keep the detected Next.js settings, and deploy. No environment variables are required.
+This is a standard Next.js app with **no environment variables**.
+
+1. Create a GitHub repo (suggested name: `smaran-flow`) and push `main`.
+2. In [Render](https://dashboard.render.com), **New → Web Service → connect that repo**.
+3. Use:
+   - **Runtime:** Node
+   - **Build command:** `npm ci && npm run build`
+   - **Start command:** `npm run start`
+   - **Node version:** 20
+4. Deploy. Render sets `PORT` automatically.
+
+A `render.yaml` blueprint is included if you prefer Blueprint deploy. No secrets are required. Family data stays in the visitor’s browser (`localStorage` + IndexedDB).
 
 ## Try the sample family
 
