@@ -36,7 +36,7 @@ export function AppointmentsScreen() {
   const thisWeek = upcoming.filter((a) => a.date <= weekEnd);
   const later = upcoming.filter((a) => a.date > weekEnd);
 
-  const wispr = <SmaranSpeakBox context="appointments" placeholder="Tell SMARAN about an appointment…" />;
+  const wispr = <SmaranSpeakBox context="appointments" />;
 
   const list = (title: string, items: typeof upcoming) =>
     items.length > 0 && (

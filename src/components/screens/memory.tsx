@@ -81,7 +81,7 @@ export function MemoryScreen() {
                 </div>
               </Surface>
             </div>
-            <SmaranSpeakBox placeholder="Tell SMARAN something to remember…" />
+            <SmaranSpeakBox context="memory" />
             <p className="rounded-[18px] bg-sand/40 p-4 text-[13.5px] leading-relaxed text-ink">
               Memory is a record of what happened — created automatically when you speak to SMARAN, when family replies, and when documents are added.
             </p>

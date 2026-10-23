@@ -72,10 +72,6 @@ export function HealthCardScreen() {
     <Screen
       aside={
           <>
-            <div>
-              <SectionLabel>Tell SMARAN</SectionLabel>
-              <SmaranSpeakBox context={{ person: member.name }} variant="composer" placeholder={`Tell SMARAN about ${member.name}…`} />
-            </div>
             <div className="rounded-[18px] bg-sand/40 p-4 text-[13.5px] leading-relaxed text-ink">
               <p className="font-bold text-ink-strong">What&apos;s on this card</p>
               <p className="mt-1">Saved family notes: appointments, reminders, confirmations, documents and health measurements. Sample values are labelled. This is not a medical record.</p>
@@ -100,6 +96,9 @@ export function HealthCardScreen() {
     >
       <PageHeader back={`/family/${member.id}`} eyebrow="Health Card" title={member.name} subtitle="Everything important, in one place." actions={isWeb ? actions : undefined} />
       {!isWeb && <div className="mb-5 grid grid-cols-2 gap-2 [&>*]:w-full [&>*]:justify-center">{actions}</div>}
+      <div className="mb-6">
+        <SmaranSpeakBox context={{ person: member.name }} />
+      </div>
       <HealthCard state={state} member={member} wide={isWeb} className={cn(!isWeb && "p-5")} onRemoveMeasurement={setPendingDelete} onAddMeasurement={() => setAdding(true)} />
 
       <Modal

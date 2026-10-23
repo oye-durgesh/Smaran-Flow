@@ -154,11 +154,7 @@ export function CaptureScreen() {
           title={kind === "appointment" ? "Tell SMARAN about the appointment." : "What should SMARAN remember?"}
           subtitle="Say it the way you'd say it to family. SMARAN will pull out the details for you to check."
         />
-        <SmaranSpeakBox
-          context={kind === "appointment" ? "appointments" : "general"}
-          placeholder={kind === "appointment" ? "Who, which doctor, which day and what time…" : "Tell SMARAN what your family needs to remember…"}
-          onCapture={submit}
-        />
+        <SmaranSpeakBox context={kind === "appointment" ? "appointments" : "general"} onCapture={submit} />
         {!fixedKind && (
           <p className="mt-4 text-center text-[13px] text-ink-muted">
             Works for medicines, checks and doctor appointments — in Hindi, English or both.

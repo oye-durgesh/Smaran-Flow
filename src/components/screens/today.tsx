@@ -140,7 +140,7 @@ export function TodayScreen() {
     </section>
   );
 
-  const wispr = <SmaranSpeakBox placeholder={t("wisprPrompt")} />;
+  const wispr = <SmaranSpeakBox />;
 
   if (isWeb) {
     const upcoming = upcomingAppointments(state).slice(0, 3);
@@ -148,10 +148,7 @@ export function TodayScreen() {
       <Screen
         aside={
           <>
-            <div>
-              <SectionLabel>Tell SMARAN</SectionLabel>
-              {wispr}
-            </div>
+            {wispr}
             <div>
               <SectionLabel action={<Link href="/appointments" className="text-[12.5px] font-bold text-peach-deep hover:underline">All</Link>}>{t("upcoming")}</SectionLabel>
               <ul className="space-y-2">

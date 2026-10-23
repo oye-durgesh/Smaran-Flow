@@ -120,7 +120,7 @@ export function FamilyScreen() {
     />
   );
 
-  const wispr = <SmaranSpeakBox context="family" placeholder="Tell SMARAN something your family needs…" />;
+  const wispr = <SmaranSpeakBox context="family" />;
 
   return (
     <Screen width={isWeb ? "default" : undefined} aside={isWeb ? <>{wispr}{activity}</> : undefined}>
@@ -256,7 +256,7 @@ export function FamilyMemberScreen() {
     </section>
   );
 
-  const wispr = <SmaranSpeakBox context={{ person: member.name }} placeholder={`Tell SMARAN what ${member.name} needs to remember...`} />;
+  const wispr = <SmaranSpeakBox context={{ person: member.name }} />;
 
   return (
     <Screen

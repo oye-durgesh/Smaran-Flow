@@ -38,7 +38,7 @@ export function DocumentsScreen() {
 
   const filters = (
     <div className="mb-6 space-y-3">
-      <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search sugar, blood, ECG, Mummy…" aria-label="Search documents" />
+      <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search your family documents…" aria-label="Search your family documents" />
       <PillGroup label="Family member" value={person} onChange={setPerson} options={[{ value: "all", label: "All" }, ...state.family.map((m) => ({ value: m.id, label: m.name }))]} />
       <PillGroup
         label="Document type"
@@ -80,7 +80,7 @@ export function DocumentsScreen() {
         width="wide"
         aside={
           <>
-            <SmaranSpeakBox context="documents" placeholder="Find a document…" onQuestion={setQuery} />
+            <SmaranSpeakBox context="documents" onQuestion={setQuery} />
             <div>
               <SectionLabel>By person</SectionLabel>
               <ul className="space-y-2">
@@ -113,7 +113,7 @@ export function DocumentsScreen() {
     <Screen>
       <PageHeader back="/today" title="Documents" subtitle="Organised by person." />
       <div className="mb-5">
-        <SmaranSpeakBox context="documents" placeholder="Find a document…" onQuestion={setQuery} />
+        <SmaranSpeakBox context="documents" onQuestion={setQuery} />
       </div>
       {filters}
       {grid}

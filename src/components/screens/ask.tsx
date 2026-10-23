@@ -87,7 +87,7 @@ export function AskScreen() {
   return (
     <Screen
       width="narrow"
-      footer={turns.length ? <SmaranSpeakBox context="ask" variant="composer" placeholder="Ask SMARAN…" onQuestion={ask} /> : undefined}
+      footer={turns.length ? <SmaranSpeakBox context="ask" variant="composer" onQuestion={ask} /> : undefined}
       aside={
         <>
           <div>
@@ -111,7 +111,7 @@ export function AskScreen() {
       <PageHeader title="Ask SMARAN" subtitle="Search everything your family has saved." />
       {turns.length === 0 ? (
         <>
-          <SmaranSpeakBox context="ask" placeholder="Ask SMARAN about reports, appointments or saved health notes…" onQuestion={ask} />
+          <SmaranSpeakBox context="ask" onQuestion={ask} />
           <p className="mt-6 flex items-start gap-2 text-[13px] leading-snug text-ink-muted">
             <MessageCircleQuestion className="mt-0.5 size-4 shrink-0" aria-hidden />
             Answers come only from your family&apos;s saved memory.
