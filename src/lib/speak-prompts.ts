@@ -2,14 +2,21 @@ export type SpeakContext = "general" | "ask" | "documents" | "appointments" | "f
 
 export const SPEAK_PROMPTS = {
   general: [
-    "Mummy ko subah kal 9 baje sugar ki dawa leni hai.",
-    "Mummy ko roz subah 9 baje sugar ki dawa yaad dilana.",
-    "Papa ko kal subah 8 baje medicine lene ke liye yaad dilana.",
-    "Mummy ko aaj raat 9 baje BP ki dawa leni hai.",
-    "Papa ko kal 11 baje Dr Sharma ka appointment yaad dilana.",
-    "Mummy ko aaj 10 baje BP check karne ko bolna.",
-    "Papa ko shaam ko medicine lene ka reminder laga do.",
-    "Mummy ka BP 128 over 82 tha, save kar do.",
+    "Mummy ko subah 9 baje sugar ki dawa leni hai.",
+    "Papa ko kal doctor ke paas 11 baje jaana hai.",
+    "Riya ka school project Friday tak complete karna hai.",
+    "Dadi ko shaam 7 baje BP ki dawa deni hai.",
+    "Mummy ko Sunday ko grocery lene ki yaad dilani hai.",
+    "Papa ka dentist appointment Monday ko 4 baje hai.",
+    "Aman ko kal school se 2 baje pick karna hai.",
+    "Gas cylinder book karna hai.",
+    "Bijli ka bill 25 tareekh se pehle bharna hai.",
+    "Mummy ko subah walk ke liye 7 baje yaad dilana hai.",
+    "Kal 10 baje Sharma ji ko phone karna hai.",
+    "Thursday ko medicine refill karwani hai.",
+    "Saturday ko ghar ki safai karni hai.",
+    "Didi ka birthday next week hai, gift lena hai.",
+    "Papa ko train ticket Monday ko book karni hai.",
   ],
   family: [
     "Mummy ki age 58 hai.",
@@ -76,45 +83,14 @@ export function promptsFor(ctx: SpeakContext): readonly string[] {
   return SPEAK_PROMPTS.general;
 }
 
+const HELPER = "Speak naturally — SMARAN will organize it for you.";
+
 export function speakCopy(ctx: SpeakContext): { placeholder: string; helper: string } {
-  if (ctx === "ask") {
-    return {
-      placeholder: "Ask SMARAN about your family…",
-      helper: "Ask about saved medicines, appointments, documents or memories.",
-    };
-  }
-  if (ctx === "documents") {
-    return {
-      placeholder: "Tell SMARAN what document you're looking for…",
-      helper: "Ask about reports, prescriptions or scans.",
-    };
-  }
-  if (ctx === "appointments") {
-    return {
-      placeholder: "Tell SMARAN about an appointment…",
-      helper: "Speak the doctor, person, date or time naturally.",
-    };
-  }
-  if (ctx === "family") {
-    return {
-      placeholder: "Tell SMARAN something about Mummy or Papa…",
-      helper: "Speak naturally — SMARAN will remember it for you.",
-    };
-  }
-  if (ctx === "memory") {
-    return {
-      placeholder: "Tell SMARAN something you want to remember…",
-      helper: "Speak naturally — SMARAN will keep it in memory.",
-    };
-  }
-  if (typeof ctx === "object") {
-    return {
-      placeholder: `Tell SMARAN what you want to update about ${ctx.person}…`,
-      helper: "Speak naturally — SMARAN can organize the update.",
-    };
-  }
-  return {
-    placeholder: "Tell SMARAN what your family needs to remember…",
-    helper: "Speak naturally — SMARAN will organize it for you.",
-  };
+  if (ctx === "ask") return { placeholder: "Ask SMARAN about your family…", helper: HELPER };
+  if (ctx === "documents") return { placeholder: "Tell SMARAN what document you're looking for…", helper: HELPER };
+  if (ctx === "appointments") return { placeholder: "Tell SMARAN about an appointment…", helper: HELPER };
+  if (ctx === "family") return { placeholder: "Tell SMARAN something about Mummy or Papa…", helper: HELPER };
+  if (ctx === "memory") return { placeholder: "Tell SMARAN something you want to remember…", helper: HELPER };
+  if (typeof ctx === "object") return { placeholder: `Tell SMARAN what you want to update about ${ctx.person}…`, helper: HELPER };
+  return { placeholder: "Tell SMARAN what your family needs to remember…", helper: HELPER };
 }
