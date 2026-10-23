@@ -24,7 +24,9 @@ const DOC_TERMS: { test: RegExp; match: (name: string, type: string) => boolean;
   { test: /\b(x-?ray|xray)\b/, match: (n) => /x-?ray/i.test(n), label: "X-Ray report" },
   { test: /\b(prescription|parchi|parcha|nuskha)\b/, match: (_n, t) => t === "prescription", label: "prescription" },
   { test: /\b(lab)\b/, match: (n) => /lab/i.test(n), label: "lab report" },
-  { test: /\b(scan|mri|ct)\b/, match: (_n, t) => t === "scan", label: "scan" },
+  { test: /\b(mri)\b/, match: (n) => /mri/i.test(n), label: "MRI scan" },
+  { test: /\b(ct)\b/, match: (n) => /\bct\b/i.test(n), label: "CT scan" },
+  { test: /\b(scan|scans)\b/, match: (_n, t) => t === "scan", label: "scan" },
   { test: /\b(report|reports|document|documents|papers?)\b/, match: () => true, label: "document" },
 ];
 

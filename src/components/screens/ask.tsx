@@ -91,7 +91,7 @@ export function AskScreen() {
       variant={turns.length ? "composer" : "card"}
       placeholder="Ask about reports, appointments or medicines..."
       examples={turns.length ? [] : SUGGESTIONS.slice(0, isWeb ? 2 : 1)}
-      autoTypeText={demo && !initialQ ? DEMO_QUESTION : null}
+      autoTypeText={demo && !initialQ && turns.length === 0 ? DEMO_QUESTION : null}
       autoSubmit={demo}
       busy={!!pending}
       busyLabel="Searching your family's memory…"

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { History } from "lucide-react";
+import Link from "next/link";
+import { FolderHeart, History, MessageCircleQuestion } from "lucide-react";
 import { useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
 import { todayOf } from "@/lib/selectors";
@@ -79,6 +80,24 @@ export function MemoryScreen() {
       }
     >
       <PageHeader title="Memory" subtitle="Everything your family remembered, in order." />
+      {!isWeb && (
+        <div className="mb-6 grid grid-cols-2 gap-3">
+          <Link href="/documents" className="flex items-center gap-3 rounded-[18px] border border-line bg-surface-raised p-4 hover:border-line-strong">
+            <FolderHeart className="size-5 text-peach-deep" aria-hidden />
+            <span>
+              <span className="block text-[15px] font-extrabold text-ink-strong">Documents</span>
+              <span className="block text-[12.5px] text-ink-muted">{state.documents.length} saved</span>
+            </span>
+          </Link>
+          <Link href="/ask" className="flex items-center gap-3 rounded-[18px] border border-line bg-surface-raised p-4 hover:border-line-strong">
+            <MessageCircleQuestion className="size-5 text-peach-deep" aria-hidden />
+            <span>
+              <span className="block text-[15px] font-extrabold text-ink-strong">Ask SMARAN</span>
+              <span className="block text-[12.5px] text-ink-muted">Find anything</span>
+            </span>
+          </Link>
+        </div>
+      )}
       {filters}
       {content}
     </Screen>

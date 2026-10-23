@@ -193,14 +193,27 @@ export function WisprFlowInput({
     };
   }, [primary, startListening]);
 
+  const typeInRef = useRef(typeIn);
+  const autoSubmitRef = useRef(autoSubmit);
   useEffect(() => {
-    if (!autoTypeText) return;
+    typeInRef.current = typeIn;
+    autoSubmitRef.current = autoSubmit;
+  });
+  const playedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!autoTypeText || playedRef.current === autoTypeText) return;
+    let inner: number | undefined;
     const t = window.setTimeout(() => {
+      playedRef.current = autoTypeText;
       setPhase("listening");
-      window.setTimeout(() => typeIn(autoTypeText, autoSubmit), 700);
+      inner = window.setTimeout(() => typeInRef.current(autoTypeText, autoSubmitRef.current), 700);
     }, 250);
-    return () => window.clearTimeout(t);
-  }, [autoTypeText, autoSubmit, typeIn]);
+    return () => {
+      window.clearTimeout(t);
+      window.clearTimeout(inner);
+    };
+  }, [autoTypeText]);
 
   const onChange = (next: string) => {
     setValue(next);

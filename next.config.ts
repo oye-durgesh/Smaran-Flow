@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  allowedDevOrigins: ["127.0.0.1"],
+  experimental: {
+    // Family data lives in this browser, so every screen renders after hydration.
+    instantInsights: { validationLevel: "manual-warning" },
+  },
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
