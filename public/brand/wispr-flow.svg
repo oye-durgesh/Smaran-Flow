@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Wispr Flow">
+  <!-- Placeholder Wispr Flow button asset. Replace this file with the supplied Wispr Flow asset. -->
+  <rect width="64" height="64" rx="20" fill="#45342B"/>
+  <path d="M14 34c4-8 8-8 12 0s8 8 12 0 8-8 12 0" stroke="#FDEEE6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M14 24c4-5 8-5 12 0s8 5 12 0 8-5 12 0" stroke="#E8A98D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>
+  <path d="M14 44c4-5 8-5 12 0s8 5 12 0 8-5 12 0" stroke="#E8A98D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/>
+</svg>
