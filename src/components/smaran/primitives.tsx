@@ -63,7 +63,7 @@ export function StatusBadge({ status, label, className }: { status: keyof typeof
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] leading-none font-bold whitespace-nowrap", s.cls, className)}>
       <Icon className="size-3.5" strokeWidth={2.6} aria-hidden />
-      {label ?? s.label}
+      <span className="badge-label">{label ?? s.label}</span>
     </span>
   );
 }

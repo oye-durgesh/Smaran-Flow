@@ -18,7 +18,7 @@ export function AgendaCard({ item, today, onSend, compact }: { item: AgendaItem;
     const a = item.appointment;
     return (
       <Link href={`/appointments/${a.id}`} className="group block focus-visible:outline-offset-4">
-        <Surface className="relative flex items-center gap-4 overflow-hidden p-4 pl-5 transition-colors group-hover:border-line-strong">
+        <Surface className="@container relative flex items-center gap-4 overflow-hidden p-4 pl-5 transition-colors group-hover:border-line-strong">
           <span aria-hidden className={cn("absolute inset-y-3 left-0 w-1 rounded-r-full", statusBarClass(a.status === "completed" ? "completed" : "upcoming"))} />
           <TimeColumn time={item.time} />
           <div className="min-w-0 flex-1">
@@ -29,7 +29,7 @@ export function AgendaCard({ item, today, onSend, compact }: { item: AgendaItem;
               {item.member?.name} · {a.doctor}
             </div>
           </div>
-          <StatusBadge status={a.status === "completed" ? "completed" : "upcoming"} />
+          <StatusBadge status={a.status === "completed" ? "completed" : "upcoming"} className={COMPACT_BADGE} />
         </Surface>
       </Link>
     );
@@ -39,7 +39,7 @@ export function AgendaCard({ item, today, onSend, compact }: { item: AgendaItem;
   const Icon = KIND_ICON[r.kind];
   const canSend = onSend && item.status === "waiting";
   return (
-    <Surface className="relative overflow-hidden transition-colors hover:border-line-strong">
+    <Surface className="@container relative overflow-hidden transition-colors hover:border-line-strong">
       <span aria-hidden className={cn("absolute inset-y-3 left-0 w-1 rounded-r-full", statusBarClass(item.status))} />
       <Link href={`/reminders/${r.id}`} className="flex items-center gap-4 p-4 pl-5 focus-visible:outline-offset-[-4px]">
         <TimeColumn time={item.time} />
@@ -52,7 +52,7 @@ export function AgendaCard({ item, today, onSend, compact }: { item: AgendaItem;
             {item.confirmation && ` · replied ${formatTime(timeOf(item.confirmation.confirmedAt))}`}
           </div>
         </div>
-        <StatusBadge status={item.status} />
+        <StatusBadge status={item.status} className={COMPACT_BADGE} />
       </Link>
       {canSend && !compact && (
         <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-2.5">
@@ -65,6 +65,9 @@ export function AgendaCard({ item, today, onSend, compact }: { item: AgendaItem;
     </Surface>
   );
 }
+
+/** Phone-width cards show the badge icon only; the label stays for screen readers. */
+const COMPACT_BADGE = "@max-[380px]:size-7 @max-[380px]:justify-center @max-[380px]:p-0 @max-[380px]:[&_.badge-label]:sr-only";
 
 function TimeColumn({ time }: { time: string }) {
   const [clock, suffix] = formatTime(time).split(" ");
@@ -82,7 +85,7 @@ export function AppointmentCard({ appointment, member, today }: { appointment: A
   const done = appointment.status === "completed" || appointment.date < today;
   return (
     <Link href={`/appointments/${appointment.id}`} className="group block">
-      <Surface className="relative flex items-center gap-4 overflow-hidden p-4 pl-5 transition-colors group-hover:border-line-strong">
+      <Surface className="@container relative flex items-center gap-4 overflow-hidden p-4 pl-5 transition-colors group-hover:border-line-strong">
         <span aria-hidden className={cn("absolute inset-y-3 left-0 w-1 rounded-r-full", statusBarClass(done ? "completed" : "upcoming"))} />
         <div className={cn("flex size-12 shrink-0 flex-col items-center justify-center rounded-[14px]", done ? "bg-paused-bg text-brown" : "bg-sand/70 text-ink-strong")}>
           <span className="text-[10px] font-extrabold tracking-wider uppercase">{formatShort(appointment.date).split(" ")[0]}</span>
