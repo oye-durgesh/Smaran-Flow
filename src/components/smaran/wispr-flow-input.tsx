@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { WisprFlowMark } from "./brand";
 
 type Phase = "idle" | "ready" | "error";
 
@@ -22,6 +23,7 @@ export interface WisprFlowInputProps {
 }
 
 const CAPTURE_ERROR = "We couldn't capture that. You can type instead.";
+const WISPR_PROMOTE = "Use Wispr Flow for better voice capture";
 const DEFAULT_SUPPORT = "Speak naturally — SMARAN will organize it for you.";
 
 export function Waveform({ active, className }: { active: boolean; className?: string }) {
@@ -128,9 +130,15 @@ export function WisprFlowInput({
         className,
       )}
     >
-      <p id={helperId} className="mb-3 text-[14px] leading-snug text-ink-muted">
-        {helper}
-      </p>
+      <div className="mb-3 flex items-start gap-3">
+        <WisprFlowMark size={variant === "composer" ? 36 : 40} className="pointer-events-none mt-0.5 shrink-0 rounded-[12px]" />
+        <div className="min-w-0">
+          <p className="text-[15px] leading-snug font-extrabold text-ink-strong">{WISPR_PROMOTE}</p>
+          <p id={helperId} className="mt-0.5 text-[13px] leading-snug text-ink-muted">
+            {helper}
+          </p>
+        </div>
+      </div>
       <div className="flex items-end gap-2 rounded-[22px] border border-line bg-ivory/50 p-2 pl-4 transition-colors focus-within:border-peach">
         <textarea
           ref={textareaRef}
