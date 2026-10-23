@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppState } from "@/lib/store/store";
 import { WisprFlowMark } from "./brand";
 
-type Phase = "idle" | "listening" | "ready" | "error";
+type Phase = "idle" | "ready" | "error";
 
 export interface WisprFlowInputProps {
   placeholder: string;
@@ -21,12 +21,10 @@ export interface WisprFlowInputProps {
   className?: string;
   examplesLabel?: string;
   examplesAction?: "fill" | "submit";
-  /** Optional page title under WISPR FLOW. Defaults to “Speak naturally”. */
   title?: string;
   support?: string;
 }
 
-const LISTEN_TIMEOUT_MS = 12_000;
 const CAPTURE_ERROR = "We couldn't capture that. Try speaking again.";
 const DEFAULT_TITLE = "Speak naturally";
 const DEFAULT_SUPPORT = "Your voice, organized by SMARAN.";
@@ -68,13 +66,6 @@ export function WisprFlowInput({
   const [value, setValue] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
-  const listenTimer = useRef<number | null>(null);
-
-  const clearTimers = () => {
-    if (listenTimer.current) window.clearTimeout(listenTimer.current);
-    listenTimer.current = null;
-  };
-  useEffect(() => clearTimers, []);
 
   const submit = useCallback(
     async (text: string) => {
@@ -84,7 +75,6 @@ export function WisprFlowInput({
         setPhase("error");
         return;
       }
-      clearTimers();
       setError(null);
       const result = await onSubmit(trimmed);
       if (typeof result === "string") {
@@ -98,68 +88,27 @@ export function WisprFlowInput({
     [onSubmit],
   );
 
-  const startListening = useCallback(() => {
-    clearTimers();
-    setError(null);
-    setPhase("listening");
-    textareaRef.current?.focus();
-    listenTimer.current = window.setTimeout(() => {
-      setPhase((p) => (p === "listening" ? "error" : p));
-      setError((e) => e ?? CAPTURE_ERROR);
-    }, LISTEN_TIMEOUT_MS);
-  }, []);
-
-  const toggleListening = () => {
-    if (phase === "listening") {
-      clearTimers();
-      setPhase(value.trim() ? "ready" : "idle");
-    } else {
-      startListening();
-    }
-  };
-
   const onChange = (next: string) => {
     setValue(next);
-    if (listenTimer.current) {
-      window.clearTimeout(listenTimer.current);
-      listenTimer.current = null;
-    }
     if (phase === "error") setError(null);
-    setPhase(next.trim() ? (phase === "listening" ? "listening" : "ready") : phase === "listening" ? "listening" : "idle");
+    setPhase(next.trim() ? "ready" : "idle");
   };
 
   const shownError = externalError ?? error;
   const effectivePhase: Phase | "busy" = busy ? "busy" : shownError ? "error" : phase;
-  const listening = effectivePhase === "listening";
   const hasText = Boolean(value.trim());
-  const idleHelper = !wisprEnabled
+  const helper = !wisprEnabled
     ? "Wispr Flow is turned off in Settings — you can still type here."
-    : (support ?? DEFAULT_SUPPORT);
-  const helper =
-    effectivePhase === "listening"
-      ? "Listening… speak naturally."
-      : effectivePhase === "busy"
-        ? busyLabel
-        : idleHelper;
+    : effectivePhase === "busy"
+      ? busyLabel
+      : (support ?? DEFAULT_SUPPORT);
 
   void primary;
 
-  const wisprButton = (
-    <button
-      type="button"
-      onClick={toggleListening}
-      disabled={busy || !wisprEnabled}
-      aria-pressed={listening}
-      aria-label={listening ? "Stop Wispr Flow" : "Speak with Wispr Flow"}
-      aria-describedby={helperId}
-      className={cn(
-        "relative shrink-0 rounded-[18px] outline-none transition-transform duration-200 hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-peach-deep focus-visible:ring-offset-2 active:scale-95 disabled:opacity-40",
-        listening && "animate-breathe",
-      )}
-    >
-      {listening && <span aria-hidden className="absolute -inset-1 rounded-[22px] bg-peach-soft/70" />}
-      <WisprFlowMark size={variant === "composer" ? 48 : 56} className="relative rounded-[18px]" />
-    </button>
+  const wisprMark = (
+    <span className="shrink-0 select-none" aria-hidden>
+      <WisprFlowMark size={variant === "composer" ? 48 : 56} className="rounded-[18px] pointer-events-none" />
+    </span>
   );
 
   const sendButton = hasText && !busy && (
@@ -192,8 +141,16 @@ export function WisprFlowInput({
   const errorRow = effectivePhase === "error" && shownError && (
     <div role="alert" className="flex items-center justify-between gap-3 rounded-[14px] bg-missed-bg/70 px-3 py-2 text-[13px] font-semibold text-missed">
       <span>{shownError}</span>
-      <button type="button" onClick={startListening} className="shrink-0 font-bold underline-offset-2 hover:underline">
-        Speak again
+      <button
+        type="button"
+        onClick={() => {
+          setError(null);
+          setPhase(hasText ? "ready" : "idle");
+          textareaRef.current?.focus();
+        }}
+        className="shrink-0 font-bold underline-offset-2 hover:underline"
+      >
+        Try again
       </button>
     </div>
   );
@@ -210,10 +167,6 @@ export function WisprFlowInput({
           e.preventDefault();
           void submit(value);
         }
-        if (e.key === "Escape" && listening) {
-          clearTimers();
-          setPhase(value ? "ready" : "idle");
-        }
       }}
       placeholder={placeholder}
       disabled={busy}
@@ -229,7 +182,7 @@ export function WisprFlowInput({
   const header = (
     <div className="mb-3">
       <label htmlFor={inputId} className="inline-flex items-center gap-2 text-[11px] font-extrabold tracking-[0.2em] text-ink-muted uppercase">
-        <span className={cn("size-1.5 rounded-full", listening || busy ? "bg-peach-deep" : "bg-peach")} aria-hidden />
+        <span className={cn("size-1.5 rounded-full", busy ? "bg-peach-deep" : "bg-peach")} aria-hidden />
         {label}
       </label>
       {title && <p className="mt-1 text-[20px] leading-tight font-extrabold tracking-tight text-ink-strong sm:text-[22px]">{title}</p>}
@@ -238,7 +191,7 @@ export function WisprFlowInput({
 
   const footer = (
     <p id={helperId} className="text-[12.5px] leading-snug text-ink-muted" aria-live="polite">
-      {listening && <Waveform active className="mr-2 inline-flex align-middle" />}
+      {busy && <Waveform active className="mr-2 inline-flex align-middle" />}
       {helper}
     </p>
   );
@@ -248,12 +201,7 @@ export function WisprFlowInput({
       <div className={cn("space-y-2.5", className)}>
         {header}
         {errorRow}
-        <div
-          className={cn(
-            "flex items-end gap-2 rounded-[22px] border bg-surface-raised p-2 pl-4 shadow-[var(--shadow-soft)] transition-colors focus-within:border-peach",
-            listening ? "border-peach" : "border-line",
-          )}
-        >
+        <div className="flex items-end gap-2 rounded-[22px] border border-line bg-surface-raised p-2 pl-4 shadow-[var(--shadow-soft)] transition-colors focus-within:border-peach">
           <div className="min-w-0 flex-1">{textarea}</div>
           {hasText && !busy && (
             <button type="button" onClick={() => onChange("")} aria-label="Clear" className="mb-1 inline-flex size-9 items-center justify-center rounded-[12px] text-ink-muted hover:bg-ivory-deep">
@@ -261,7 +209,7 @@ export function WisprFlowInput({
             </button>
           )}
           {sendButton}
-          {wisprButton}
+          {wisprMark}
         </div>
         {chips}
         {footer}
@@ -270,13 +218,7 @@ export function WisprFlowInput({
   }
 
   return (
-    <div
-      className={cn(
-        "rounded-[24px] border bg-surface-raised p-5 shadow-[var(--shadow-soft)] transition-colors focus-within:border-peach sm:p-6",
-        listening ? "border-peach" : "border-line",
-        className,
-      )}
-    >
+    <div className={cn("rounded-[24px] border border-line bg-surface-raised p-5 shadow-[var(--shadow-soft)] transition-colors focus-within:border-peach sm:p-6", className)}>
       {header}
       <div className="flex items-end gap-3">
         <div className="min-w-0 flex-1">{textarea}</div>
@@ -287,7 +229,7 @@ export function WisprFlowInput({
             </button>
           )}
           {sendButton}
-          {wisprButton}
+          {wisprMark}
         </div>
       </div>
       <div className="mt-4 space-y-3">
