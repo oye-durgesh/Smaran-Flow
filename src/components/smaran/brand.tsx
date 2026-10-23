@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 export const BRAND_ASSETS = {
   smaranMark: "/brand/smaran-mark.svg",
   smaranLockup: "/brand/smaran-lockup.png",
-  wisprFlow: "/brand/wispr-flow.svg",
+  wisprFlow: "/brand/wispr-flow.png",
 };
 
 /** Full SMARAN lockup (mark + wordmark + स्मरण) for splash and welcome. */
@@ -59,8 +59,9 @@ export function SmaranLogo({
 }
 
 export function WisprFlowMark({ size = 44, className }: { size?: number; className?: string }) {
+  const width = Math.round((size * 252) / 147);
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={BRAND_ASSETS.wisprFlow} alt="" width={size} height={size} className={cn("shrink-0 select-none", className)} draggable={false} />
+    <img src={BRAND_ASSETS.wisprFlow} alt="Wispr Flow" width={width} height={size} className={cn("shrink-0 select-none object-contain", className)} draggable={false} />
   );
 }

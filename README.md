@@ -107,7 +107,7 @@ The family clock in this prototype starts on Friday, October 23, 2026 at 10:30 A
 
 ## Brand assets
 
-`public/brand/smaran-mark.svg` and `public/brand/wispr-flow.svg` are placeholders. Replace them with the official files at the same paths (see `BRAND_ASSETS` in `src/components/smaran/brand.tsx`).
+Brand files live in `public/brand/` (`smaran-mark.svg`, `smaran-lockup.png`, `wispr-flow.png`). See `BRAND_ASSETS` in `src/components/smaran/brand.tsx`.
 
 ## Limitations
 
