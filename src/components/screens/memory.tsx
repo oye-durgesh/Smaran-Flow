@@ -11,11 +11,19 @@ import type { MemoryEvent } from "@/lib/types";
 import { Screen } from "@/components/shell/screen";
 import { MemoryTimeline } from "@/components/smaran/memory-timeline";
 import { EmptyState, PageHeader, PillGroup, SectionLabel, Surface } from "@/components/smaran/primitives";
+import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
 
-type Kind = "all" | "reminders" | "appointments" | "documents";
+type Kind = "all" | "reminders" | "appointments" | "documents" | "health";
 
 const matchesKind = (e: MemoryEvent, kind: Kind) =>
-  kind === "all" || (kind === "reminders" ? e.type.startsWith("reminder") : kind === "appointments" ? e.type.startsWith("appointment") : e.type.startsWith("document"));
+  kind === "all" ||
+  (kind === "reminders"
+    ? e.type.startsWith("reminder")
+    : kind === "appointments"
+      ? e.type.startsWith("appointment")
+      : kind === "health"
+        ? e.type.startsWith("measurement")
+        : e.type.startsWith("document"));
 
 export function MemoryScreen() {
   const { state } = useStore();
@@ -40,6 +48,7 @@ export function MemoryScreen() {
           { value: "reminders", label: "Reminders" },
           { value: "appointments", label: "Appointments" },
           { value: "documents", label: "Documents" },
+          { value: "health", label: "Health" },
         ]}
       />
     </div>
@@ -72,6 +81,7 @@ export function MemoryScreen() {
                 </div>
               </Surface>
             </div>
+            <SmaranSpeakBox placeholder="Tell SMARAN something to remember…" />
             <p className="rounded-[18px] bg-sand/40 p-4 text-[13.5px] leading-relaxed text-ink">
               Memory is a record of what happened — created automatically when you speak to SMARAN, when family replies, and when documents are added.
             </p>

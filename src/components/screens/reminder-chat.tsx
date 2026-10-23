@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { BellRing, Check, IdCard, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store/store";
@@ -17,8 +17,8 @@ import { EmptyState, MemberAvatar, PageHeader, SectionLabel, StatusBadge, Surfac
 import { SmaranMark } from "@/components/smaran/brand";
 import { Button } from "@/components/ui/button";
 
-const REPLIES = ["Haan, maine le li.", "Thodi der mein lungi.", "Medicine khatam ho gayi."];
-const CHECK_REPLIES = ["Haan, kar liya.", "Thodi der mein karti hoon."];
+const REPLIES = ["Medicine le li", "Thodi der mein", "Medicine khatam ho gayi"];
+const CHECK_REPLIES = ["Check kar liya", "Thodi der mein"];
 
 function TypingBubble() {
   return (
@@ -35,7 +35,6 @@ function TypingBubble() {
 
 export function ReminderChatScreen() {
   const { id } = useParams<{ id: string }>();
-  const demo = useSearchParams().get("demo") === "1";
   const { state, commit } = useStore();
   const { isWeb } = useView();
   const endRef = useRef<HTMLDivElement>(null);
@@ -129,9 +128,9 @@ export function ReminderChatScreen() {
     <Surface className="p-6 text-center">
       <SmaranMark size={48} className="mx-auto rounded-[14px]" />
       <p className="mt-4 text-[17px] font-bold text-ink-strong">This reminder goes out at {formatTime(reminder.time)}.</p>
-      <p className="mt-1 text-[14.5px] text-ink-muted">No need to wait for the clock in the demo.</p>
+      <p className="mt-1 text-[14.5px] text-ink-muted">Send it now so you can see the conversation {member?.name} would have.</p>
       <Button className="mt-5" size="lg" onClick={() => commit((s) => startConversation(s, reminder.id))} disabled={reminder.status === "paused"}>
-        <BellRing className="size-4" aria-hidden /> {reminder.status === "paused" ? "Reminder is paused" : "Trigger demo reminder"}
+        <BellRing className="size-4" aria-hidden /> {reminder.status === "paused" ? "Reminder is paused" : "Send reminder now"}
       </Button>
     </Surface>
   );
@@ -143,7 +142,6 @@ export function ReminderChatScreen() {
       placeholder="Say anything..."
       examples={confirmation ? [] : replies}
       examplesLabel="Reply"
-      autoTypeText={demo && !confirmation ? replies[0] : null}
       onSubmit={send}
     />
   ) : undefined;

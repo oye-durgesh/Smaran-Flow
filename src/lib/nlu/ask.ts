@@ -1,12 +1,13 @@
 import type { AppState, FamilyMember } from "../types";
 import { formatDayLong, formatLong, formatShort, formatTime, relativeDay, timeOf, dateOf } from "../dates";
-import { documentsFor, latestConfirmation, memberDaySummary, memberById, todayOf, upcomingAppointments } from "../selectors";
+import { documentsFor, latestConfirmation, latestMeasurement, memberDaySummary, memberById, todayOf, upcomingAppointments } from "../selectors";
 import { findDoctor, findPerson, normalize } from "./common";
 
 export type AnswerRef =
   | { kind: "document"; id: string }
   | { kind: "appointment"; id: string }
-  | { kind: "reminder"; id: string };
+  | { kind: "reminder"; id: string }
+  | { kind: "measurement"; id: string };
 
 export interface Answer {
   text: string;
@@ -35,12 +36,24 @@ export function answerQuestion(question: string, state: AppState): Answer {
   const person = findPerson(question, state.family) ?? undefined;
   const today = todayOf(state);
 
-  if (/\b(kitni|kitna|dose|dosage|mg|should|chahiye|side effect|diagnos|kya khana|khana chahiye|safe|band kar|increase|badha|kam kar|replace)\b/.test(t)) {
+  if (/\b(dose|dosage|should i|chahiye kya|side effect|diagnos|kya khana|khana chahiye|band kar|increase|badha|kam kar|replace)\b/.test(t) && !/\b(bp|sugar|weight|glucose)\b/.test(t)) {
     return {
       found: false,
       safety: true,
       refs: [],
       text: "I can only share what your family has saved in SMARAN. For questions about medicines, doses or symptoms, please ask the doctor directly.",
+    };
+  }
+
+  const measureKind = /\b(bp|blood pressure)\b/.test(t) ? ("blood_pressure" as const) : /\b(sugar|glucose)\b/.test(t) ? ("blood_sugar" as const) : /\b(heart rate|pulse|bpm)\b/.test(t) ? ("heart_rate" as const) : /\b(weight|vajan)\b/.test(t) ? ("weight" as const) : null;
+  if (measureKind && person && !/\b(medicine|dawai|check|yaad)\b/.test(t)) {
+    const m = latestMeasurement(state, person.id, measureKind);
+    const label = measureKind === "blood_pressure" ? "blood pressure" : measureKind === "blood_sugar" ? "blood sugar" : measureKind === "heart_rate" ? "heart rate" : "weight";
+    if (!m) return { found: false, refs: [], text: `I couldn't find a saved ${label} for ${person.name} in SMARAN.` };
+    return {
+      found: true,
+      refs: [{ kind: "measurement", id: m.id }],
+      text: `${possessive(person)} latest ${label} is ${m.value} ${m.unit}, recorded on ${formatShort(dateOf(m.recordedAt))} at ${formatTime(timeOf(m.recordedAt))}${m.source === "sample" ? " (sample family note)" : ""}.`,
     };
   }
 

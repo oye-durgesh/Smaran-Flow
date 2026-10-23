@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Camera, Check, FileText, FileUp, Info, Loader2, Sparkles } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Camera, Check, FileText, FileUp, Info, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
-import { addDocument } from "@/lib/store/actions";
-import { guessFromFileName, parseDocumentDescription } from "@/lib/nlu";
+import { addDocument, upsertMeasurement } from "@/lib/store/actions";
+import { extractHealthValues, guessFromFileName, parseDocumentDescription } from "@/lib/nlu";
 import { memberById, todayOf } from "@/lib/selectors";
 import { formatShort, formatTime } from "@/lib/dates";
 import { ACCEPTED_TYPES, MAX_FILE_BYTES, deleteFile, formatBytes, saveFile } from "@/lib/files";
@@ -41,6 +41,7 @@ interface Draft {
   appointmentId?: string;
   detectedFrom: HealthDocument["metadata"]["detectedFrom"];
   description?: string;
+  extracted: { kind: string; value: string; unit: string }[];
 }
 
 const SAMPLE: Picked = { name: "blood_report_oct2026.pdf", size: 248_000, mime: "application/pdf", sample: true };
@@ -57,11 +58,9 @@ const TYPES: { value: DocumentType; label: string }[] = [
 
 export function DocumentUploadScreen() {
   const params = useSearchParams();
-  const router = useRouter();
   const { state, commit } = useStore();
   const { isWeb } = useView();
   const today = todayOf(state);
-  const demo = params.get("demo") === "1";
   const presetAppointment = state.appointments.find((a) => a.id === params.get("appointment"));
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -91,6 +90,9 @@ export function DocumentUploadScreen() {
       }
       const guess = file.sample ? { memberId: "mummy", name: "Blood Report", type: "report" as const, doctor: "Dr Sharma", date: "2026-10-21" } : guessFromFileName(file.name, state.family);
       const memberId = presetAppointment?.familyMemberId ?? guess.memberId;
+      const extracted = extractHealthValues(`${file.name} `, state.family)
+        .filter((h) => h.kind && h.value)
+        .map((h) => ({ kind: h.kind!, value: h.value!, unit: h.unit ?? "" }));
       setPicked(file);
       setDraft({
         memberId,
@@ -100,6 +102,7 @@ export function DocumentUploadScreen() {
         doctor: ("doctor" in guess && guess.doctor) || presetAppointment?.doctor || "",
         appointmentId: presetAppointment?.id,
         detectedFrom: file.sample ? "sample" : guess.name ? "filename" : "manual",
+        extracted,
       });
       setProgress(0);
       setPhase("saving");
@@ -112,24 +115,16 @@ export function DocumentUploadScreen() {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const t = window.setInterval(() => {
       setProgress((p) => {
-        const next = Math.min(100, p + (reduced ? 100 : 9));
+        const next = Math.min(100, p + (reduced ? 100 : 28));
         if (next >= 100) {
           window.clearInterval(t);
-          window.setTimeout(() => setPhase("reading"), reduced ? 0 : 250);
+          window.setTimeout(() => setPhase("reading"), 0);
         }
         return next;
       });
     }, 70);
     return () => window.clearInterval(t);
   }, [phase]);
-
-  useEffect(() => {
-    if (!demo || phase !== "pick") return;
-    const t = window.setTimeout(() => begin(SAMPLE), 600);
-    return () => window.clearTimeout(t);
-    // Only run once when arriving in demo mode.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demo]);
 
   const onReadingDone = useCallback(() => setPhase("review"), []);
 
@@ -143,7 +138,10 @@ export function DocumentUploadScreen() {
   const describe = (text: string) => {
     if (!draft) return;
     const g = parseDocumentDescription(text, state.family, today);
-    if (!g.memberId && !g.name && !g.date && !g.doctor) return "I couldn't pick out any details from that. Try “This is Mummy's latest blood report.”";
+    const extracted = extractHealthValues(text, state.family)
+      .filter((h) => h.kind && h.value)
+      .map((h) => ({ kind: h.kind!, value: h.value!, unit: h.unit ?? "" }));
+    if (!g.memberId && !g.name && !g.date && !g.doctor && extracted.length === 0) return "I couldn't pick out any details from that. Try “This is Mummy's latest blood report.”";
     setDraft({
       ...draft,
       memberId: g.memberId ?? draft.memberId,
@@ -154,6 +152,7 @@ export function DocumentUploadScreen() {
       appointmentId: g.memberId && g.memberId !== draft.memberId ? undefined : draft.appointmentId,
       detectedFrom: "description",
       description: text,
+      extracted: extracted.length ? extracted : draft.extracted,
     });
   };
 
@@ -162,8 +161,8 @@ export function DocumentUploadScreen() {
     setSaving(true);
     let id = "";
     try {
-      id = commit((s) =>
-        addDocument(s, {
+      id = commit((s) => {
+        const [withDoc, docId] = addDocument(s, {
           familyMemberId: draft.memberId!,
           name: draft.name.trim(),
           type: draft.type,
@@ -172,8 +171,15 @@ export function DocumentUploadScreen() {
           file: { name: picked.name, size: picked.size, mime: picked.mime, storage: picked.sample ? "sample" : "local" },
           metadata: { source: picked.sample ? "sample" : "upload", detectedFrom: draft.detectedFrom, description: draft.description },
           linkedAppointmentId: draft.appointmentId,
-        }),
-      );
+        });
+        let next = withDoc;
+        for (const item of draft.extracted) {
+          const kind = item.kind as "blood_pressure" | "blood_sugar" | "heart_rate" | "weight";
+          const [after] = upsertMeasurement(next, { familyMemberId: draft.memberId!, kind, value: item.value, unit: item.unit, source: "document", documentId: docId });
+          next = after;
+        }
+        return [next, docId];
+      });
       if (!picked.sample && picked.blob) await saveFile(id, picked.blob);
       setSavedId(id);
       setPhase("done");
@@ -191,7 +197,6 @@ export function DocumentUploadScreen() {
     setPicked(null);
     setDraft(null);
     setError(null);
-    if (demo) router.replace("/documents/upload");
   };
 
   const member = memberById(state, draft?.memberId);
@@ -310,10 +315,21 @@ export function DocumentUploadScreen() {
               </div>
             </div>
           )}
+          {draft.extracted.length > 0 && (
+            <div className="rounded-[16px] bg-peach-soft/40 p-3">
+              <p className="text-[13px] font-extrabold text-ink-strong">Values mentioned (from the file name or your description)</p>
+              <ul className="mt-1 space-y-1 text-[14px] text-ink">
+                {draft.extracted.map((e) => (
+                  <li key={`${e.kind}-${e.value}`}>{e.kind.replace("_", " ")} · <b>{e.value} {e.unit}</b></li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[12px] text-ink-muted">These will be saved to the health card. SMARAN does not read the file itself.</p>
+            </div>
+          )}
           <p className="flex items-start gap-2 text-[12.5px] leading-snug text-ink-muted">
             <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
             {draft.detectedFrom === "sample"
-              ? "Sample details are preset for the demo."
+              ? "Sample details are preset."
               : draft.detectedFrom === "description"
                 ? "Details came from what you said."
                 : draft.detectedFrom === "filename"
@@ -323,7 +339,7 @@ export function DocumentUploadScreen() {
         </Surface>
         <section className="mt-6">
           <SectionLabel>Or just describe it</SectionLabel>
-          <WisprFlowInput variant="composer" placeholder="Tell SMARAN what this document is..." examples={[DESCRIBE_EXAMPLE]} examplesLabel="Try" autoTypeText={demo ? DESCRIBE_EXAMPLE : null} autoSubmit={demo} onSubmit={describe} />
+          <WisprFlowInput variant="composer" placeholder="Tell SMARAN what this document is..." examples={[DESCRIBE_EXAMPLE]} examplesLabel="Try" onSubmit={describe} />
         </section>
         {error && (
           <p role="alert" className="mt-4 rounded-[14px] bg-missed-bg px-4 py-3 text-[14px] font-semibold text-missed">
@@ -366,11 +382,6 @@ export function DocumentUploadScreen() {
             Open Health Card
           </Link>
         </div>
-        {demo && (
-          <Link href="/ask?demo=1" className="mt-5 inline-flex items-center gap-1.5 text-[14px] font-bold text-peach-deep hover:underline">
-            <Sparkles className="size-4" aria-hidden /> Next: ask SMARAN about it
-          </Link>
-        )}
       </div>
     );
   }

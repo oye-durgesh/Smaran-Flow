@@ -1,17 +1,77 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import type { AppState } from "../types";
 import { createDemoState, createEmptyState, STATE_VERSION } from "../seed";
 import { clearFiles } from "../files";
 
 const STORAGE_KEY = "smaran:state";
+const listeners = new Set<() => void>();
+
+function emit() {
+  for (const l of listeners) l();
+}
+
+function migrate(parsed: AppState): AppState {
+  if (parsed.version === STATE_VERSION && Array.isArray(parsed.measurements)) return parsed;
+  const seed = createDemoState();
+  return {
+    ...parsed,
+    version: STATE_VERSION,
+    measurements: Array.isArray(parsed.measurements) ? parsed.measurements : seed.measurements,
+  };
+}
+
+function readStorage(): AppState {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return createDemoState();
+    return migrate(JSON.parse(raw) as AppState);
+  } catch {
+    return createDemoState();
+  }
+}
+
+let snapshot: AppState | null = null;
+const serverSnapshot = createDemoState();
+
+function getSnapshot(): AppState {
+  if (typeof window === "undefined") return serverSnapshot;
+  if (!snapshot) snapshot = readStorage();
+  return snapshot;
+}
+
+function persist(next: AppState) {
+  snapshot = next;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    /* session keeps working in memory */
+  }
+  emit();
+}
+
+function subscribe(cb: () => void) {
+  listeners.add(cb);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key !== STORAGE_KEY || !e.newValue) return;
+    try {
+      snapshot = migrate(JSON.parse(e.newValue) as AppState);
+      emit();
+    } catch {
+      /* ignore */
+    }
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    listeners.delete(cb);
+    window.removeEventListener("storage", onStorage);
+  };
+}
 
 interface StoreValue {
   state: AppState;
-  /** Apply a pure state transition. */
   update: (fn: (s: AppState) => AppState) => void;
-  /** Apply a transition that also returns a value (e.g. a new id). */
   commit: <T>(fn: (s: AppState) => [AppState, T]) => T;
   resetDemo: () => void;
   clearAll: () => void;
@@ -19,86 +79,32 @@ interface StoreValue {
 
 const StoreContext = createContext<StoreValue | null>(null);
 
-function load(): AppState {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return createDemoState();
-    const parsed = JSON.parse(raw) as AppState;
-    if (parsed.version !== STATE_VERSION) return createDemoState();
-    return parsed;
-  } catch {
-    return createDemoState();
-  }
-}
-
-export function StoreProvider({ children, fallback }: { children: ReactNode; fallback: ReactNode }) {
-  const [state, setState] = useState<AppState | null>(null);
-  const ref = useRef<AppState | null>(null);
-
-  useEffect(() => {
-    const initial = load();
-    ref.current = initial;
-    // Hydrating from localStorage has to happen after mount.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setState(initial);
-
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== STORAGE_KEY || !e.newValue) return;
-      try {
-        const next = JSON.parse(e.newValue) as AppState;
-        ref.current = next;
-        setState(next);
-      } catch {
-        /* ignore malformed writes from other tabs */
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
-  useEffect(() => {
-    if (!state) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      /* storage full or unavailable: the session keeps working in memory */
-    }
-  }, [state]);
+export function StoreProvider({ children }: { children: ReactNode; fallback?: ReactNode }) {
+  const state = useSyncExternalStore(subscribe, getSnapshot, () => serverSnapshot);
 
   const update = useCallback((fn: (s: AppState) => AppState) => {
-    if (!ref.current) return;
-    const next = fn(ref.current);
-    ref.current = next;
-    setState(next);
+    persist(fn(getSnapshot()));
   }, []);
 
   const commit = useCallback(<T,>(fn: (s: AppState) => [AppState, T]): T => {
-    if (!ref.current) throw new Error("Store not ready");
-    const [next, value] = fn(ref.current);
-    ref.current = next;
-    setState(next);
+    const [next, value] = fn(getSnapshot());
+    persist(next);
     return value;
   }, []);
 
   const resetDemo = useCallback(() => {
-    const fresh = { ...createDemoState(), onboarded: ref.current?.onboarded ?? false, settings: ref.current?.settings ?? createDemoState().settings };
-    ref.current = fresh;
-    setState(fresh);
+    const current = getSnapshot();
+    persist({ ...createDemoState(), onboarded: current.onboarded, settings: current.settings });
     void clearFiles();
   }, []);
 
   const clearAll = useCallback(() => {
-    const empty = createEmptyState();
-    ref.current = empty;
-    setState(empty);
+    persist(createEmptyState());
     void clearFiles();
   }, []);
 
-  const value = useMemo(() => (state ? { state, update, commit, resetDemo, clearAll } : null), [state, update, commit, resetDemo, clearAll]);
-
-  // The ref is only read inside the update callbacks, never while rendering.
-  // eslint-disable-next-line react-hooks/refs
-  return value ? <StoreContext.Provider value={value}>{children}</StoreContext.Provider> : <>{fallback}</>;
+  const value = useMemo(() => ({ state, update, commit, resetDemo, clearAll }), [state, update, commit, resetDemo, clearAll]);
+  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
 export function useStore(): StoreValue {

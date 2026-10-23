@@ -140,7 +140,7 @@ export function ReminderDetailScreen() {
         !todayConfirmed &&
         reminder.status === "active" && (
           <Button size="lg" className="w-full" onClick={() => sendNow(reminder.id)}>
-            <BellRing className="size-4" aria-hidden /> Trigger demo reminder
+            <BellRing className="size-4" aria-hidden /> Send reminder now
           </Button>
         )
       )}

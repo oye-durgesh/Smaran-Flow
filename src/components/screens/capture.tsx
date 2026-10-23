@@ -26,6 +26,7 @@ import { Screen } from "@/components/shell/screen";
 import { useSendReminderNow } from "@/components/shell/use-send-reminder";
 import { PageHeader, SectionLabel, Surface } from "@/components/smaran/primitives";
 import { WisprFlowInput } from "@/components/smaran/wispr-flow-input";
+import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
 import { ProcessingState } from "@/components/smaran/processing-state";
 import { AppointmentUnderstood, ReminderUnderstood } from "@/components/smaran/understood";
 import { Button } from "@/components/ui/button";
@@ -56,33 +57,33 @@ export function CaptureScreen() {
 
   const initialText = params.get("text");
   const fixedKind = (params.get("kind") as Kind | null) ?? null;
-  const demo = params.get("demo") === "1";
-
   const initial = useMemo(() => {
     if (!initialText) return null;
     const intent = fixedKind ?? classifyCapture(initialText);
     return { text: initialText, intent };
   }, [initialText, fixedKind]);
 
-  const [kind, setKind] = useState<Kind>(initial && initial.intent !== "question" ? initial.intent : fixedKind ?? "reminder");
-  const [phase, setPhase] = useState<Phase>(initial && initial.intent !== "question" ? "processing" : "input");
+  const [kind, setKind] = useState<Kind>(initial && (initial.intent === "appointment" || initial.intent === "reminder") ? initial.intent : fixedKind ?? "reminder");
+  const [phase, setPhase] = useState<Phase>(initial && (initial.intent === "appointment" || initial.intent === "reminder") ? "processing" : "input");
   const [reminder, setReminder] = useState<ReminderDraft | null>(() => (initial?.intent === "reminder" ? parseReminder(initial.text, state.family, today) : null));
   const [appointment, setAppointment] = useState<AppointmentDraft | null>(() => (initial?.intent === "appointment" ? parseAppointment(initial.text, state.family, today) : null));
   const [docIds, setDocIds] = useState<string[]>([]);
   const [result, setResult] = useState<{ id: string; merged: boolean } | null>(null);
 
   useEffect(() => {
-    if (initial?.intent === "question") router.replace(`/ask?q=${encodeURIComponent(initial.text)}&auto=1`);
+    if (initial?.intent === "question") router.replace(`/ask?q=${encodeURIComponent(initial.text)}`);
   }, [initial, router]);
 
   const onDone = useCallback(() => setPhase("review"), []);
 
   const submit = (text: string) => {
     const intent = fixedKind ?? classifyCapture(text);
+    if (intent === "health") return;
     if (intent === "question") {
-      router.push(`/ask?q=${encodeURIComponent(text)}&auto=1`);
+      router.push(`/ask?q=${encodeURIComponent(text)}`);
       return;
     }
+    if (intent !== "appointment" && intent !== "reminder") return;
     setKind(intent);
     if (intent === "appointment") {
       setAppointment(parseAppointment(text, state.family, today));
@@ -153,13 +154,10 @@ export function CaptureScreen() {
           title={kind === "appointment" ? "Tell SMARAN about the appointment." : "What should SMARAN remember?"}
           subtitle="Say it the way you'd say it to family. SMARAN will pull out the details for you to check."
         />
-        <WisprFlowInput
-          primary
-          placeholder={kind === "appointment" ? "Who, which doctor, which day and what time..." : "Tell SMARAN what your family needs to remember..."}
-          examples={EXAMPLES[kind].slice(0, isWeb ? 2 : 1)}
-          autoTypeText={demo ? EXAMPLES[kind][0] : null}
-          autoSubmit={demo}
-          onSubmit={submit}
+        <SmaranSpeakBox
+          context={kind === "appointment" ? "appointments" : "general"}
+          placeholder={kind === "appointment" ? "Who, which doctor, which day and what time…" : "Tell SMARAN what your family needs to remember…"}
+          onCapture={submit}
         />
         {!fixedKind && (
           <p className="mt-4 text-center text-[13px] text-ink-muted">
@@ -313,7 +311,7 @@ export function CaptureScreen() {
             }}
             className="mt-5 text-[14px] font-bold text-peach-deep hover:underline"
           >
-            Don&apos;t wait for {formatTime(r.time)} — send it to {member?.name} now (demo)
+            Don&apos;t wait for {formatTime(r.time)} — send it to {member?.name} now
           </button>
         )}
       </div>

@@ -13,7 +13,7 @@ import { useSendReminderNow } from "@/components/shell/use-send-reminder";
 import { SevenDaySelector } from "@/components/smaran/seven-day-selector";
 import { AgendaCard } from "@/components/smaran/cards";
 import { EmptyState, MemberAvatar, SectionLabel, Surface, CheckDot } from "@/components/smaran/primitives";
-import { WisprFlowInput } from "@/components/smaran/wispr-flow-input";
+import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
 import { SmaranLogo } from "@/components/smaran/brand";
 import { cn } from "@/lib/utils";
 
@@ -88,7 +88,6 @@ export function TodayScreen() {
   const { isWeb } = useView();
   const t = useT();
   const sendNow = useSendReminderNow();
-  const capture = useCaptureSubmit();
   const today = todayOf(state);
   const selected = state.selectedDate;
   const agenda = agendaFor(state, selected);
@@ -141,7 +140,7 @@ export function TodayScreen() {
     </section>
   );
 
-  const wispr = <WisprFlowInput primary placeholder={t("wisprPrompt")} examples={CAPTURE_EXAMPLES.slice(0, isWeb ? 2 : 1)} onSubmit={capture} />;
+  const wispr = <SmaranSpeakBox placeholder={t("wisprPrompt")} />;
 
   if (isWeb) {
     const upcoming = upcomingAppointments(state).slice(0, 3);

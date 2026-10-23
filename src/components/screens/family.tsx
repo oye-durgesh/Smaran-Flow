@@ -14,12 +14,11 @@ import { Screen } from "@/components/shell/screen";
 import { AgendaCard, AppointmentCard, DocumentCard, FamilyMemberCard, ReminderRow } from "@/components/smaran/cards";
 import { EmptyState, MemberAvatar, PageHeader, PillGroup, SectionLabel, Surface } from "@/components/smaran/primitives";
 import { MemoryTimeline } from "@/components/smaran/memory-timeline";
-import { WisprFlowInput } from "@/components/smaran/wispr-flow-input";
+import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
 import { Modal } from "@/components/smaran/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useCaptureSubmit } from "./today";
 import { useSendReminderNow } from "@/components/shell/use-send-reminder";
 
 const RELATIONSHIPS: Relationship[] = ["Mother", "Father", "Grandmother", "Grandfather", "Partner", "Other"];
@@ -89,7 +88,6 @@ function MemberDialog({ open, onOpenChange, member }: { open: boolean; onOpenCha
 export function FamilyScreen() {
   const { state } = useStore();
   const { isWeb } = useView();
-  const capture = useCaptureSubmit();
   const [adding, setAdding] = useState(false);
   const today = todayOf(state);
 
@@ -122,7 +120,7 @@ export function FamilyScreen() {
     />
   );
 
-  const wispr = <WisprFlowInput placeholder="Tell SMARAN something your family needs..." examples={["Papa ko subah 8 baje sugar ki dawai yaad dilana."]} onSubmit={capture} />;
+  const wispr = <SmaranSpeakBox context="family" placeholder="Tell SMARAN something your family needs…" />;
 
   return (
     <Screen width={isWeb ? "default" : undefined} aside={isWeb ? <>{wispr}{activity}</> : undefined}>
@@ -143,7 +141,6 @@ export function FamilyMemberScreen() {
   const { id } = useParams<{ id: string }>();
   const { state } = useStore();
   const { isWeb } = useView();
-  const capture = useCaptureSubmit();
   const sendNow = useSendReminderNow();
   const [editing, setEditing] = useState(false);
   const member = memberById(state, id);
@@ -259,7 +256,7 @@ export function FamilyMemberScreen() {
     </section>
   );
 
-  const wispr = <WisprFlowInput placeholder={`Tell SMARAN what ${member.name} needs to remember...`} examples={[`${member.name} ko roz subah 8 baje vitamin ki goli yaad dilana.`]} onSubmit={capture} />;
+  const wispr = <SmaranSpeakBox context={{ person: member.name }} placeholder={`Tell SMARAN what ${member.name} needs to remember...`} />;
 
   return (
     <Screen

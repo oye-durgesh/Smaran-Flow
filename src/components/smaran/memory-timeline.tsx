@@ -22,6 +22,9 @@ const ICONS: Record<MemoryEvent["type"], { icon: typeof Check; cls: string }> = 
   document_added: { icon: FilePlus2, cls: "bg-[#f1dcc4] text-[#a77a4c]" },
   document_linked: { icon: Paperclip, cls: "bg-ivory-deep text-brown" },
   member_added: { icon: UserPlus, cls: "bg-peach-soft text-peach-deep" },
+  measurement_recorded: { icon: Check, cls: "bg-confirmed text-white" },
+  measurement_updated: { icon: PencilLine, cls: "bg-ivory-deep text-brown" },
+  measurement_deleted: { icon: Trash2, cls: "bg-paused-bg text-paused" },
 };
 
 function hrefFor(e: MemoryEvent): string | undefined {
@@ -29,6 +32,7 @@ function hrefFor(e: MemoryEvent): string | undefined {
   if (e.type.startsWith("reminder") && e.type !== "reminder_deleted") return `/reminders/${e.refId}`;
   if (e.type.startsWith("appointment")) return `/appointments/${e.refId}`;
   if (e.type.startsWith("document")) return `/documents/${e.refId}`;
+  if (e.type.startsWith("measurement")) return `/health-card/${e.familyMemberId}`;
   if (e.type === "member_added") return `/family/${e.refId}`;
   return undefined;
 }

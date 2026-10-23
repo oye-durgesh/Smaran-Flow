@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { CalendarDays, CalendarX2, Check, CheckCircle2, MapPin, Paperclip, Pencil, Plus, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -16,18 +16,15 @@ import { Screen } from "@/components/shell/screen";
 import { AppointmentCard, DOC_ICON } from "@/components/smaran/cards";
 import { DetailRow, EmptyState, MemberAvatar, PageHeader, SectionLabel, StatusBadge, Surface } from "@/components/smaran/primitives";
 import { SevenDaySelector } from "@/components/smaran/seven-day-selector";
-import { WisprFlowInput } from "@/components/smaran/wispr-flow-input";
+import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
 import { AppointmentDraftEditor } from "@/components/smaran/understood";
 import { Modal } from "@/components/smaran/modal";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 
-const APPT_EXAMPLE = "Mummy ka Dr Sharma ke saath Friday ko 11 baje appointment hai. Teen din pehle yaad dila dena.";
-
 export function AppointmentsScreen() {
   const { state, update } = useStore();
   const { isWeb } = useView();
-  const router = useRouter();
   const today = todayOf(state);
   const selected = state.selectedDate;
   const upcoming = upcomingAppointments(state);
@@ -39,8 +36,7 @@ export function AppointmentsScreen() {
   const thisWeek = upcoming.filter((a) => a.date <= weekEnd);
   const later = upcoming.filter((a) => a.date > weekEnd);
 
-  const capture = (text: string) => router.push(`/new?kind=appointment&text=${encodeURIComponent(text)}`);
-  const wispr = <WisprFlowInput placeholder="Tell SMARAN about an appointment..." examples={[APPT_EXAMPLE]} onSubmit={capture} primary />;
+  const wispr = <SmaranSpeakBox context="appointments" placeholder="Tell SMARAN about an appointment…" />;
 
   const list = (title: string, items: typeof upcoming) =>
     items.length > 0 && (

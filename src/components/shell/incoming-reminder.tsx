@@ -10,7 +10,7 @@ import { openingMessage } from "@/lib/nlu/chat";
 import { SmaranMark } from "@/components/smaran/brand";
 import { useOpenReminderChat } from "./use-send-reminder";
 
-export function IncomingReminderBanner({ placement }: { placement: "phone" | "desktop" }) {
+export function IncomingReminderBanner({}: { placement?: "phone" | "desktop" }) {
   const state = useAppState();
   const { incomingReminderId, setIncomingReminderId } = useView();
   const open = useOpenReminderChat();
@@ -23,7 +23,7 @@ export function IncomingReminderBanner({ placement }: { placement: "phone" | "de
       role="alert"
       className={cn(
         "z-40 animate-slide-down",
-        placement === "phone" ? "absolute inset-x-3 top-11" : "fixed top-[68px] right-6 w-[380px]",
+        "fixed top-16 right-3 left-3 sm:left-auto sm:w-[380px] sm:right-6",
       )}
     >
       <div className="rounded-[22px] border border-line bg-surface-raised p-3.5 shadow-[var(--shadow-raised)]">
@@ -45,7 +45,7 @@ export function IncomingReminderBanner({ placement }: { placement: "phone" | "de
         </div>
         <button
           type="button"
-          onClick={() => open(reminder.id, { demo: true })}
+          onClick={() => open(reminder.id)}
           className="mt-3 flex h-10 w-full items-center justify-center rounded-[14px] bg-peach text-[14.5px] font-bold text-ink-strong transition-colors hover:bg-[#e29c7e]"
           autoFocus
         >

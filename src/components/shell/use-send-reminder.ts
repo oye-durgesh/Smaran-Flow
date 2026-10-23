@@ -10,10 +10,10 @@ export function useOpenReminderChat() {
   const { commit } = useStore();
   const router = useRouter();
   const { setIncomingReminderId } = useView();
-  return (reminderId: string, opts: { demo?: boolean } = {}) => {
+  return (reminderId: string) => {
     commit((s) => startConversation(s, reminderId));
     setIncomingReminderId(null);
-    router.push(`/reminders/${reminderId}/chat${opts.demo ? "?demo=1" : ""}`);
+    router.push(`/reminders/${reminderId}/chat`);
   };
 }
 

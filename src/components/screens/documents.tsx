@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
 import { deleteDocument, linkDocument, updateDocument } from "@/lib/store/actions";
-import { documentsFor, memberById } from "@/lib/selectors";
+import { documentsFor, memberById, searchDocuments } from "@/lib/selectors";
 import { formatLong, formatShort, formatTime, dateOf, timeOf } from "@/lib/dates";
 import { deleteFile, formatBytes } from "@/lib/files";
 import type { DocumentType, HealthDocument } from "@/lib/types";
@@ -21,6 +21,7 @@ import { Modal } from "@/components/smaran/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
 
 type TypeFilter = "all" | "report" | "prescription" | "other";
 
@@ -29,12 +30,15 @@ export function DocumentsScreen() {
   const { isWeb } = useView();
   const [person, setPerson] = useState("all");
   const [type, setType] = useState<TypeFilter>("all");
+  const [query, setQuery] = useState("");
 
   const all = documentsFor(state);
-  const docs = all.filter((d) => (person === "all" || d.familyMemberId === person) && (type === "all" || (type === "other" ? !["report", "prescription"].includes(d.type) : d.type === type)));
+  const searched = query.trim() ? searchDocuments(state, query) : all;
+  const docs = searched.filter((d) => (person === "all" || d.familyMemberId === person) && (type === "all" || (type === "other" ? !["report", "prescription"].includes(d.type) : d.type === type)));
 
   const filters = (
     <div className="mb-6 space-y-3">
+      <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search sugar, blood, ECG, Mummy…" aria-label="Search documents" />
       <PillGroup label="Family member" value={person} onChange={setPerson} options={[{ value: "all", label: "All" }, ...state.family.map((m) => ({ value: m.id, label: m.name }))]} />
       <PillGroup
         label="Document type"
@@ -53,7 +57,7 @@ export function DocumentsScreen() {
   const grid = all.length === 0 ? (
     <EmptyState icon={<FolderHeart className="size-6" />} title="Your family documents will live here." body="Add prescriptions, reports, and health records." action={{ label: "Add your first document", href: "/documents/upload" }} />
   ) : docs.length === 0 ? (
-    <EmptyState icon={<FileSearch className="size-6" />} title="No documents match these filters." body="Try another person or type." action={{ label: "Show everything", onClick: () => { setPerson("all"); setType("all"); } }} />
+    <EmptyState icon={<FileSearch className="size-6" />} title="No documents match these filters." body="Try another person, type or search." action={{ label: "Show everything", onClick: () => { setPerson("all"); setType("all"); setQuery(""); } }} />
   ) : (
     <ul className={cn(isWeb ? "grid grid-cols-2 gap-3 2xl:grid-cols-3" : "space-y-3", "stagger")} key={`${person}-${type}`}>
       {docs.map((d) => (
@@ -76,6 +80,7 @@ export function DocumentsScreen() {
         width="wide"
         aside={
           <>
+            <SmaranSpeakBox context="documents" placeholder="Find a document…" onQuestion={setQuery} />
             <div>
               <SectionLabel>By person</SectionLabel>
               <ul className="space-y-2">
@@ -87,7 +92,7 @@ export function DocumentsScreen() {
                 ))}
               </ul>
             </div>
-            <Link href="/ask?q=Mummy%20ka%20latest%20blood%20report%20kab%20ka%20hai%3F&auto=1" className="flex items-center gap-3 rounded-[18px] bg-peach-soft/50 p-4 hover:bg-peach-soft">
+            <Link href="/ask?q=Mummy%20ka%20latest%20blood%20report%20kab%20ka%20hai%3F" className="flex items-center gap-3 rounded-[18px] bg-peach-soft/50 p-4 hover:bg-peach-soft">
               <MessageCircleQuestion className="size-6 text-peach-deep" aria-hidden />
               <span>
                 <span className="block text-[15px] font-extrabold text-ink-strong">Don&apos;t search — ask</span>
@@ -107,6 +112,9 @@ export function DocumentsScreen() {
   return (
     <Screen>
       <PageHeader back="/today" title="Documents" subtitle="Organised by person." />
+      <div className="mb-5">
+        <SmaranSpeakBox context="documents" placeholder="Find a document…" onQuestion={setQuery} />
+      </div>
       {filters}
       {grid}
       <Link href="/documents/upload" aria-label="Add document" className="fixed right-5 bottom-28 z-20 flex size-14 items-center justify-center rounded-[20px] bg-peach text-ink-strong shadow-[var(--shadow-raised)] transition-transform hover:scale-105">
@@ -204,9 +212,10 @@ export function DocumentDetailScreen() {
   }
 
   const member = memberById(state, doc.familyMemberId);
+  const extracted = state.measurements.filter((m) => m.documentId === doc.id);
   const appointments = state.appointments.filter((a) => a.familyMemberId === doc.familyMemberId).sort((a, b) => (a.date < b.date ? 1 : -1));
   const linked = appointments.find((a) => a.id === doc.linkedAppointmentId);
-  const askHref = `/ask?q=${encodeURIComponent(`${member?.name ?? ""} ka latest ${doc.name.toLowerCase()} kab ka hai?`)}&auto=1`;
+  const askHref = `/ask?q=${encodeURIComponent(`${member?.name ?? ""} ka latest ${doc.name.toLowerCase()} kab ka hai?`)}`;
 
   const meta = (
     <section>
@@ -228,11 +237,18 @@ export function DocumentDetailScreen() {
           <DetailRow label="Added">
             {formatShort(dateOf(doc.addedAt))} · {formatTime(timeOf(doc.addedAt))}
           </DetailRow>
+          {extracted.length > 0 && (
+            <DetailRow label="Extracted">
+              {extracted.map((m) => (
+                <span key={m.id} className="block">{m.kind.replace("_", " ")} · {m.value} {m.unit}</span>
+              ))}
+            </DetailRow>
+          )}
         </dl>
       </Surface>
       <p className="mt-3 text-[12.5px] leading-snug text-ink-muted">
         {doc.metadata.source === "sample"
-          ? "Fictional sample document, preloaded for the demo."
+          ? "Fictional sample document, preloaded with the sample family."
           : `Uploaded from this device and stored only in this browser. Details came from ${doc.metadata.detectedFrom === "description" ? "your description" : doc.metadata.detectedFrom === "filename" ? "the file name" : "you"} — SMARAN doesn't read medical values.`}
       </p>
     </section>

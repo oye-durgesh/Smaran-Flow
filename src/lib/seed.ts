@@ -4,6 +4,7 @@ import type {
   Confirmation,
   FamilyMember,
   HealthDocument,
+  HealthMeasurement,
   MemoryEvent,
   Reminder,
 } from "./types";
@@ -15,7 +16,7 @@ import { formatTime } from "./dates";
  */
 export const DEMO_TODAY = "2026-10-23";
 export const DEMO_NOW = `${DEMO_TODAY}T10:30`;
-export const STATE_VERSION = 3;
+export const STATE_VERSION = 4;
 
 const family: FamilyMember[] = [
   {
@@ -237,6 +238,17 @@ const documents: HealthDocument[] = [
   }),
 ];
 
+/** Sample stored notes — labelled as family-saved sample data, not clinical readings. */
+const measurements: HealthMeasurement[] = [
+  { id: "h-mummy-bp", familyMemberId: "mummy", kind: "blood_pressure", value: "120/80", unit: "mmHg", recordedAt: "2026-10-23T10:02", source: "sample", note: "Sample family note" },
+  { id: "h-mummy-sugar", familyMemberId: "mummy", kind: "blood_sugar", value: "108", unit: "mg/dL", recordedAt: "2026-10-21T14:30", source: "sample", documentId: "d-mummy-blood", note: "Sample value stored with Blood Report" },
+  { id: "h-mummy-weight", familyMemberId: "mummy", kind: "weight", value: "64", unit: "kg", recordedAt: "2026-10-20T08:10", source: "sample", note: "Sample family note" },
+  { id: "h-mummy-hr", familyMemberId: "mummy", kind: "heart_rate", value: "74", unit: "bpm", recordedAt: "2026-10-23T10:02", source: "sample", note: "Sample family note" },
+  { id: "h-papa-bp", familyMemberId: "papa", kind: "blood_pressure", value: "128/84", unit: "mmHg", recordedAt: "2026-10-22T09:15", source: "sample", note: "Sample family note" },
+  { id: "h-papa-sugar", familyMemberId: "papa", kind: "blood_sugar", value: "112", unit: "mg/dL", recordedAt: "2026-10-22T08:40", source: "sample", note: "Sample family note" },
+  { id: "h-papa-hr", familyMemberId: "papa", kind: "heart_rate", value: "68", unit: "bpm", recordedAt: "2026-10-22T08:40", source: "sample", note: "Sample family note" },
+];
+
 function seedMemory(): MemoryEvent[] {
   const events: MemoryEvent[] = [];
   const name = (id: string) => family.find((f) => f.id === id)?.name ?? "";
@@ -289,6 +301,19 @@ function seedMemory(): MemoryEvent[] {
     refId: "a-mummy-gupta",
   });
 
+  for (const m of measurements) {
+    events.push({
+      id: `m-${m.id}`,
+      familyMemberId: m.familyMemberId,
+      type: "measurement_recorded",
+      title: `${m.kind === "blood_pressure" ? "Blood pressure" : m.kind === "blood_sugar" ? "Blood sugar" : "Weight"} recorded`,
+      description: `${m.value} ${m.unit} · sample family note`,
+      timestamp: m.recordedAt,
+      source: "sample",
+      refId: m.id,
+    });
+  }
+
   for (const d of documents) {
     events.push({
       id: `m-${d.id}-added`,
@@ -314,6 +339,7 @@ export function createDemoState(): AppState {
     reminders,
     appointments,
     documents,
+    measurements,
     memory: seedMemory(),
     conversations: [],
     settings: {
@@ -337,6 +363,7 @@ export function createEmptyState(): AppState {
     reminders: [],
     appointments: [],
     documents: [],
+    measurements: [],
     memory: [],
     conversations: [],
   };

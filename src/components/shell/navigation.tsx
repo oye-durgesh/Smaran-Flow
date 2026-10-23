@@ -26,7 +26,7 @@ const NAV: Record<string, NavItem> = {
   settings: { href: "/settings", key: "settings", icon: Settings, match: (p) => p.startsWith("/settings") },
 };
 
-const MOBILE_TABS = [NAV.today, NAV.family, NAV.appointments, NAV.memory, NAV.settings];
+const MOBILE_TABS = [NAV.today, NAV.family, NAV.appointments, NAV.documents, NAV.ask];
 const DESKTOP_ITEMS = [NAV.today, NAV.family, NAV.appointments, NAV.documents, NAV.memory, NAV.ask, NAV.settings];
 
 export function BottomNavigation({ className }: { className?: string }) {
@@ -36,7 +36,7 @@ export function BottomNavigation({ className }: { className?: string }) {
     <nav aria-label="Main" className={cn("border-t border-line bg-surface-raised/95 px-2 pt-1.5 pb-[max(10px,env(safe-area-inset-bottom))]", className)}>
       <ul className="grid grid-cols-5">
         {MOBILE_TABS.map((item) => {
-          const active = item.match(path) || (item === NAV.memory && (path.startsWith("/documents") || path.startsWith("/ask")));
+          const active = item.match(path);
           const Icon = item.icon;
           return (
             <li key={item.href}>
@@ -58,12 +58,12 @@ export function BottomNavigation({ className }: { className?: string }) {
   );
 }
 
-export function DesktopSidebar() {
+export function DesktopSidebar({ className }: { className?: string }) {
   const path = usePathname();
   const t = useT();
   const state = useAppState();
   return (
-    <nav aria-label="Main" className="flex h-full w-[264px] shrink-0 flex-col border-r border-line bg-surface/70 px-4 py-6">
+    <nav aria-label="Main" className={cn("flex h-full w-[264px] shrink-0 flex-col border-r border-line bg-surface/70 px-4 py-6", className)}>
       <Link href="/today" className="mb-8 px-2">
         <SmaranLogo size="md" />
       </Link>

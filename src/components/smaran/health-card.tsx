@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Check, ShieldCheck } from "lucide-react";
-import type { AppState, FamilyMember } from "@/lib/types";
+import { Check, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import type { AppState, FamilyMember, HealthMeasurement } from "@/lib/types";
 import { compareTs, dateOf, formatShort, formatTime, relativeDay, timeOf, addMinutes } from "@/lib/dates";
-import { describeReminder, documentsFor, lastUpdatedFor, recentConfirmations, todayOf, upcomingAppointments } from "@/lib/selectors";
+import { describeReminder, documentsFor, lastUpdatedFor, latestMeasurement, measurementsFor, recentConfirmations, todayOf, upcomingAppointments } from "@/lib/selectors";
+import type { MeasurementKind } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { SmaranLogo } from "./brand";
 import { MemberAvatar } from "./primitives";
@@ -14,6 +15,67 @@ function lastUpdatedLabel(state: AppState, ts?: string) {
   if (compareTs(addMinutes(ts, 3), state.demoNow) >= 0) return "Last updated just now";
   const day = relativeDay(dateOf(ts), todayOf(state));
   return `Last updated ${day === "Today" || day === "Yesterday" ? day.toLowerCase() : formatShort(dateOf(ts))} · ${formatTime(timeOf(ts))}`;
+}
+
+const KINDS: { kind: MeasurementKind; label: string }[] = [
+  { kind: "blood_pressure", label: "Blood Pressure" },
+  { kind: "blood_sugar", label: "Blood Sugar" },
+  { kind: "heart_rate", label: "Heart Rate" },
+  { kind: "weight", label: "Weight" },
+];
+
+function HealthSummary({ state, memberId, onRemove, onAdd }: { state: AppState; memberId: string; onRemove?: (m: HealthMeasurement) => void; onAdd?: () => void }) {
+  const today = todayOf(state);
+  const history = measurementsFor(state, memberId).slice(0, 6);
+  return (
+    <Block title="Health">
+      {onAdd && (
+        <button type="button" onClick={onAdd} className="mb-3 inline-flex h-10 items-center gap-1.5 rounded-full border border-line-strong bg-surface px-3 text-[13px] font-bold text-ink hover:border-peach">
+          <Plus className="size-3.5" aria-hidden /> Add measurement
+        </button>
+      )}
+      <ul className="space-y-3">
+        {KINDS.map(({ kind, label }) => {
+          const m = latestMeasurement(state, memberId, kind);
+          return (
+            <li key={kind} className="flex items-baseline justify-between gap-3">
+              <span>
+                <span className="block text-[16px] font-bold text-ink-strong">{label}</span>
+                <span className="block text-[12.5px] text-ink-muted">
+                  {m
+                    ? `${m.source === "sample" ? "Sample family note · " : m.source === "document" ? "From a document · " : ""}${relativeDay(dateOf(m.recordedAt), today) === "Today" ? "Last recorded · Today" : `Last recorded · ${formatShort(dateOf(m.recordedAt))}`}`
+                    : "Not saved yet"}
+                </span>
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="text-[18px] font-extrabold text-ink-strong">{m ? `${m.value} ${m.unit}` : "—"}</span>
+                {m && onRemove && (
+                  <button
+                    type="button"
+                    onClick={() => onRemove(m)}
+                    aria-label={`Remove ${label}`}
+                    className="inline-flex size-8 items-center justify-center rounded-[10px] text-ink-muted hover:bg-missed-bg hover:text-missed"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {history.length > 1 && (
+        <ul className="mt-4 space-y-1.5 border-t border-line pt-3">
+          {history.map((m) => (
+            <li key={m.id} className="flex justify-between gap-2 text-[13px] text-ink-muted">
+              <span>{KINDS.find((k) => k.kind === m.kind)?.label} · {m.value} {m.unit}</span>
+              <span>{formatShort(dateOf(m.recordedAt))}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Block>
+  );
 }
 
 function Block({ title, children, empty }: { title: string; children: React.ReactNode; empty?: string }) {
@@ -35,7 +97,7 @@ function Wrap({ linked, href, children, className }: { linked: boolean; href: st
   );
 }
 
-export function HealthCard({ state, member, linked = true, className, wide = false }: { state: AppState; member: FamilyMember; linked?: boolean; className?: string; wide?: boolean }) {
+export function HealthCard({ state, member, linked = true, className, wide = false, onRemoveMeasurement, onAddMeasurement }: { state: AppState; member: FamilyMember; linked?: boolean; className?: string; wide?: boolean; onRemoveMeasurement?: (m: HealthMeasurement) => void; onAddMeasurement?: () => void }) {
   const today = todayOf(state);
   const upcoming = upcomingAppointments(state, member.id).slice(0, 3);
   const reminders = state.reminders.filter((r) => r.familyMemberId === member.id);
@@ -62,6 +124,7 @@ export function HealthCard({ state, member, linked = true, className, wide = fal
       </div>
 
       <div className={cn("mt-7 grid gap-x-10 gap-y-5", wide && "md:grid-cols-2")}>
+        <HealthSummary state={state} memberId={member.id} onRemove={onRemoveMeasurement} onAdd={onAddMeasurement} />
         <Block title="Upcoming" empty="No appointments coming up.">
           {upcoming.length > 0 ? (
             <ul className="space-y-1">

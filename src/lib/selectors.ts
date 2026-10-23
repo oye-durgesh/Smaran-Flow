@@ -5,6 +5,8 @@ import type {
   DateKey,
   FamilyMember,
   HealthDocument,
+  HealthMeasurement,
+  MeasurementKind,
   Reminder,
   ReminderDayStatus,
 } from "./types";
@@ -133,6 +135,25 @@ export function recentConfirmations(state: AppState, memberId?: string, limit = 
 
 export function lastUpdatedFor(state: AppState, memberId: string): string | undefined {
   return state.memory.find((m) => m.familyMemberId === memberId)?.timestamp;
+}
+
+export function measurementsFor(state: AppState, memberId: string): HealthMeasurement[] {
+  return state.measurements.filter((m) => m.familyMemberId === memberId).sort((a, b) => (a.recordedAt < b.recordedAt ? 1 : -1));
+}
+
+export function latestMeasurement(state: AppState, memberId: string, kind: MeasurementKind): HealthMeasurement | undefined {
+  return measurementsFor(state, memberId).find((m) => m.kind === kind);
+}
+
+export function searchDocuments(state: AppState, query: string): HealthDocument[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return documentsFor(state);
+  return documentsFor(state).filter((d) => {
+    const member = memberById(state, d.familyMemberId);
+    const linked = state.measurements.filter((m) => m.documentId === d.id).map((m) => `${m.value} ${m.unit} ${m.kind}`).join(" ");
+    const hay = `${d.name} ${d.type} ${d.doctor ?? ""} ${d.file.name} ${d.metadata.description ?? ""} ${d.date} ${member?.name ?? ""} ${linked}`.toLowerCase();
+    return q.split(/\s+/).every((word) => hay.includes(word));
+  });
 }
 
 export function describeReminder(r: Pick<Reminder, "frequency" | "weekday" | "date" | "time">): string {

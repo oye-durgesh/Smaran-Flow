@@ -1,22 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { ViewMode } from "../types";
-
-const VIEW_KEY = "smaran:view";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 interface ViewValue {
-  /** What the presenter picked in the Mobile | Web toggle. */
-  mode: ViewMode;
-  setMode: (mode: ViewMode) => void;
-  /** The layout actually rendered: narrow screens are always mobile. */
-  layout: ViewMode;
+  isDesktop: boolean;
+  /** Alias of isDesktop — leftover name from the old layout switch. */
   isWeb: boolean;
   isNarrow: boolean;
   portalEl: HTMLElement | null;
   setPortalEl: (el: HTMLElement | null) => void;
-  demoOpen: boolean;
-  setDemoOpen: (open: boolean) => void;
   incomingReminderId: string | null;
   setIncomingReminderId: (id: string | null) => void;
 }
@@ -24,34 +16,21 @@ interface ViewValue {
 const ViewContext = createContext<ViewValue | null>(null);
 
 export function ViewProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<ViewMode>("mobile");
   const [isNarrow, setIsNarrow] = useState(false);
   const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
-  const [demoOpen, setDemoOpen] = useState(false);
   const [incomingReminderId, setIncomingReminderId] = useState<string | null>(null);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(VIEW_KEY);
-    // Restoring the presenter's last choice can only happen after mount.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (saved === "mobile" || saved === "web") setModeState(saved);
-    const mq = window.matchMedia("(max-width: 767px)");
+    const mq = window.matchMedia("(max-width: 1023px)");
     const sync = () => setIsNarrow(mq.matches);
     sync();
     mq.addEventListener("change", sync);
     return () => mq.removeEventListener("change", sync);
   }, []);
 
-  const setMode = useCallback((next: ViewMode) => {
-    setModeState(next);
-    window.localStorage.setItem(VIEW_KEY, next);
-  }, []);
-
-  const layout: ViewMode = isNarrow ? "mobile" : mode;
-
   const value = useMemo(
-    () => ({ mode, setMode, layout, isWeb: layout === "web", isNarrow, portalEl, setPortalEl, demoOpen, setDemoOpen, incomingReminderId, setIncomingReminderId }),
-    [mode, setMode, layout, isNarrow, portalEl, demoOpen, incomingReminderId],
+    () => ({ isDesktop: !isNarrow, isWeb: !isNarrow, isNarrow, portalEl, setPortalEl, incomingReminderId, setIncomingReminderId }),
+    [isNarrow, portalEl, incomingReminderId],
   );
   return <ViewContext.Provider value={value}>{children}</ViewContext.Provider>;
 }

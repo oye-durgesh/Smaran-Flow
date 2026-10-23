@@ -62,7 +62,7 @@ function StoryPreview() {
           <span className="rounded-[18px] rounded-bl-[6px] border border-line bg-surface px-3.5 py-2 text-[15px] font-semibold text-ink-strong">Mummy, medicine ka time ho gaya. 💊</span>
         </div>
         <div className="flex justify-end">
-          <span className="rounded-[18px] rounded-br-[6px] bg-peach px-3.5 py-2 text-[15px] font-semibold text-ink-strong">Haan, maine le li.</span>
+          <span className="rounded-[18px] rounded-br-[6px] bg-peach px-3.5 py-2 text-[15px] font-semibold text-ink-strong">Confirmed</span>
         </div>
         <div className="flex items-center justify-center gap-2 pt-1 text-[13px] font-bold text-confirmed">
           <span className="inline-flex size-5 items-center justify-center rounded-full bg-confirmed text-white">

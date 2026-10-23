@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 export function ProcessingState({
   steps,
   onDone,
-  stepMs = 650,
+  stepMs = 0,
   transcript,
   layout = "vertical",
 }: {

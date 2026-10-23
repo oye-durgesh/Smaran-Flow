@@ -8,9 +8,15 @@ import { Copy, ExternalLink, Printer, Share2, UserRoundSearch } from "lucide-rea
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
+import { deleteMeasurement, upsertMeasurement } from "@/lib/store/actions";
+import { healthLabel } from "@/lib/nlu";
 import { memberById } from "@/lib/selectors";
+import type { HealthMeasurement, MeasurementKind } from "@/lib/types";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Screen } from "@/components/shell/screen";
 import { HealthCard } from "@/components/smaran/health-card";
+import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
 import { SmaranLogo } from "@/components/smaran/brand";
 import { EmptyState, MemberAvatar, PageHeader, SectionLabel } from "@/components/smaran/primitives";
 import { Modal } from "@/components/smaran/modal";
@@ -22,9 +28,12 @@ function useShareUrl(id: string) {
 
 export function HealthCardScreen() {
   const { id } = useParams<{ id: string }>();
-  const { state } = useStore();
+  const { state, update, commit } = useStore();
   const { isWeb } = useView();
   const [sharing, setSharing] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<HealthMeasurement | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ kind: "blood_pressure" as MeasurementKind, value: "", note: "" });
   const member = memberById(state, id);
   const shareUrl = useShareUrl(id);
 
@@ -62,11 +71,14 @@ export function HealthCardScreen() {
   return (
     <Screen
       aside={
-        isWeb ? (
           <>
+            <div>
+              <SectionLabel>Tell SMARAN</SectionLabel>
+              <SmaranSpeakBox context={{ person: member.name }} variant="composer" placeholder={`Tell SMARAN about ${member.name}…`} />
+            </div>
             <div className="rounded-[18px] bg-sand/40 p-4 text-[13.5px] leading-relaxed text-ink">
               <p className="font-bold text-ink-strong">What&apos;s on this card</p>
-              <p className="mt-1">Only what your family saved in SMARAN: appointments, reminders, confirmations and document names. It isn&apos;t a medical record and contains no test values.</p>
+              <p className="mt-1">Saved family notes: appointments, reminders, confirmations, documents and health measurements. Sample values are labelled. This is not a medical record.</p>
             </div>
             {others.length > 0 && (
               <div>
@@ -84,12 +96,77 @@ export function HealthCardScreen() {
               </div>
             )}
           </>
-        ) : undefined
       }
     >
       <PageHeader back={`/family/${member.id}`} eyebrow="Health Card" title={member.name} subtitle="Everything important, in one place." actions={isWeb ? actions : undefined} />
       {!isWeb && <div className="mb-5 grid grid-cols-2 gap-2 [&>*]:w-full [&>*]:justify-center">{actions}</div>}
-      <HealthCard state={state} member={member} wide={isWeb} className={cn(!isWeb && "p-5")} />
+      <HealthCard state={state} member={member} wide={isWeb} className={cn(!isWeb && "p-5")} onRemoveMeasurement={setPendingDelete} onAddMeasurement={() => setAdding(true)} />
+
+      <Modal
+        open={adding}
+        onOpenChange={setAdding}
+        title={`Add a health note for ${member.name}`}
+        description="Sample family notes only — not a clinical reading."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setAdding(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (!form.value.trim()) return;
+                const unit = form.kind === "blood_pressure" ? "mmHg" : form.kind === "blood_sugar" ? "mg/dL" : form.kind === "heart_rate" ? "bpm" : "kg";
+                commit((s) => upsertMeasurement(s, { familyMemberId: member.id, kind: form.kind, value: form.value.trim(), unit, source: "manual", note: form.note.trim() || undefined }));
+                toast.success(`Saved to ${member.name}'s health card.`);
+                setAdding(false);
+                setForm({ kind: "blood_pressure", value: "", note: "" });
+              }}
+            >
+              Save
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="h-kind">Measurement</Label>
+            <select id="h-kind" className="h-11 w-full rounded-[14px] border border-line-strong bg-surface-raised px-3 text-[15px]" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as MeasurementKind })}>
+              <option value="blood_pressure">Blood pressure</option>
+              <option value="blood_sugar">Blood sugar</option>
+              <option value="heart_rate">Heart rate</option>
+              <option value="weight">Weight</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="h-val">{form.kind === "blood_pressure" ? "Value (e.g. 128/82)" : "Value"}</Label>
+            <Input id="h-val" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} placeholder={form.kind === "blood_pressure" ? "128/82" : "118"} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="h-note">Note (optional)</Label>
+            <Input id="h-note" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Morning reading" />
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        open={!!pendingDelete}
+        onOpenChange={(open) => { if (!open) setPendingDelete(null); }}
+        title={pendingDelete ? `Remove ${healthLabel(pendingDelete.kind).toLowerCase()}?` : "Remove health note?"}
+        description={pendingDelete ? `${member.name}'s saved ${healthLabel(pendingDelete.kind).toLowerCase()} (${pendingDelete.value} ${pendingDelete.unit}) will be removed from this card and family memory.` : undefined}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setPendingDelete(null)}>Keep it</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!pendingDelete) return;
+                update((s) => deleteMeasurement(s, pendingDelete.id));
+                toast.success(`${member.name}'s ${healthLabel(pendingDelete.kind).toLowerCase()} removed`);
+                setPendingDelete(null);
+              }}
+            >
+              Remove
+            </Button>
+          </>
+        }
+      />
 
       <Modal
         open={sharing}
@@ -109,7 +186,7 @@ export function HealthCardScreen() {
       >
         <p className="rounded-[14px] border border-line bg-ivory px-3 py-2.5 font-mono text-[12.5px] break-all text-ink">{shareUrl}</p>
         <p className="mt-3 text-[13px] leading-snug text-ink-muted">
-          This prototype keeps data in your browser, so the link only works on this device. Use Print → Save as PDF to send the card to someone else.
+          Family data stays in this browser, so the link only works on this device. Use Print → Save as PDF to send the card to someone else.
         </p>
       </Modal>
     </Screen>

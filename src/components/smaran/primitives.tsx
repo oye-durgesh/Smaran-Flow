@@ -6,7 +6,6 @@ import type { ComponentProps, ReactNode } from "react";
 import { ArrowLeft, Check, Circle, Clock3, Pause, CalendarClock, CircleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { FamilyMember, ReminderDayStatus } from "@/lib/types";
-import { useView } from "@/lib/store/view";
 
 /* ---------- Surface ---------- */
 
@@ -96,9 +95,8 @@ export function PageHeader({
   className?: string;
 }) {
   const router = useRouter();
-  const { isWeb } = useView();
   return (
-    <header className={cn("mb-6 flex items-start justify-between gap-4", isWeb ? "pt-2" : "pt-1", className)}>
+    <header className={cn("mb-6 flex items-start justify-between gap-4 pt-1 lg:pt-2", className)}>
       <div className="min-w-0">
         {back && (
           <button
@@ -110,8 +108,8 @@ export function PageHeader({
           </button>
         )}
         {eyebrow && <div className="mb-1.5 text-[12px] font-bold tracking-[0.14em] text-ink-muted uppercase">{eyebrow}</div>}
-        <h1 className={cn("font-extrabold tracking-tight text-ink-strong", isWeb ? "text-[32px] leading-tight" : "text-[28px] leading-tight")}>{title}</h1>
-        {subtitle && <p className={cn("mt-1.5 text-ink-muted", isWeb ? "text-base" : "text-[15px]")}>{subtitle}</p>}
+        <h1 className="text-[28px] leading-tight font-extrabold tracking-tight text-ink-strong lg:text-[32px]">{title}</h1>
+        {subtitle && <p className="mt-1.5 text-[15px] text-ink-muted lg:text-base">{subtitle}</p>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </header>

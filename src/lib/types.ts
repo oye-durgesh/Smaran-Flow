@@ -116,6 +116,21 @@ export interface HealthDocument {
   addedAt: LocalTimestamp;
 }
 
+export type MeasurementKind = "blood_pressure" | "blood_sugar" | "weight" | "heart_rate";
+
+export interface HealthMeasurement {
+  id: ID;
+  familyMemberId: ID;
+  kind: MeasurementKind;
+  value: string;
+  unit: string;
+  recordedAt: LocalTimestamp;
+  source: "wispr" | "manual" | "sample" | "document";
+  documentId?: ID;
+  /** Sample values are stored family notes, not clinical advice. */
+  note?: string;
+}
+
 export type MemoryEventType =
   | "reminder_created"
   | "reminder_updated"
@@ -130,7 +145,10 @@ export type MemoryEventType =
   | "appointment_completed"
   | "document_added"
   | "document_linked"
-  | "member_added";
+  | "member_added"
+  | "measurement_recorded"
+  | "measurement_updated"
+  | "measurement_deleted";
 
 export interface MemoryEvent {
   id: ID;
@@ -139,7 +157,7 @@ export interface MemoryEvent {
   title: string;
   description?: string;
   timestamp: LocalTimestamp;
-  source: "wispr" | "chat" | "manual" | "sample" | "upload";
+  source: "wispr" | "chat" | "manual" | "sample" | "upload" | "document";
   refId?: ID;
 }
 
@@ -182,12 +200,11 @@ export interface AppState {
   reminders: Reminder[];
   appointments: Appointment[];
   documents: HealthDocument[];
+  measurements: HealthMeasurement[];
   memory: MemoryEvent[];
   conversations: Conversation[];
   settings: Settings;
-  /** The demo clock. Everything "today" is relative to this. */
+  /** Local family clock. Everything "today" is relative to this. */
   demoNow: LocalTimestamp;
   selectedDate: DateKey;
 }
-
-export type ViewMode = "mobile" | "web";

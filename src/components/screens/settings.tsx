@@ -7,8 +7,7 @@ import { ChevronRight, Download, Eraser, Lock, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
-import { setDemoTime, updateSettings } from "@/lib/store/actions";
-import { timeOf } from "@/lib/dates";
+import { updateSettings } from "@/lib/store/actions";
 import type { Settings } from "@/lib/types";
 import { Screen } from "@/components/shell/screen";
 import { ResetDemoDialog } from "@/components/shell/demo-controls";
@@ -139,14 +138,8 @@ export function SettingsScreen() {
           <Row title="Clear all data" body="Start from an empty SMARAN with only Mummy and Papa." control={<Button variant="outline" size="sm" onClick={() => setClearing(true)}><Eraser className="size-4" aria-hidden /> Clear</Button>} />
         </Group>
 
-        <Group label="Demo">
-          <Row
-            htmlFor="s-clock"
-            title="Demo clock"
-            body="Everything “today” follows this time."
-            control={<Input id="s-clock" type="time" className="w-[128px]" value={timeOf(state.demoNow)} onChange={(e) => e.target.value && update((st) => setDemoTime(st, e.target.value))} />}
-          />
-          <Row title="Reset demo" body="Restore the sample family, reminders and documents." control={<Button size="sm" onClick={() => setResetting(true)}><RotateCcw className="size-4" aria-hidden /> Reset</Button>} />
+        <Group label="Sample data">
+          <Row title="Reset sample family" body="Restore Mummy and Papa, reminders, appointments and documents." control={<Button size="sm" onClick={() => setResetting(true)}><RotateCcw className="size-4" aria-hidden /> Reset</Button>} />
           <Link href="/welcome" className="block px-5 py-3.5 text-[14.5px] font-bold text-peach-deep hover:bg-ivory/60">
             Replay onboarding
           </Link>
@@ -161,7 +154,7 @@ export function SettingsScreen() {
         onConfirm={() => {
           resetDemo();
           setName("Rahul");
-          toast.success("Demo reset");
+          toast.success("Sample family restored");
         }}
       />
       <Modal

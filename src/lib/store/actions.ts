@@ -4,6 +4,8 @@ import type {
   Conversation,
   FamilyMember,
   HealthDocument,
+  HealthMeasurement,
+  MeasurementKind,
   MemoryEvent,
   Reminder,
   Relationship,
@@ -361,6 +363,52 @@ export function deleteDocument(state: AppState, id: string): AppState {
     documents: state.documents.filter((d) => d.id !== id),
     appointments: state.appointments.map((a) => ({ ...a, documentIds: a.documentIds.filter((x) => x !== id) })),
   };
+}
+
+/* ---------- Health measurements ---------- */
+
+export function upsertMeasurement(
+  state: AppState,
+  input: { familyMemberId: string; kind: MeasurementKind; value: string; unit: string; source?: HealthMeasurement["source"]; documentId?: string; note?: string },
+): [AppState, string] {
+  const member = memberById(state, input.familyMemberId);
+  const label = input.kind === "blood_pressure" ? "Blood pressure" : input.kind === "blood_sugar" ? "Blood sugar" : input.kind === "heart_rate" ? "Heart rate" : "Weight";
+  const previous = state.measurements.find((m) => m.familyMemberId === input.familyMemberId && m.kind === input.kind);
+  const id = uid("h");
+  const measurement: HealthMeasurement = {
+    id,
+    familyMemberId: input.familyMemberId,
+    kind: input.kind,
+    value: input.value,
+    unit: input.unit,
+    recordedAt: state.demoNow,
+    source: input.source ?? "wispr",
+    documentId: input.documentId,
+    note: input.note,
+  };
+  const next = { ...state, measurements: [measurement, ...state.measurements] };
+  return [
+    withEvent(next, {
+      familyMemberId: input.familyMemberId,
+      type: previous ? "measurement_updated" : "measurement_recorded",
+      title: `${member?.name ?? ""} ${label.toLowerCase()} ${previous ? "updated" : "recorded"}`,
+      description: `${input.value} ${input.unit}`,
+      source: input.source ?? "wispr",
+      refId: id,
+    }),
+    id,
+  ];
+}
+
+export function deleteMeasurement(state: AppState, id: string): AppState {
+  const m = state.measurements.find((x) => x.id === id);
+  if (!m) return state;
+  const member = memberById(state, m.familyMemberId);
+  const label = m.kind === "blood_pressure" ? "Blood pressure" : m.kind === "blood_sugar" ? "Blood sugar" : m.kind === "heart_rate" ? "Heart rate" : "Weight";
+  return withEvent(
+    { ...state, measurements: state.measurements.filter((x) => x.id !== id) },
+    { familyMemberId: m.familyMemberId, type: "measurement_deleted", title: `${member?.name ?? ""} ${label.toLowerCase()} removed`, source: "manual" },
+  );
 }
 
 /* ---------- Settings & clock ---------- */

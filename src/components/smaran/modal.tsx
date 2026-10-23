@@ -6,8 +6,7 @@ import { useView } from "@/lib/store/view";
 import { cn } from "@/lib/utils";
 
 /**
- * Dialogs render inside the active device frame: a bottom sheet on mobile,
- * a centred card on web.
+ * Dialogs render as a bottom sheet on narrow screens and a centred card on desktop.
  */
 export function Modal({
   open,
