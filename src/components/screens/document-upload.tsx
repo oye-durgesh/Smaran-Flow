@@ -72,6 +72,7 @@ export function DocumentUploadScreen() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [linkHealth, setLinkHealth] = useState(true);
 
   const begin = useCallback(
     (file: Picked) => {
@@ -173,10 +174,12 @@ export function DocumentUploadScreen() {
           linkedAppointmentId: draft.appointmentId,
         });
         let next = withDoc;
-        for (const item of draft.extracted) {
-          const kind = item.kind as "blood_pressure" | "blood_sugar" | "heart_rate" | "weight";
-          const [after] = upsertMeasurement(next, { familyMemberId: draft.memberId!, kind, value: item.value, unit: item.unit, source: "document", documentId: docId });
-          next = after;
+        if (linkHealth) {
+          for (const item of draft.extracted) {
+            const kind = item.kind as "blood_pressure" | "blood_sugar" | "heart_rate" | "weight";
+            const [after] = upsertMeasurement(next, { familyMemberId: draft.memberId!, kind, value: item.value, unit: item.unit, source: "document", documentId: docId });
+            next = after;
+          }
         }
         return [next, docId];
       });
@@ -197,6 +200,7 @@ export function DocumentUploadScreen() {
     setPicked(null);
     setDraft(null);
     setError(null);
+    setLinkHealth(true);
   };
 
   const member = memberById(state, draft?.memberId);
@@ -323,7 +327,11 @@ export function DocumentUploadScreen() {
                   <li key={`${e.kind}-${e.value}`}>{e.kind.replace("_", " ")} · <b>{e.value} {e.unit}</b></li>
                 ))}
               </ul>
-              <p className="mt-2 text-[12px] text-ink-muted">These will be saved to the health card. SMARAN does not read the file itself.</p>
+              <p className="mt-2 text-[12px] text-ink-muted">Only values mentioned in the file name or your description. SMARAN does not read the file itself.</p>
+              <label className="mt-3 flex items-center gap-2 text-[13.5px] font-semibold text-ink">
+                <input type="checkbox" checked={linkHealth} onChange={(e) => setLinkHealth(e.target.checked)} className="size-4 accent-[#c9805f]" />
+                Add to health card
+              </label>
             </div>
           )}
           <p className="flex items-start gap-2 text-[12.5px] leading-snug text-ink-muted">

@@ -38,7 +38,7 @@ export function DocumentsScreen() {
 
   const filters = (
     <div className="mb-6 space-y-3">
-      <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search your family documents…" aria-label="Search your family documents" />
+      <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search documents…" aria-label="Search documents" />
       <PillGroup label="Family member" value={person} onChange={setPerson} options={[{ value: "all", label: "All" }, ...state.family.map((m) => ({ value: m.id, label: m.name }))]} />
       <PillGroup
         label="Document type"

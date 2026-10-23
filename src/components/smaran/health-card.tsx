@@ -25,7 +25,6 @@ const KINDS: { kind: MeasurementKind; label: string }[] = [
 ];
 
 function HealthSummary({ state, memberId, onRemove, onAdd }: { state: AppState; memberId: string; onRemove?: (m: HealthMeasurement) => void; onAdd?: () => void }) {
-  const today = todayOf(state);
   const history = measurementsFor(state, memberId).slice(0, 6);
   return (
     <Block title="Health">
@@ -43,7 +42,7 @@ function HealthSummary({ state, memberId, onRemove, onAdd }: { state: AppState; 
                 <span className="block text-[16px] font-bold text-ink-strong">{label}</span>
                 <span className="block text-[12.5px] text-ink-muted">
                   {m
-                    ? `${m.source === "sample" ? "Sample family note · " : m.source === "document" ? "From a document · " : ""}${relativeDay(dateOf(m.recordedAt), today) === "Today" ? "Last recorded · Today" : `Last recorded · ${formatShort(dateOf(m.recordedAt))}`}`
+                    ? `${m.source === "sample" ? "Sample family note · " : m.source === "document" ? `Source: ${state.documents.find((d) => d.id === m.documentId)?.name ?? "document"} · ` : ""}${formatShort(dateOf(m.recordedAt))} · ${formatTime(timeOf(m.recordedAt))}`
                     : "Not saved yet"}
                 </span>
               </span>
@@ -64,16 +63,15 @@ function HealthSummary({ state, memberId, onRemove, onAdd }: { state: AppState; 
           );
         })}
       </ul>
-      {history.length > 1 && (
-        <ul className="mt-4 space-y-1.5 border-t border-line pt-3">
-          {history.map((m) => (
-            <li key={m.id} className="flex justify-between gap-2 text-[13px] text-ink-muted">
-              <span>{KINDS.find((k) => k.kind === m.kind)?.label} · {m.value} {m.unit}</span>
-              <span>{formatShort(dateOf(m.recordedAt))}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {KINDS.map(({ kind, label }) => {
+        const series = history.filter((m) => m.kind === kind).slice(0, 4);
+        if (series.length < 2) return null;
+        return (
+          <p key={`${kind}-trend`} className="mt-3 text-[13px] text-ink-muted">
+            <span className="font-bold text-ink">Recent {label}:</span> {series.map((m) => m.value).join("  ·  ")}
+          </p>
+        );
+      })}
     </Block>
   );
 }

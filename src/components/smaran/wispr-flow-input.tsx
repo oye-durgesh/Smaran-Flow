@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppState } from "@/lib/store/store";
@@ -10,24 +10,22 @@ type Phase = "idle" | "ready" | "error";
 
 export interface WisprFlowInputProps {
   placeholder: string;
-  examples?: string[];
+  examples?: readonly string[];
   onSubmit: (text: string) => void | string | Promise<void | string>;
   busy?: boolean;
   busyLabel?: string;
   error?: string | null;
   variant?: "card" | "composer";
   primary?: boolean;
-  label?: string;
   className?: string;
-  examplesLabel?: string;
   examplesAction?: "fill" | "submit";
-  title?: string;
+  examplesLabel?: string;
   support?: string;
 }
 
-const CAPTURE_ERROR = "We couldn't capture that. Try speaking again.";
-const DEFAULT_TITLE = "Speak naturally";
-const DEFAULT_SUPPORT = "Your voice, organized by SMARAN.";
+const CAPTURE_ERROR = "Voice capture isn't available right now. You can type instead.";
+const HEADLINE = "Use Wispr Flow for better voice capture";
+const DEFAULT_SUPPORT = "Speak naturally — SMARAN will organize it for you.";
 
 export function Waveform({ active, className }: { active: boolean; className?: string }) {
   return (
@@ -52,11 +50,9 @@ export function WisprFlowInput({
   error: externalError,
   variant = "card",
   primary = false,
-  label = "Wispr Flow",
   className,
+  examplesAction = "fill",
   examplesLabel,
-  examplesAction = "submit",
-  title = DEFAULT_TITLE,
   support,
 }: WisprFlowInputProps) {
   const { wisprEnabled } = useAppState().settings;
@@ -66,6 +62,15 @@ export function WisprFlowInput({
   const [value, setValue] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [rotate, setRotate] = useState(0);
+
+  useEffect(() => {
+    if (!examples.length || value.trim() || busy) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) return;
+    const t = window.setInterval(() => setRotate((i) => i + 1), 5200);
+    return () => window.clearInterval(t);
+  }, [examples.length, value, busy]);
 
   const submit = useCallback(
     async (text: string) => {
@@ -98,16 +103,22 @@ export function WisprFlowInput({
   const effectivePhase: Phase | "busy" = busy ? "busy" : shownError ? "error" : phase;
   const hasText = Boolean(value.trim());
   const helper = !wisprEnabled
-    ? "Wispr Flow is turned off in Settings — you can still type here."
+    ? "Voice capture isn't available right now. You can type instead."
     : effectivePhase === "busy"
       ? busyLabel
       : (support ?? DEFAULT_SUPPORT);
 
   void primary;
+  void examplesLabel;
+
+  const featured = examples.length ? examples[rotate % examples.length] : null;
+  const chips = examples.length
+    ? [0, 1, 2].map((i) => examples[(rotate + i) % examples.length]).filter((v, i, a) => a.indexOf(v) === i)
+    : [];
 
   const wisprMark = (
     <span className="shrink-0 select-none" aria-hidden>
-      <WisprFlowMark size={variant === "composer" ? 48 : 56} className="rounded-[18px] pointer-events-none" />
+      <WisprFlowMark size={variant === "composer" ? 48 : 56} className="pointer-events-none rounded-[18px]" />
     </span>
   );
 
@@ -122,19 +133,26 @@ export function WisprFlowInput({
     </button>
   );
 
-  const chips = examples.length > 0 && !hasText && !busy && (
-    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {examplesLabel && <span className="sr-only">{examplesLabel}</span>}
-      {examples.map((ex) => (
-        <button
-          key={ex}
-          type="button"
-          onClick={() => (examplesAction === "fill" ? onChange(ex) : void submit(ex))}
-          className="h-9 shrink-0 rounded-full border border-line bg-ivory/70 px-3 text-[12.5px] font-semibold text-ink-muted transition-colors hover:border-peach hover:bg-peach-soft/30 hover:text-ink"
-        >
-          {ex}
-        </button>
-      ))}
+  const trySaying = examples.length > 0 && !hasText && !busy && (
+    <div className="space-y-2">
+      <p className="text-[11px] font-extrabold tracking-[0.16em] text-ink-muted uppercase">Try saying</p>
+      {featured && (
+        <p className="text-[14.5px] leading-snug font-semibold text-ink">
+          “{featured}”
+        </p>
+      )}
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {chips.map((ex) => (
+          <button
+            key={ex}
+            type="button"
+            onClick={() => (examplesAction === "submit" ? void submit(ex) : onChange(ex))}
+            className="h-10 max-w-[85vw] shrink-0 truncate rounded-full border border-line bg-ivory/80 px-3.5 text-[13px] font-semibold text-ink-muted transition-colors hover:border-peach hover:bg-peach-soft/30 hover:text-ink focus-visible:ring-2 focus-visible:ring-peach-deep"
+          >
+            {ex}
+          </button>
+        ))}
+      </div>
     </div>
   );
 
@@ -160,7 +178,7 @@ export function WisprFlowInput({
       ref={textareaRef}
       id={inputId}
       value={value}
-      rows={variant === "composer" ? 1 : 3}
+      rows={variant === "composer" ? 1 : 2}
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={(e) => {
         if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -174,68 +192,55 @@ export function WisprFlowInput({
       aria-describedby={helperId}
       className={cn(
         "field-sizing-content block w-full resize-none bg-transparent text-ink-strong outline-none placeholder:font-semibold placeholder:text-ink-muted/55 focus-visible:outline-none",
-        variant === "composer" ? "max-h-28 min-h-[44px] py-2.5 text-[16px] leading-snug" : "max-h-44 min-h-[88px] py-1 text-[18px] leading-relaxed font-semibold",
+        variant === "composer" ? "max-h-28 min-h-[44px] py-2.5 text-[16px] leading-snug" : "max-h-40 min-h-[72px] py-1 text-[17px] leading-relaxed font-semibold",
       )}
     />
   );
 
   const header = (
-    <div className="mb-3">
-      <label htmlFor={inputId} className="inline-flex items-center gap-2 text-[11px] font-extrabold tracking-[0.2em] text-ink-muted uppercase">
-        <span className={cn("size-1.5 rounded-full", busy ? "bg-peach-deep" : "bg-peach")} aria-hidden />
-        {label}
+    <div className="mb-4 space-y-1">
+      <p className="text-[11px] font-extrabold tracking-[0.2em] text-ink-muted uppercase">Tell SMARAN</p>
+      <label htmlFor={inputId} className="block text-[10.5px] font-extrabold tracking-[0.18em] text-brown uppercase">
+        Wispr Flow
       </label>
-      {title && <p className="mt-1 text-[20px] leading-tight font-extrabold tracking-tight text-ink-strong sm:text-[22px]">{title}</p>}
+      <p className="text-[16px] leading-snug font-extrabold text-ink-strong sm:text-[17px]">{HEADLINE}</p>
+      <p id={helperId} className="text-[13px] leading-snug text-ink-muted">
+        {busy ? busyLabel : helper}
+      </p>
     </div>
   );
 
-  const footer = (
-    <p id={helperId} className="text-[12.5px] leading-snug text-ink-muted" aria-live="polite">
-      {busy && <Waveform active className="mr-2 inline-flex align-middle" />}
-      {helper}
-    </p>
+  const field = (
+    <div className="flex items-end gap-2 rounded-[22px] border border-line bg-ivory/40 p-2 pl-4 transition-colors focus-within:border-peach sm:gap-3">
+      <div className="min-w-0 flex-1">{textarea}</div>
+      {hasText && !busy && (
+        <button type="button" onClick={() => onChange("")} aria-label="Clear" className="mb-0.5 inline-flex size-10 items-center justify-center rounded-[12px] text-ink-muted hover:bg-ivory-deep">
+          <X className="size-4" />
+        </button>
+      )}
+      {sendButton}
+      {wisprMark}
+    </div>
   );
 
   if (variant === "composer") {
     return (
-      <div className={cn("space-y-2.5", className)}>
+      <div className={cn("space-y-3", className)}>
         {header}
         {errorRow}
-        <div className="flex items-end gap-2 rounded-[22px] border border-line bg-surface-raised p-2 pl-4 shadow-[var(--shadow-soft)] transition-colors focus-within:border-peach">
-          <div className="min-w-0 flex-1">{textarea}</div>
-          {hasText && !busy && (
-            <button type="button" onClick={() => onChange("")} aria-label="Clear" className="mb-1 inline-flex size-9 items-center justify-center rounded-[12px] text-ink-muted hover:bg-ivory-deep">
-              <X className="size-4" />
-            </button>
-          )}
-          {sendButton}
-          {wisprMark}
-        </div>
-        {chips}
-        {footer}
+        {field}
+        {trySaying}
       </div>
     );
   }
 
   return (
-    <div className={cn("rounded-[24px] border border-line bg-surface-raised p-5 shadow-[var(--shadow-soft)] transition-colors focus-within:border-peach sm:p-6", className)}>
+    <div className={cn("rounded-[24px] border border-line bg-surface-raised p-5 shadow-[var(--shadow-soft)] sm:p-6", className)}>
       {header}
-      <div className="flex items-end gap-3">
-        <div className="min-w-0 flex-1">{textarea}</div>
-        <div className="flex items-center gap-2 pb-0.5">
-          {hasText && !busy && (
-            <button type="button" onClick={() => onChange("")} aria-label="Clear" className="inline-flex size-10 items-center justify-center rounded-[12px] text-ink-muted hover:bg-ivory-deep">
-              <X className="size-4" />
-            </button>
-          )}
-          {sendButton}
-          {wisprMark}
-        </div>
-      </div>
+      {field}
       <div className="mt-4 space-y-3">
         {errorRow}
-        {chips}
-        {footer}
+        {trySaying}
       </div>
     </div>
   );

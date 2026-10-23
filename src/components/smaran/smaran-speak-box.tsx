@@ -6,72 +6,13 @@ import { toast } from "sonner";
 import { useStore } from "@/lib/store/store";
 import { parseSmaranCommand, healthLabel, type HealthDraft } from "@/lib/nlu";
 import { upsertMeasurement } from "@/lib/store/actions";
-import { memberById, todayOf } from "@/lib/selectors";
+import { latestMeasurement, memberById, todayOf } from "@/lib/selectors";
 import { formatLong } from "@/lib/dates";
+import { promptsFor, speakCopy, type SpeakContext } from "@/lib/speak-prompts";
 import { Button } from "@/components/ui/button";
 import { WisprFlowInput } from "./wispr-flow-input";
 
-export type SpeakContext = "general" | "ask" | "documents" | "appointments" | "family" | "memory" | { person: string };
-
-const EXAMPLES = {
-  general: ["Mummy ki BP medicine roz 9 baje", "Papa ka sugar check kal subah", "Mummy ka doctor appointment Friday ko"],
-  family: ["Mummy ki BP medicine roz 9 baje", "Papa ka sugar check kal subah"],
-  appointments: ["Mummy ka doctor appointment Friday ko", "Papa ka Dr Mehta kal 5 baje"],
-  documents: ["latest blood report", "Mummy blood test", "Papa ECG"],
-  ask: ["Mummy ka latest blood report kab ka hai?", "Papa ka sugar kitna tha?"],
-  memory: ["Papa ka sugar aaj 118 tha", "Mummy ki appointment Friday ko"],
-  health: ["Mummy ka BP 128 over 82 tha", "Papa ka sugar 112 tha"],
-};
-
-function copy(ctx: SpeakContext): { placeholder: string; helper: string; examples: string[] } {
-  if (ctx === "ask") {
-    return {
-      placeholder: "Ask SMARAN about your family…",
-      helper: "Ask about saved medicines, appointments, documents or memories.",
-      examples: EXAMPLES.ask,
-    };
-  }
-  if (ctx === "documents") {
-    return {
-      placeholder: "Tell SMARAN what document you're looking for…",
-      helper: "Ask about reports, prescriptions or scans.",
-      examples: EXAMPLES.documents,
-    };
-  }
-  if (ctx === "appointments") {
-    return {
-      placeholder: "Tell SMARAN about an appointment…",
-      helper: "Speak the doctor, person, date or time naturally.",
-      examples: EXAMPLES.appointments,
-    };
-  }
-  if (ctx === "family") {
-    return {
-      placeholder: "Tell SMARAN something about Mummy or Papa…",
-      helper: "Speak naturally — SMARAN will remember it for you.",
-      examples: EXAMPLES.family,
-    };
-  }
-  if (ctx === "memory") {
-    return {
-      placeholder: "Tell SMARAN something you want to remember…",
-      helper: "Speak naturally — SMARAN will keep it in memory.",
-      examples: EXAMPLES.memory,
-    };
-  }
-  if (typeof ctx === "object") {
-    return {
-      placeholder: "Tell SMARAN what you want to update…",
-      helper: "Speak naturally — SMARAN can organize the update.",
-      examples: EXAMPLES.health,
-    };
-  }
-  return {
-    placeholder: "Tell SMARAN what your family needs to remember…",
-    helper: "Speak naturally — SMARAN will organize it for you.",
-    examples: EXAMPLES.general,
-  };
-}
+export type { SpeakContext };
 
 export function SmaranSpeakBox({
   context = "general",
@@ -93,14 +34,15 @@ export function SmaranSpeakBox({
   const [pending, setPending] = useState<HealthDraft | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const c = copy(context);
+  const c = speakCopy(context);
+  const examples = promptsFor(context);
 
   const onSubmit = (text: string): string | void => {
     setSaved(null);
     const cmd = parseSmaranCommand(text, state);
     if (cmd.intent === "health" && cmd.health) {
       const h = cmd.health;
-      if (!h.memberId) return "Who is this for? Name someone in your family.";
+      if (!h.memberId) return "Which person should I update — Mummy or Papa?";
       if (!h.kind) return "I couldn't tell if this is blood pressure, sugar, heart rate or weight.";
       if (h.incomplete === "bp_systolic_only") return "Did you mean a complete blood pressure, like 128/82?";
       if (!h.value) return "I heard the type, but not a value. Try “Papa ka sugar aaj 118 tha.”";
@@ -136,6 +78,7 @@ export function SmaranSpeakBox({
   };
 
   const member = pending ? memberById(state, pending.memberId) : undefined;
+  const previous = pending?.memberId && pending.kind ? latestMeasurement(state, pending.memberId, pending.kind) : undefined;
 
   return (
     <div className={className}>
@@ -144,7 +87,7 @@ export function SmaranSpeakBox({
         variant={variant}
         placeholder={placeholder ?? c.placeholder}
         support={c.helper}
-        examples={variant === "card" ? c.examples : []}
+        examples={examples}
         examplesAction="fill"
         busy={busy}
         busyLabel="Got it. Organizing this for you…"
@@ -161,11 +104,16 @@ export function SmaranSpeakBox({
               {pending.kind === "blood_pressure" ? pending.value!.replace("/", " / ") : pending.value}{" "}
               <span className="text-[16px] font-bold text-ink-muted">{pending.unit}</span>
             </div>
+            {previous && previous.value !== pending.value && (
+              <p className="mt-1 text-[13px] text-ink-muted">
+                Was {previous.value} {previous.unit} → now {pending.value} {pending.unit}
+              </p>
+            )}
             <div className="text-[13px] text-ink-muted">{formatLong(todayOf(state))}</div>
           </div>
           <p className="mt-3 text-[15px] font-bold text-ink-strong">Save to {member?.name}&apos;s health card?</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button onClick={save} disabled={busy}>Save</Button>
+            <Button onClick={save} disabled={busy}>Confirm</Button>
             <Button variant="outline" onClick={() => setPending(null)}>Edit</Button>
             <Button variant="ghost" onClick={() => setPending(null)}>Cancel</Button>
           </div>

@@ -141,7 +141,7 @@ export function ReminderChatScreen() {
       primary
       placeholder="Say anything..."
       examples={confirmation ? [] : replies}
-      examplesLabel="Reply"
+      examplesAction="submit"
       onSubmit={send}
     />
   ) : undefined;
