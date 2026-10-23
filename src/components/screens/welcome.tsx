@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
 import { updateSettings } from "@/lib/store/actions";
-import { SmaranLogo, SmaranMark, WisprFlowMark } from "@/components/smaran/brand";
+import { SmaranLockup, SmaranMark, WisprFlowMark } from "@/components/smaran/brand";
 import type { Language } from "@/lib/types";
 
 function LanguageChoice() {
@@ -83,7 +83,7 @@ export function WelcomeScreen() {
       <div className="flex min-h-full items-center">
         <div className="mx-auto grid w-full max-w-[1120px] grid-cols-2 items-center gap-16 px-12 py-12">
           <div className="animate-rise">
-            <SmaranLogo size="lg" />
+            <SmaranLockup width={176} />
             <h1 className="mt-10 text-[52px] leading-[1.08] font-extrabold tracking-tight text-ink-strong">
               Your voice remembers,
               <br />
@@ -115,7 +115,7 @@ export function WelcomeScreen() {
   return (
     <div className="flex min-h-[calc(844px-64px)] flex-col px-7 pt-14 pb-10 md:min-h-[760px]">
       <div className="flex flex-1 flex-col items-center justify-center text-center animate-rise">
-        <SmaranLogo size="xl" stacked />
+        <SmaranLockup width={168} />
         <p className="mt-10 text-[22px] leading-snug font-bold text-ink-strong">
           Your voice remembers,
           <br />

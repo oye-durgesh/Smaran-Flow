@@ -6,8 +6,25 @@ import { cn } from "@/lib/utils";
  */
 export const BRAND_ASSETS = {
   smaranMark: "/brand/smaran-mark.svg",
+  smaranLockup: "/brand/smaran-lockup.png",
   wisprFlow: "/brand/wispr-flow.svg",
 };
+
+/** Full SMARAN lockup (mark + wordmark + स्मरण) for splash and welcome. */
+export function SmaranLockup({ className, width = 192 }: { className?: string; width?: number }) {
+  const height = Math.round((width * 166) / 192);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={BRAND_ASSETS.smaranLockup}
+      alt="SMARAN स्मरण"
+      width={width}
+      height={height}
+      className={cn("select-none", className)}
+      draggable={false}
+    />
+  );
+}
 
 export function SmaranMark({ size = 40, className }: { size?: number; className?: string }) {
   return (
