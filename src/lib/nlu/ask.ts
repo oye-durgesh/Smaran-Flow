@@ -76,6 +76,24 @@ export function answerQuestion(question: string, state: AppState, filterMemberId
   }
 
   const measureKind = /\b(bp|blood pressure)\b/.test(t) ? ("blood_pressure" as const) : /\b(sugar|glucose)\b/.test(t) ? ("blood_sugar" as const) : /\b(heart rate|pulse|bpm)\b/.test(t) ? ("heart_rate" as const) : /\b(weight|vajan)\b/.test(t) ? ("weight" as const) : null;
+  if (measureKind && person && /\blast 10\b/.test(t)) {
+    const rows = state.measurements
+      .filter((m) => m.familyMemberId === person.id && m.kind === measureKind)
+      .sort((a, b) => (a.recordedAt < b.recordedAt ? -1 : 1));
+    if (!rows.length) {
+      return { found: false, refs: [], text: `I couldn't find that information in your family's saved records. There are no saved ${measureKind.replace("_", " ")} readings for ${person.name}.` };
+    }
+    const last = rows.slice(-10);
+    const listed = last
+      .map((m) => `${m.kind === "blood_pressure" && m.systolic != null ? `${m.systolic}/${m.diastolic}` : m.value} on ${formatShort(dateOf(m.recordedAt))}`)
+      .join("; ");
+    return {
+      found: true,
+      refs: last.map((m) => ({ kind: "measurement" as const, id: m.id })),
+      text: `${possessive(person)} last ${last.length} saved ${measureKind.replace("_", " ")} reading${last.length === 1 ? "" : "s"}: ${listed}. These are recorded demo or family values, not a diagnosis.`,
+    };
+  }
+
   if (measureKind && person && /\b(trend|graph|chart|last (?:3|three) months)\b/.test(t)) {
     const series = measureKind === "blood_pressure" ? bpSeries(state, person.id, "90d") : [];
     const rows = state.measurements
@@ -216,6 +234,15 @@ export function answerQuestion(question: string, state: AppState, filterMemberId
     const rows = historyFor(state, person.id);
     if (!rows.length) return { found: false, refs: [], text: `I couldn't find that information in your family's saved records. No medical history is recorded for ${person.name}.` };
     return { found: true, refs: [], text: `${possessive(person)} recorded history: ${rows.map((h) => h.name).join(", ")}.` };
+  }
+
+  if (/\b(care task|tasks|aaj sabki|today so far)\b/.test(t) || (/\b(aaj|today)\b/.test(t) && /\b(task|kaam|yaad)\b/.test(t))) {
+    const members = person ? [person] : state.family;
+    const parts = members.map((m) => {
+      const s = memberDaySummary(state, m.id, today);
+      return `${m.name}: ${s.confirmed} of ${s.total} reminders confirmed${s.appointments ? `, ${s.appointments} appointment today` : ""}`;
+    });
+    return { found: members.length > 0, refs: [], text: parts.length ? `Today so far — ${parts.join("; ")}.` : "There's no one in your family list yet." };
   }
 
   if (/\b(aaj|today|status|kaisa|sab theek|how is|how are)\b/.test(t)) {

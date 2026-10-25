@@ -373,6 +373,8 @@ export interface Settings {
   reducedMotion: boolean;
   compactDensity: boolean;
   memberColors: Record<string, string>;
+  /** Local isolated demo workspace. Never mixed into a signed-in real family vault. */
+  demoWorkspace?: boolean;
 }
 
 export type InAppNotificationStatus =

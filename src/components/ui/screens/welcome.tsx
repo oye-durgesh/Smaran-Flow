@@ -92,12 +92,15 @@ export function WelcomeScreen() {
             <p className="mt-6 max-w-[460px] text-[18px] leading-relaxed text-ink-muted">
               SMARAN turns the way your family already talks into medicine reminders, appointments and a shared health memory — for parents who live far away.
             </p>
-            <div className="mt-9 flex items-center gap-3">
+            <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link href="/onboarding?step=1" className="inline-flex h-13 items-center rounded-[16px] bg-peach px-7 text-[16px] font-bold text-ink-strong transition-colors hover:bg-[#e29c7e]">
                 Get started
               </Link>
-              <Link href="/onboarding?step=3" className="inline-flex h-13 items-center rounded-[16px] border border-line-strong bg-surface-raised px-6 text-[16px] font-bold text-ink hover:bg-ivory-deep">
-                See how it works
+              <Link href="/demo" className="inline-flex h-13 items-center rounded-[16px] border border-line-strong bg-surface-raised px-6 text-[16px] font-bold text-ink hover:bg-ivory-deep">
+                Explore Demo
+              </Link>
+              <Link href="/demo?walkthrough=1" className="inline-flex h-13 items-center rounded-[16px] border border-line bg-ivory px-6 text-[16px] font-bold text-ink hover:bg-ivory-deep">
+                Start Demo Walkthrough
               </Link>
             </div>
             <div className="mt-10">
@@ -126,8 +129,11 @@ export function WelcomeScreen() {
         <Link href="/onboarding?step=1" className="flex h-14 w-full items-center justify-center rounded-[18px] bg-peach text-[17px] font-bold text-ink-strong transition-colors hover:bg-[#e29c7e]">
           Get started
         </Link>
-        <Link href="/onboarding?step=3" className="flex h-12 w-full items-center justify-center rounded-[16px] text-[15px] font-bold text-ink-muted hover:bg-ivory-deep">
-          See how it works
+        <Link href="/demo" className="flex h-12 w-full items-center justify-center rounded-[16px] border border-line-strong bg-surface-raised text-[15px] font-bold text-ink hover:bg-ivory-deep">
+          Explore Demo
+        </Link>
+        <Link href="/demo?walkthrough=1" className="flex h-12 w-full items-center justify-center rounded-[16px] text-[15px] font-bold text-ink-muted hover:bg-ivory-deep">
+          Start Demo Walkthrough
         </Link>
         <div className="flex justify-center pt-3">
           <LanguageChoice />

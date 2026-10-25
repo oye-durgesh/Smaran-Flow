@@ -32,13 +32,7 @@ describe("Medicines navigation and family identity", () => {
 
   it("separates Mummy, Papa and Dadi by recipient id", () => {
     const state = createDemoState();
-    const extra = {
-      ...state,
-      family: [
-        ...state.family,
-        { id: "dadi", name: "Dadi", relationship: "Grandmother" as const, avatar: { initials: "D", tone: "sand" as const }, createdAt: "2026-10-18T09:00" },
-      ],
-    };
+    const extra = state;
     const created = createMedicine(extra, draft({ familyMemberId: "papa", name: "Papa tablet", times: ["09:00"] }));
     expect(created.ok).toBe(true);
     if (!created.ok) return;

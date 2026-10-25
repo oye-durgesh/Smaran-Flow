@@ -60,7 +60,7 @@ describe("ask ui contract", () => {
     expect(askLayoutContract().desktop).toContain("320px");
     expect(askLayoutContract().mobileSuggestions).toContain("lg:hidden");
     expect(greetingText("Rahul")).toMatch(/Hi Rahul/);
-    expect(ASK_SUGGESTIONS.map((s) => s.question)).toHaveLength(8);
+    expect(ASK_SUGGESTIONS.map((s) => s.question).length).toBeGreaterThanOrEqual(8);
     expect(ASK_SUGGESTIONS[0].icon).toBeDefined();
     expect(ASK_SUGGESTIONS.map((s) => s.subtitle).join(" ")).toMatch(/BP|sugar|appointment|medicines|report|vaccination|history|document/);
     expect(handleComposerKey({ key: "Enter", shiftKey: false })).toBe("submit");

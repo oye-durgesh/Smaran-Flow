@@ -1,8 +1,8 @@
 import type { AppState, FamilyMember } from "@/lib/types";
 
 export const DEMO_FAMILY_NAME = "SMARAN Demo Family";
-export const DEMO_SEED_VERSION = 1;
-export const DEMO_BANNER = "DEMO WORKSPACE — All family health records shown here are fictional.";
+export const DEMO_SEED_VERSION = 2;
+export const DEMO_BANNER = "DEMO DATA — FICTIONAL — NOT FOR CLINICAL USE";
 export const DEMO_RECORD_LABEL = "Sample demo record";
 export const DEMO_LOAD_CONFIRM =
   "This creates fictional sample medical and appointment records in a separate SMARAN Demo Family. It will not modify your real family data.";

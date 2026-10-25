@@ -2,9 +2,10 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { AppState } from "../types";
-import { createEmptyState, STATE_VERSION } from "../seed";
+import { createDemoState, createEmptyState, STATE_VERSION } from "../seed";
 import { clearFiles } from "../files";
 import { fetchSession, fetchVault, type SessionPayload } from "./cloud";
+import { isolateState } from "../demo/workspace";
 
 const STORAGE_KEY = "smaran:state";
 const listeners = new Set<() => void>();
@@ -18,6 +19,7 @@ function withSettingsDefaults(parsed: AppState): AppState["settings"] {
   return {
     ...seed,
     ...parsed.settings,
+    demoWorkspace: Boolean(parsed.settings?.demoWorkspace),
     memberColors: { ...parsed.settings?.memberColors },
   };
 }
@@ -139,6 +141,7 @@ interface StoreValue {
   update: (fn: (s: AppState) => AppState) => void;
   commit: <T>(fn: (s: AppState) => [AppState, T]) => T;
   resetDemo: () => void;
+  restoreDemo: () => void;
   clearAll: () => void;
   refreshSession: () => Promise<void>;
   refreshVault: () => Promise<boolean>;
@@ -163,8 +166,20 @@ export function StoreProvider({ children }: { children: ReactNode; fallback?: Re
 
   const resetDemo = useCallback(() => {
     const current = getSnapshot();
-    persist({ ...createEmptyState(), onboarded: current.onboarded, settings: { ...createEmptyState().settings, ...current.settings, memberColors: {} } });
-    void clearFiles();
+    if (current.settings.demoWorkspace || !current.family.length) {
+      persist({
+        ...createEmptyState(),
+        onboarded: true,
+        settings: { ...createEmptyState().settings, demoWorkspace: true, memberColors: {} },
+        user: { name: "Demo host" },
+      });
+      return;
+    }
+    persist(isolateState(current, false));
+  }, []);
+
+  const restoreDemo = useCallback(() => {
+    persist(createDemoState());
   }, []);
 
   const clearAll = useCallback(() => {
@@ -227,8 +242,8 @@ export function StoreProvider({ children }: { children: ReactNode; fallback?: Re
   }, [refreshSession]);
 
   const value = useMemo(
-    () => ({ state, session, vaultError, update, commit, resetDemo, clearAll, refreshSession, refreshVault }),
-    [state, session, vaultError, update, commit, resetDemo, clearAll, refreshSession, refreshVault],
+    () => ({ state, session, vaultError, update, commit, resetDemo, restoreDemo, clearAll, refreshSession, refreshVault }),
+    [state, session, vaultError, update, commit, resetDemo, restoreDemo, clearAll, refreshSession, refreshVault],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

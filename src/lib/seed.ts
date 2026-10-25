@@ -10,7 +10,8 @@ import type {
   MemoryEvent,
   Reminder,
 } from "./types";
-import { formatTime } from "./dates";
+import { dateOf, formatTime, realNow } from "./dates";
+import { buildDemoDataset, datasetAsAppState } from "./demo/seed-dataset";
 
 /**
  * Fictional demo family. Nothing here is real medical data; documents render
@@ -158,7 +159,7 @@ function sampleMedicine(
   };
 }
 
-const medicines: Medicine[] = [
+const _legacyMedicines: Medicine[] = [
   sampleMedicine("med-mummy-morning", "mummy", "Morning Medicine", "08:00", "2026-10-18T09:20"),
   sampleMedicine("med-mummy-bp", "mummy", "BP Medicine", "21:00", "2026-10-20T18:40", { source: "manual", startDate: "2026-10-20" }),
   sampleMedicine("med-papa-morning", "papa", "Morning Medicine", "08:30", "2026-10-18T09:30"),
@@ -388,38 +389,8 @@ function seedMemory(): MemoryEvent[] {
 }
 
 export function createDemoState(): AppState {
-  return structuredClone({
-    version: STATE_VERSION,
-    onboarded: false,
-    user: { name: "Rahul" },
-    family,
-    reminders,
-    medicines,
-    refills: [],
-    appointments,
-    doctors,
-    documents,
-    measurements,
-    medicalHistory: [],
-    vaccinations: [],
-    diary: [],
-    memory: seedMemory(),
-    conversations: [],
-    inAppNotifications: [],
-    settings: {
-      language: "en",
-      reminderLanguage: "hinglish",
-      reminderSound: "Gentle",
-      wisprEnabled: true,
-      notifications: true,
-      familyUpdates: true,
-      reducedMotion: false,
-      compactDensity: true,
-      memberColors: { mummy: "mummy", papa: "papa" },
-    },
-    demoNow: DEMO_NOW,
-    selectedDate: DEMO_TODAY,
-  } satisfies AppState);
+  const state = datasetAsAppState(buildDemoDataset(dateOf(realNow())));
+  return structuredClone({ ...state, version: STATE_VERSION, onboarded: true });
 }
 
 export function createEmptyState(): AppState {
@@ -450,6 +421,7 @@ export function createEmptyState(): AppState {
       familyUpdates: false,
       reducedMotion: false,
       compactDensity: true,
+      demoWorkspace: false,
       memberColors: {},
     },
     demoNow: DEMO_NOW,
@@ -465,6 +437,14 @@ export function withTestRecipients(state = createEmptyState()): AppState {
       { id: "mummy", name: "Mummy", relationship: "Mother", avatar: { initials: "M", tone: "peach" }, createdAt: "2026-01-01T09:00" },
       { id: "papa", name: "Papa", relationship: "Father", avatar: { initials: "P", tone: "terracotta" }, createdAt: "2026-01-01T09:00" },
       { id: "dadi", name: "Dadi", relationship: "Grandmother", avatar: { initials: "D", tone: "sand" }, createdAt: "2026-01-01T09:00" },
+      { id: "dada", name: "Dada Ji", relationship: "Grandfather", avatar: { initials: "DJ", tone: "brown" }, createdAt: "2026-01-01T09:00" },
     ],
   };
 }
+
+/** Kept so older local fixtures remain available for reference, not used as the live demo seed. */
+export const LEGACY_SAMPLE_COUNTS = {
+  medicines: _legacyMedicines.length,
+  doctors: doctors.length,
+  memory: seedMemory().length,
+};

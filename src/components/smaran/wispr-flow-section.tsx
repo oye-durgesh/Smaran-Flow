@@ -10,6 +10,10 @@ import { requestInterpretation, primaryAction } from "@/lib/interpret/client";
 import { useStore } from "@/lib/store/store";
 import { classifySmaranIntent } from "@/lib/nlu/intents";
 import type { ProposedAction } from "@/lib/interpret/zod";
+import { captureOnToday, reminderReceipt } from "@/lib/store/today-capture";
+import { createCloudReminder, isUuid } from "@/lib/store/cloud";
+import { deleteReminder } from "@/lib/store/actions";
+import { memberById } from "@/lib/selectors";
 
 export function WisprFlowSection({
   context,
@@ -24,10 +28,45 @@ export function WisprFlowSection({
   compact?: boolean;
   className?: string;
 }) {
-  const { state } = useStore();
+  const { state, session, commit, refreshVault } = useStore();
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ message: string; href?: string; hrefLabel?: string } | null>(null);
   const [pending, setPending] = useState<ProposedAction | null>(null);
+  const [undoId, setUndoId] = useState<string | null>(null);
+
+  const persistReminder = async (text: string): Promise<string | void> => {
+    const out = commit((s) => {
+      const captured = captureOnToday(s, text);
+      return [captured.next, captured.result];
+    });
+    if (!out.ok) {
+      setNotice({ message: out.error });
+      return out.error;
+    }
+    if (session.authenticated && out.recipientId && isUuid(out.recipientId) && out.time && out.recurrence) {
+      try {
+        await createCloudReminder({
+          recipientId: out.recipientId,
+          title: out.title,
+          kind: out.reminderKind ?? "other",
+          time: out.time,
+          date: out.date,
+          recurrence: out.recurrence,
+        });
+        await refreshVault();
+      } catch (e) {
+        return e instanceof Error ? e.message : "Cloud save failed. The local demo reminder is still here.";
+      }
+    }
+    const who = memberById(state, out.recipientId ?? "")?.name ?? out.recipientId;
+    setUndoId(out.id);
+    setNotice({
+      message: reminderReceipt(out, who),
+      href: out.href,
+      hrefLabel: "Open reminder",
+    });
+    toast.success("Reminder created");
+  };
 
   const onSubmit = async (text: string): Promise<string | void> => {
     setNotice(null);
@@ -35,6 +74,21 @@ export function WisprFlowSection({
     setBusy(true);
     try {
       const localIntent = classifySmaranIntent(text);
+      const reminderIntent = localIntent === "medicine_reminder" || localIntent === "health_check_reminder" || localIntent === "pickup_reminder";
+      const demoMode = Boolean(state.settings.demoWorkspace || session.isDemo);
+
+      if (reminderIntent) {
+        const result = await requestInterpretation(text, state, context === "medicines" ? "medicine_reminder" : "general_reminder");
+        const action = primaryAction(result);
+        if (action.clarificationQuestion || action.missingFields.length) {
+          setNotice({ message: action.clarificationQuestion || "I need a missing detail before anything is saved." });
+          return;
+        }
+        if (demoMode) return await persistReminder(text);
+        setPending(action);
+        return;
+      }
+
       const gate = evaluateSectionPolicy(context, localIntent, text);
       if (!gate.allowed) {
         setNotice({ message: gate.message, href: gate.href, hrefLabel: gate.hrefLabel });
@@ -68,13 +122,27 @@ export function WisprFlowSection({
     <div className={className}>
       <WisprFlowComposer context={context} careRecipientId={careRecipientId} isLoading={busy} compact={compact} onSubmit={onSubmit} />
       {notice && (
-        <div role="status" className="mt-3 rounded-[16px] border border-line bg-sand/40 px-4 py-3 text-[14px] font-semibold text-ink">
+        <div role="status" className="mt-3 rounded-[16px] border border-line bg-sand/40 px-4 py-3 text-[14px] font-semibold whitespace-pre-line text-ink">
           <p>{notice.message}</p>
-          {notice.href && notice.hrefLabel && (
-            <Link href={notice.href} className="mt-2 inline-flex h-9 items-center rounded-full bg-peach px-3 text-[13px] font-bold text-ink-strong">
-              {notice.hrefLabel}
-            </Link>
-          )}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {notice.href && notice.hrefLabel && (
+              <Link href={notice.href} className="inline-flex h-9 items-center rounded-full bg-peach px-3 text-[13px] font-bold text-ink-strong">
+                {notice.hrefLabel}
+              </Link>
+            )}
+            {undoId && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  commit((s) => [deleteReminder(s, undoId), undefined]);
+                  setUndoId(null);
+                  setNotice({ message: "Reminder undone. Nothing else was changed." });
+                }}
+              >
+                Undo
+              </Button>
+            )}
+          </div>
         </div>
       )}
       {pending && (
@@ -89,6 +157,13 @@ export function WisprFlowSection({
           <div className="mt-3 flex flex-wrap gap-2">
             <Button
               onClick={async () => {
+                const reminderIntent = pending.intent === "medicine_reminder" || pending.intent === "health_check_reminder" || pending.intent === "pickup_reminder";
+                if (reminderIntent) {
+                  const out = await persistReminder(pending.transcript);
+                  if (typeof out === "string") toast.error(out);
+                  setPending(null);
+                  return;
+                }
                 if (!onCapture) {
                   setPending(null);
                   return;

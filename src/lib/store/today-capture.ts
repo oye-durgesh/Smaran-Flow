@@ -18,6 +18,21 @@ export const TODAY_EXAMPLES = [
   "Dadi ki appointment ke baad follow-up yaad dilana.",
 ] as const;
 
+export function reminderReceipt(result: Extract<TodayCaptureResult, { ok: true }>, memberName?: string) {
+  const schedule =
+    result.recurrence === "daily"
+      ? `Every day at ${result.time ?? ""}`
+      : result.recurrence === "weekly"
+        ? `Weekly at ${result.time ?? ""}`
+        : `${result.date ?? "Once"} at ${result.time ?? ""}`;
+  return [
+    result.merged ? "Reminder updated" : "Reminder created",
+    `${memberName ?? "Family"} — ${result.title}`,
+    schedule.trim(),
+    "Asia/Kolkata",
+  ].join("\n");
+}
+
 export type TodayCaptureResult =
   | {
       ok: true;
@@ -30,6 +45,7 @@ export type TodayCaptureResult =
       time?: string;
       date?: string;
       recurrence?: string;
+      merged?: boolean;
     }
   | { ok: false; error: string; navigate?: never };
 
@@ -92,7 +108,10 @@ export function captureOnToday(state: AppState, text: string): { next: AppState;
   if (missing.length) {
     return { next: state, result: { ok: false, error: "I need the person, what to remind, and the time. Nothing was saved." } };
   }
-  const created = createReminder(state, draft as Required<Pick<ReminderDraft, "memberId" | "title" | "time">> & ReminderDraft);
+  const created = createReminder(state, {
+    ...draft,
+    title: draft.title === "Sugar Medicine" ? "Sugar medicine" : draft.title,
+  } as Required<Pick<ReminderDraft, "memberId" | "title" | "time">> & ReminderDraft);
   const saved = created.state.reminders.find((r) => r.id === created.id);
   return {
     next: created.state,
@@ -107,6 +126,7 @@ export function captureOnToday(state: AppState, text: string): { next: AppState;
       time: saved?.time,
       date: saved?.date,
       recurrence: saved?.frequency,
+      merged: created.merged,
     },
   };
 }

@@ -42,7 +42,7 @@ import { Switch } from "@/components/ui/switch";
 const RELATIONSHIPS: Relationship[] = ["Mother", "Father", "Grandmother", "Grandfather", "Partner", "Other"];
 
 export function SettingsScreen() {
-  const { state, session, vaultError, update, resetDemo, clearAll, refreshSession, refreshVault } = useStore();
+  const { state, session, vaultError, update, resetDemo, restoreDemo, clearAll, refreshSession, refreshVault } = useStore();
   const [name, setName] = useState(state.user.name);
   const [resetting, setResetting] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -337,8 +337,19 @@ export function SettingsScreen() {
                 ? session.isDemo
                   ? "Active: SMARAN Demo Family. Records are fictional."
                   : "Active: your real family. Demo fixtures are not mixed in."
-                : "Sign in to create a separate Supabase demo family. Local sample preview stays on this device."}
+                : "This device can open an isolated SMARAN Demo Family without creating a real account."}
             </p>
+            {!session.authenticated && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => { restoreDemo(); toast.success("Opened SMARAN Demo Family on this device."); }}>Start Demo</Button>
+                <Button size="sm" variant="outline" onClick={() => { restoreDemo(); toast.success("Demo data restored."); }}>Restore Demo Data</Button>
+                <Button size="sm" variant="outline" onClick={() => {
+                  if (!window.confirm(DEMO_RESET_CONFIRM)) return;
+                  resetDemo();
+                  toast.success("Local demo workspace cleared.");
+                }}>Reset Demo Data</Button>
+              </div>
+            )}
             {session.authenticated && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {(session.workspaces ?? []).filter((w) => !w.isDemo).map((w) => (
@@ -395,6 +406,20 @@ export function SettingsScreen() {
                     setDemoBusy(false);
                   }
                 }}>Reset demo dataset</Button>
+                <Button size="sm" variant="outline" disabled={demoBusy} onClick={async () => {
+                  if (!window.confirm(DEMO_LOAD_CONFIRM)) return;
+                  setDemoBusy(true);
+                  try {
+                    await demoWorkspaceAction({ action: "reset", confirm: true });
+                    const result = await demoWorkspaceAction({ action: "load", confirm: true });
+                    await refreshSession();
+                    toast.success(result.ok === false ? "Restore finished." : "Demo data restored. Real family unchanged.");
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Restore failed.");
+                  } finally {
+                    setDemoBusy(false);
+                  }
+                }}>Restore Demo Data</Button>
                 <Button size="sm" variant="outline" disabled={demoBusy || !session.isDemo} onClick={async () => {
                   setDemoBusy(true);
                   try {

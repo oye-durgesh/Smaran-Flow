@@ -19,6 +19,7 @@ import {
   glucoseSeries,
   glucoseUnitsInRange,
   healthTabs,
+  numericSeries,
   historyFor,
   latestDisplay,
   NOT_RECORDED,
@@ -51,7 +52,7 @@ export function HealthRecordView({ member }: { member: FamilyMember }) {
   const [tab, setTab] = useState<Tab>("overview");
   const [addOpen, setAddOpen] = useState(false);
   const [addKind, setAddKind] = useState<AddKind | null>(null);
-  const [range, setRange] = useState<ChartRange>("30d");
+  const [range, setRange] = useState<ChartRange>("90d");
   const [weekly, setWeekly] = useState(false);
   const [docQuery, setDocQuery] = useState("");
   const [docCat, setDocCat] = useState("all");
@@ -79,6 +80,11 @@ export function HealthRecordView({ member }: { member: FamilyMember }) {
   const sys = bpSeries(state, member.id, range, weekly);
   const dia = sys.map((p) => ({ ...p, value: p.extra ?? p.value }));
   const glu = glucoseUnit ? glucoseSeries(state, member.id, range, weekly, glucoseUnit) : [];
+  const hr = numericSeries(state, member.id, "heart_rate", range, weekly);
+  const wt = numericSeries(state, member.id, "weight", range, weekly);
+  const temp = numericSeries(state, member.id, "temperature", range, weekly);
+  const spo2 = numericSeries(state, member.id, "spo2", range, weekly);
+  const last10 = range === "30d" && !weekly;
 
   function openAdd(kind: AddKind) {
     setAddKind(kind);
@@ -228,8 +234,8 @@ export function HealthRecordView({ member }: { member: FamilyMember }) {
             <Button size="sm" variant="outline" onClick={() => openAdd("history")}>Add medical history</Button>
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
-            <TrendChart title="Blood pressure" help={weekly ? "Each point is the latest actual BP in that Sunday–Saturday week." : "Raw saved readings. Missing days stay blank."} seriesA={sys} seriesB={dia} labelA="Systolic" labelB="Diastolic" unit="mmHg" empty="No BP readings recorded yet." />
-            <TrendChart title={glucoseUnits.length > 1 ? `Blood glucose (${glucoseUnit} only — other units are kept separate)` : "Blood glucose"} help={weekly ? "Each point is the latest actual glucose reading in that Sunday–Saturday week." : "Raw saved readings. Sample notes are excluded."} seriesA={glu} labelA="Glucose" unit={glucoseUnit || "as recorded"} empty="No glucose readings recorded yet." />
+            <TrendChart title="Blood pressure" help={weekly ? "Each point is the latest actual BP in that Sunday–Saturday week." : "Raw stored readings. Missing days stay blank."} seriesA={last10 ? sys.slice(-10) : sys} seriesB={last10 ? dia.slice(-10) : dia} labelA="Systolic" labelB="Diastolic" unit="mmHg" empty="No BP readings recorded yet." />
+            <TrendChart title={glucoseUnits.length > 1 ? `Blood glucose (${glucoseUnit} only — other units are kept separate)` : "Blood glucose"} help={weekly ? "Each point is the latest actual glucose reading in that Sunday–Saturday week." : "Raw stored readings for this person."} seriesA={last10 ? glu.slice(-10) : glu} labelA="Glucose" unit={glucoseUnit || "as recorded"} empty="No glucose readings recorded yet." />
           </div>
           <RangeControls range={range} weekly={weekly} onRange={setRange} onWeekly={setWeekly} />
           <section>
@@ -250,14 +256,18 @@ export function HealthRecordView({ member }: { member: FamilyMember }) {
           <Button className="mb-4" onClick={() => openAdd("measurement")}>Add measurement</Button>
           <RangeControls range={range} weekly={weekly} onRange={setRange} onWeekly={setWeekly} />
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <TrendChart title="Blood pressure history" help={weekly ? "Weekly view: latest actual reading that Sunday–Saturday week." : "All confirmed family-recorded BP values."} seriesA={sys} seriesB={dia} labelA="Systolic" labelB="Diastolic" unit="mmHg" empty="No BP readings recorded yet." />
+            <TrendChart title="Blood pressure history" help={weekly ? "Weekly view: latest actual reading that Sunday–Saturday week." : "Stored BP values for this person."} seriesA={sys} seriesB={dia} labelA="Systolic" labelB="Diastolic" unit="mmHg" empty="No BP readings recorded yet." />
             <TrendChart title="Glucose history" help="Units are never mixed on one axis." seriesA={glu} labelA="Glucose" unit={glucoseUnit || "as recorded"} empty="No glucose readings recorded yet." />
+            <TrendChart title="Heart-rate history" seriesA={hr} labelA="Heart rate" unit="bpm" empty="No heart-rate readings recorded yet." />
+            <TrendChart title="Weight history" seriesA={wt} labelA="Weight" unit="kg" empty="No weight readings recorded yet." />
+            <TrendChart title="Temperature history" seriesA={temp} labelA="Temperature" unit="°C" empty="No temperature readings recorded yet." />
+            <TrendChart title="SpO₂ history" seriesA={spo2} labelA="SpO₂" unit="%" empty="No oxygen readings recorded yet." />
           </div>
           <ul className="mt-4 space-y-2">
             {measurementsFor(state, member.id).map((m) => (
               <li key={m.id} className="rounded-[14px] border border-line bg-surface-raised px-3 py-2 text-[14px]">
                 <span className="font-bold">{m.kind === "blood_pressure" && m.systolic != null ? `${m.systolic}/${m.diastolic}` : m.value} {m.unit}</span>
-                <span className="text-ink-muted"> · {m.recordedAt} · {m.source}{m.glucoseContext ? ` · ${m.glucoseContext}` : ""}{m.source === "sample" ? " · excluded from charts" : ""}</span>
+                <span className="text-ink-muted"> · {m.recordedAt} · {m.source}{m.glucoseContext ? ` · ${m.glucoseContext}` : ""}{m.source === "sample" ? (state.settings.demoWorkspace ? " · fictional demo reading" : " · excluded from real-family charts") : ""}</span>
               </li>
             ))}
           </ul>

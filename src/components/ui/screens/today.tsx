@@ -273,6 +273,9 @@ export function TodayScreen() {
               {formatFullDate(today)}
             </p>
             <p className="mt-1 text-[15px] text-ink-muted">{t("todaySubtitle")}</p>
+            {(state.settings.demoWorkspace || session.isDemo) && (
+              <p className="mt-2 rounded-full bg-sand/60 px-3 py-1 text-[12px] font-semibold text-ink">DEMO DATA — FICTIONAL — NOT FOR CLINICAL USE</p>
+            )}
           </header>
           {filterInbox(state.inAppNotifications ?? [], "due").filter((n) => n.scheduledAt.startsWith(today)).length > 0 && (
             <section className="mb-6 rounded-[20px] border border-peach bg-peach-soft/50 p-3.5" aria-label="Due reminders">

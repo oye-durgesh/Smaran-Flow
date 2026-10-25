@@ -31,8 +31,10 @@ export function isImplausible(kind: MeasurementKind, value: string, unit: string
   return null;
 }
 
-export function chartEligible(m: HealthMeasurement): boolean {
-  return m.source !== "sample" && m.confirmation !== "needs_review";
+export function chartEligible(m: HealthMeasurement, demoWorkspace = false): boolean {
+  if (m.confirmation === "needs_review") return false;
+  if (m.source === "sample") return demoWorkspace;
+  return true;
 }
 
 export function rangeStart(range: ChartRange, today: DateKey = calendarToday()): DateKey | null {
@@ -68,7 +70,7 @@ export interface ChartPoint {
 export function bpSeries(state: AppState, memberId: string, range: ChartRange, weekly = false): ChartPoint[] {
   const rows: ChartPoint[] = [];
   for (const m of measurementsFor(state, memberId)) {
-    if (m.kind !== "blood_pressure" || !chartEligible(m) || !inRange(m.recordedAt, range)) continue;
+    if (m.kind !== "blood_pressure" || !chartEligible(m, Boolean(state.settings.demoWorkspace)) || !inRange(m.recordedAt, range)) continue;
     const parsed = m.systolic != null && m.diastolic != null ? { systolic: m.systolic, diastolic: m.diastolic } : parseBloodPressure(m.value);
     if (parsed.systolic == null || parsed.diastolic == null) continue;
     rows.push({
@@ -88,7 +90,7 @@ export function bpSeries(state: AppState, memberId: string, range: ChartRange, w
 export function glucoseSeries(state: AppState, memberId: string, range: ChartRange, weekly = false, unit?: string): ChartPoint[] {
   const rows: ChartPoint[] = [];
   for (const m of measurementsFor(state, memberId)) {
-    if (m.kind !== "blood_sugar" || !chartEligible(m) || !inRange(m.recordedAt, range)) continue;
+    if (m.kind !== "blood_sugar" || !chartEligible(m, Boolean(state.settings.demoWorkspace)) || !inRange(m.recordedAt, range)) continue;
     if (unit && m.unit !== unit) continue;
     const n = Number(m.value);
     if (!Number.isFinite(n)) continue;
@@ -98,6 +100,25 @@ export function glucoseSeries(state: AppState, memberId: string, range: ChartRan
       value: n,
       unit: m.unit,
       context: m.glucoseContext,
+      id: m.id,
+      recordedAt: m.recordedAt,
+    });
+  }
+  rows.sort((a, b) => (a.recordedAt < b.recordedAt ? -1 : 1));
+  return weekly ? latestPerSundayWeek(rows) : rows;
+}
+
+export function numericSeries(state: AppState, memberId: string, kind: Exclude<MeasurementKind, "blood_pressure" | "other">, range: ChartRange, weekly = false): ChartPoint[] {
+  const rows: ChartPoint[] = [];
+  for (const m of measurementsFor(state, memberId)) {
+    if (m.kind !== kind || !chartEligible(m, Boolean(state.settings.demoWorkspace)) || !inRange(m.recordedAt, range)) continue;
+    const n = Number(m.value);
+    if (!Number.isFinite(n)) continue;
+    rows.push({
+      date: m.recordedAt.slice(0, 10),
+      label: m.recordedAt.slice(0, 10),
+      value: n,
+      unit: m.unit,
       id: m.id,
       recordedAt: m.recordedAt,
     });
@@ -117,7 +138,7 @@ export function latestPerSundayWeek(points: ChartPoint[]): ChartPoint[] {
 }
 
 export function glucoseUnitsInRange(state: AppState, memberId: string, range: ChartRange): string[] {
-  return [...new Set(measurementsFor(state, memberId).filter((m) => m.kind === "blood_sugar" && chartEligible(m) && inRange(m.recordedAt, range)).map((m) => m.unit))];
+  return [...new Set(measurementsFor(state, memberId).filter((m) => m.kind === "blood_sugar" && chartEligible(m, Boolean(state.settings.demoWorkspace)) && inRange(m.recordedAt, range)).map((m) => m.unit))];
 }
 
 export function vaccinationStatus(v: Vaccination, today: DateKey = calendarToday()): VaccinationStatus {

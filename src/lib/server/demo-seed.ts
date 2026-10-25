@@ -159,7 +159,7 @@ export async function seedDemoFamily(supabase: SupabaseClient, userId: string, o
         status: "active",
         created_by: userId,
         is_sample: true,
-        medicine_id: medicineIds[r.medicine] ?? null,
+        medicine_id: r.medicine ? medicineIds[r.medicine] ?? null : null,
         reminder_role: r.role,
         seed_key: r.seedKey,
       },

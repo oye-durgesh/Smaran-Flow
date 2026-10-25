@@ -30,10 +30,10 @@ export function toNumber(token: string): number | null {
 const NUM = "(\\d{1,2}|ek|one|do|two|teen|three|chaar|char|four|paanch|panch|five|chhe|six|saat|seven|aath|eight|nau|nine|das|ten|gyarah|eleven|barah|baarah|twelve)";
 
 const RELATION_ALIASES: Record<Relationship, string[]> = {
-  Mother: ["mummy", "mumma", "mummyji", "mom", "mommy", "maa", "mother", "amma", "mataji", "ammi"],
+  Mother: ["mummy", "mumma", "mummyji", "mum", "mom", "mommy", "maa", "mother", "amma", "mataji", "ammi"],
   Father: ["papa", "papaji", "dad", "daddy", "father", "pitaji", "abba", "pappa"],
-  Grandmother: ["dadi", "nani", "grandma", "grandmother", "dadima", "nanima"],
-  Grandfather: ["dada", "nana", "grandpa", "grandfather", "dadaji", "nanaji"],
+  Grandmother: ["dadi", "dadiji", "nani", "grandma", "grandmother", "dadima", "nanima"],
+  Grandfather: ["dada", "dadaji", "nana", "grandpa", "grandfather", "nanaji"],
   Partner: ["wife", "husband", "partner", "patni", "pati"],
   Other: [],
 };

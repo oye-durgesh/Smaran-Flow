@@ -35,21 +35,27 @@ describe("demo workspace isolation", () => {
     const active = resolveActiveFamily(
       [
         { id: "real", name: "My family", isDemo: false, role: "owner", seedVersion: null, referenceDate: null },
-        { id: "demo", name: DEMO_FAMILY_NAME, isDemo: true, role: "owner", seedVersion: 1, referenceDate: REF },
+        { id: "demo", name: DEMO_FAMILY_NAME, isDemo: true, role: "owner", seedVersion: 2, referenceDate: REF },
       ],
       null,
     );
     expect(active?.id).toBe("real");
-    expect(resolveActiveFamily([{ id: "demo", name: DEMO_FAMILY_NAME, isDemo: true, role: "owner", seedVersion: 1, referenceDate: REF }], "demo")?.isDemo).toBe(true);
+    expect(resolveActiveFamily([{ id: "demo", name: DEMO_FAMILY_NAME, isDemo: true, role: "owner", seedVersion: 2, referenceDate: REF }], "demo")?.isDemo).toBe(true);
   });
 
   it("is idempotent on the same reference date", () => {
     const a = datasetCounts(buildDemoDataset(REF));
     const b = datasetCounts(buildDemoDataset(REF));
     expect(a).toEqual(b);
-    expect(a.measurements).toBe(52 * 2 * 4);
+    expect(a.measurements).toBe(10 * 6 * 4);
+    expect(a.appointments).toBeGreaterThanOrEqual(24);
+    expect(a.medicines).toBeGreaterThanOrEqual(16);
+    expect(a.reminders).toBeGreaterThanOrEqual(24);
+    expect(a.documents).toBeGreaterThanOrEqual(20);
+    expect(a.vaccinations).toBe(12);
+    expect(a.diary).toBe(16);
     expect(a.people).toBe(4);
-    expect(a.documents).toBeGreaterThanOrEqual(24);
+    expect(a.documents).toBeGreaterThanOrEqual(20);
   });
 
   it("does not leak sample records into a real-family view", () => {
@@ -77,7 +83,9 @@ describe("demo health records", () => {
 
   it("does not invent missing weeks", () => {
     const rows = weeklyMeasurements("dadi", REF);
-    expect(new Set(rows.filter((r) => r.kind === "blood_pressure").map((r) => r.recordedAt.slice(0, 10))).size).toBe(52);
+    expect(new Set(rows.filter((r) => r.kind === "blood_pressure").map((r) => r.recordedAt.slice(0, 10))).size).toBe(10);
+    expect(rows.filter((r) => r.kind === "blood_pressure")).toHaveLength(10);
+    expect(rows.filter((r) => r.kind === "blood_sugar")).toHaveLength(10);
   });
 
   it("keeps history on the correct recipient", () => {

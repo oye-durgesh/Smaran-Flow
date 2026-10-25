@@ -40,7 +40,10 @@ function medicineTitle(t: string): string | null {
   if (match) {
     const qualifier = match[1];
     if (TIME_QUALIFIERS[qualifier]) return `${TIME_QUALIFIERS[qualifier]} Medicine`;
-    if (!QUALIFIER_STOPWORDS.has(qualifier) && !/^\d+$/.test(qualifier)) return `${titleCase(qualifier)} Medicine`;
+    if (!QUALIFIER_STOPWORDS.has(qualifier) && !/^\d+$/.test(qualifier)) {
+      if (qualifier === "sugar") return "Sugar medicine";
+      return `${titleCase(qualifier)} Medicine`;
+    }
   }
   if (new RegExp(`\\b${MEDICINE}\\b`).test(t)) {
     for (const [word, label] of Object.entries(TIME_QUALIFIERS)) {
