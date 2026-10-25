@@ -14,6 +14,7 @@ export interface AuthorizedSnapshot {
   measurements: AppState["measurements"];
   documents: AppState["documents"];
   medicines: AppState["medicines"];
+  medicalHistory: AppState["medicalHistory"];
 }
 
 const EMPTY: AuthorizedSnapshot = {
@@ -25,6 +26,7 @@ const EMPTY: AuthorizedSnapshot = {
   measurements: [],
   documents: [],
   medicines: [],
+  medicalHistory: [],
 };
 
 export async function loadAuthorizedFamily(session: DeviceSession): Promise<AuthorizedSnapshot> {
@@ -48,6 +50,7 @@ export async function loadAuthorizedFamily(session: DeviceSession): Promise<Auth
       measurements: vault.measurements,
       documents: vault.documents,
       medicines: vault.medicines,
+      medicalHistory: vault.medicalHistory,
     };
   } catch (e) {
     if (e instanceof VaultError) throw e;

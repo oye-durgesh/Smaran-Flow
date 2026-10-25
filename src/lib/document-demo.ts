@@ -121,7 +121,8 @@ export const SAMPLE_VACCINES = [
 
 export function liveOrDemoSeries(live: ChartPoint[], demo: ChartPoint[]): { series: ChartPoint[]; sample: boolean } {
   if (live.length) return { series: live, sample: false };
-  return { series: demo, sample: true };
+  if (demo.length) return { series: demo, sample: true };
+  return { series: [], sample: false };
 }
 
 export function documentsDashboardLayout() {

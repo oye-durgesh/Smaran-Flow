@@ -1,5 +1,14 @@
 export type PersistenceMode = "supabase" | "device-local";
 
+export interface SessionWorkspace {
+  id: string;
+  name: string;
+  isDemo: boolean;
+  role: string;
+  seedVersion: number | null;
+  referenceDate: string | null;
+}
+
 export interface SessionPayload {
   mode: PersistenceMode;
   userId: string | null;
@@ -11,6 +20,10 @@ export interface SessionPayload {
   persistence: PersistenceMode;
   cloud: boolean;
   message: string;
+  isDemo?: boolean;
+  workspaces?: SessionWorkspace[];
+  demoSeedVersion?: number | null;
+  demoReferenceDate?: string | null;
 }
 
 export function isUuid(id: string | undefined): boolean {
@@ -127,6 +140,13 @@ export async function createCloudHealthRecord(input: Record<string, unknown>) {
   const res = await fetch("/api/health-record", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
   const data = (await res.json()) as { error?: string; id?: string };
   if (!res.ok) throw new Error(data.error || "Health record save failed.");
+  return data;
+}
+
+export async function demoWorkspaceAction(body: { action: "load" | "reset" | "switch" | "test-reminder"; familyId?: string; confirm?: boolean; minutesAhead?: number }) {
+  const res = await fetch("/api/demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = (await res.json()) as { error?: string; ok?: boolean; familyId?: string; reused?: boolean; summary?: unknown; dueLocal?: string };
+  if (!res.ok) throw new Error(data.error || "Demo workspace update failed.");
   return data;
 }
 

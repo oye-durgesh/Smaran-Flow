@@ -104,6 +104,22 @@ export function answerQuestion(question: string, state: AppState, filterMemberId
   }
 
   const specificDoc = docTerm && docTerm.label !== "document";
+  if (/\b(refill|dawai khatam|stock)\b/.test(t)) {
+    const rows = state.reminders.filter((r) => r.reminderRole === "refill" && (!person || r.familyMemberId === person.id));
+    if (!rows.length) return { found: false, refs: [], text: `I couldn't find a refill reminder${person ? ` for ${person.name}` : ""} in the active workspace.` };
+    const next = rows[0];
+    return { found: true, refs: [{ kind: "reminder", id: next.id }], text: `${possessive(person)} refill reminder “${next.title}” is scheduled${next.date ? ` on ${formatShort(next.date)}` : ""} at ${formatTime(next.time)}.` };
+  }
+
+  if (/\b(last|previous|pehle|thi)\b/.test(t) && /\b(appointment|visit|doctor)\b/.test(t) && person) {
+    const past = state.appointments
+      .filter((a) => a.familyMemberId === person.id && a.status === "completed")
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+    if (!past.length) return { found: false, refs: [], text: `I couldn't find a past appointment for ${person.name}.` };
+    const last = past[0];
+    return { found: true, refs: [{ kind: "appointment", id: last.id }], text: `${possessive(person)} last appointment was with ${last.doctor} on ${formatLong(last.date)} at ${formatTime(last.time)}.` };
+  }
+
   if (!specificDoc && /\b(appointment|appt|checkup|check-up|visit|doctor|dr)\b/.test(t)) {
     const doctor = findDoctor(question);
     const list = upcomingAppointments(state, person?.id).filter((a) => !doctor || a.doctor === doctor);

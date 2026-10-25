@@ -23,11 +23,13 @@ export async function requireAuthedFamily(): Promise<{ session: DeviceSession; s
   return { session: { ...session, familyId }, supabase, familyId, userId: session.userId };
 }
 
-function mapRecipient(row: { id: string; display_name: string; relationship: string | null; created_at: string }): FamilyMember {
+function mapRecipient(row: { id: string; display_name: string; relationship: string | null; created_at: string; age?: number | null; color_key?: string | null }): FamilyMember {
   return {
     id: row.id,
     name: row.display_name,
     relationship: (row.relationship as FamilyMember["relationship"]) || "Other",
+    age: row.age ?? undefined,
+    colorKey: row.color_key ?? undefined,
     avatar: { initials: row.display_name.charAt(0).toUpperCase(), tone: "peach" },
     createdAt: row.created_at.slice(0, 16),
   };
@@ -197,14 +199,15 @@ export async function loadVault(supabase: SupabaseClient, familyId: string): Pro
         id: String(r.id),
         familyMemberId: String(r.recipient_id || ""),
         name: String(r.name || "Document"),
-        type: "other",
-        date: String(r.created_at).slice(0, 10),
-        file: { name: String(r.name || "file"), size: Number(r.byte_size || 0), mime: String(r.mime || "application/octet-stream"), storage: "local" },
+        type: String(r.category || "").includes("prescription") ? "prescription" : String(r.category || "").includes("imaging") ? "scan" : "report",
+        date: String(r.report_date || r.created_at).slice(0, 10),
+        file: { name: String(r.name || "file"), size: Number(r.byte_size || 0), mime: String(r.mime || "application/octet-stream"), storage: r.is_sample || r.storage_path === "demo-preview" ? "sample" : "local" },
         metadata: {
           source: r.is_sample ? "sample" : "upload",
-          detectedFrom: r.extracted_text ? "description" : "manual",
-          description: r.extracted_text ? String(r.extracted_text) : undefined,
-          extractStatus: r.extract_status === "confirmed" || r.extract_status === "needs_review" || r.extract_status === "failed" || r.extract_status === "processing" || r.extract_status === "queued" ? r.extract_status : r.extracted_text ? "needs_review" : "not_extracted",
+          detectedFrom: r.is_sample ? "sample" : r.extracted_text ? "description" : "manual",
+          description: r.preview_text ? String(r.preview_text) : r.extracted_text ? String(r.extracted_text) : undefined,
+          extractStatus: r.is_sample ? "not_extracted" : r.extract_status === "confirmed" || r.extract_status === "needs_review" || r.extract_status === "failed" || r.extract_status === "processing" || r.extract_status === "queued" ? r.extract_status : r.extracted_text ? "needs_review" : "not_extracted",
+          extractProvider: r.is_sample ? "demo" : "none",
         },
         addedAt: String(r.created_at).slice(0, 16),
       }),

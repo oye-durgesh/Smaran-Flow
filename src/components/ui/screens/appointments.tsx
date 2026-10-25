@@ -62,7 +62,7 @@ export function AppointmentsScreen() {
   const { state, session, update, refreshVault } = useStore();
   const liveToday = todayOf(state);
   const liveExists = hasLiveAppointments(state.appointments);
-  const [samplePreview, setSamplePreview] = useState(!liveExists);
+  const [samplePreview, setSamplePreview] = useState(false);
   const today = samplePreview ? SAMPLE_REFERENCE_DATE : liveToday;
   const [tab, setTab] = useState<Tab>("calendar");
   const [month, setMonth] = useState(() => yearMonthOf(today));

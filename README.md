@@ -23,6 +23,10 @@ npm run dev -- -p 43117
 
 Open http://localhost:43117
 
+### SMARAN Demo Family (Supabase)
+
+Apply `supabase/migrations/0008_demo_workspace.sql` after 0001–0007. Sign in → Settings → **Load demo family data** (confirmation) → **Open SMARAN Demo Family**. This creates a second family workspace only. It does not write into your real family. Reset is a separate confirmed action. Claude/OCR are not required.
+
 ```bash
 npm run lint
 npx tsc --noEmit

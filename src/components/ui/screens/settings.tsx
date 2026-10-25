@@ -7,7 +7,8 @@ import { Bell, ChevronRight, Download, Eraser, IdCard, Languages, Lock, RotateCc
 import { cn } from "@/lib/utils";
 import { readDeviceState, useStore } from "@/lib/store/store";
 import { addMember, updateMember, updateSettings } from "@/lib/store/actions";
-import { authAction, fetchSchedulerStatus, migrateDeviceRecords } from "@/lib/store/cloud";
+import { authAction, demoWorkspaceAction, fetchSchedulerStatus, migrateDeviceRecords } from "@/lib/store/cloud";
+import { DEMO_LOAD_CONFIRM, DEMO_RESET_CONFIRM } from "@/lib/demo/workspace";
 import type { FamilyMember, Relationship, ReminderLanguage, Settings } from "@/lib/types";
 import { FAMILY_TIMEZONE } from "@/lib/timezone";
 import { allColorChoices, familySwatch } from "@/lib/family-color";
@@ -52,6 +53,7 @@ export function SettingsScreen() {
   const [memberOpen, setMemberOpen] = useState(false);
   const [editing, setEditing] = useState<FamilyMember | undefined>();
   const [samplePreview, setSamplePreview] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
   const [prefError, setPrefError] = useState<string | null>(null);
   const s = state.settings;
   const counts = settingsRecordCounts(state);
@@ -298,6 +300,85 @@ export function SettingsScreen() {
               <p className="mt-2 text-[12.5px] text-[#9A8173]">Supabase keys are not configured. This device stays local.</p>
             )}
             <p className="mt-2 text-[12.5px] text-[#9A8173]">{familyInviteAvailable() ? "Invite is available." : "Family invitations are not implemented."}</p>
+          </Card>
+
+          <Card title="Workspace" icon={<Users className="size-4" />}>
+            <p className="text-[12.5px] text-[#7A5346]">
+              {session.authenticated
+                ? session.isDemo
+                  ? "Active: SMARAN Demo Family. Records are fictional."
+                  : "Active: your real family. Demo fixtures are not mixed in."
+                : "Sign in to create a separate Supabase demo family. Local sample preview stays on this device."}
+            </p>
+            {session.authenticated && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(session.workspaces ?? []).filter((w) => !w.isDemo).map((w) => (
+                  <Button key={w.id} size="sm" variant={session.familyId === w.id ? "default" : "outline"} disabled={demoBusy} onClick={async () => {
+                    setDemoBusy(true);
+                    try {
+                      await demoWorkspaceAction({ action: "switch", familyId: w.id });
+                      await refreshSession();
+                      toast.success("Using your real family.");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Could not switch workspace.");
+                    } finally {
+                      setDemoBusy(false);
+                    }
+                  }}>Use my real family</Button>
+                ))}
+                {(session.workspaces ?? []).filter((w) => w.isDemo).map((w) => (
+                  <Button key={w.id} size="sm" variant={session.familyId === w.id ? "default" : "outline"} disabled={demoBusy} onClick={async () => {
+                    setDemoBusy(true);
+                    try {
+                      await demoWorkspaceAction({ action: "switch", familyId: w.id });
+                      await refreshSession();
+                      toast.success("Opened SMARAN Demo Family.");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Could not open demo family.");
+                    } finally {
+                      setDemoBusy(false);
+                    }
+                  }}>Open SMARAN Demo Family</Button>
+                ))}
+                <Button size="sm" variant="outline" disabled={demoBusy} onClick={async () => {
+                  if (!window.confirm(DEMO_LOAD_CONFIRM)) return;
+                  setDemoBusy(true);
+                  try {
+                    const result = await demoWorkspaceAction({ action: "load", confirm: true });
+                    await refreshSession();
+                    toast.success(result.reused ? "Demo family already loaded — no duplicates added." : "Demo family data loaded.");
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Could not load demo family. Apply migration 0008 if columns are missing.");
+                  } finally {
+                    setDemoBusy(false);
+                  }
+                }}>Load demo family data</Button>
+                <Button size="sm" variant="outline" disabled={demoBusy || !session.workspaces?.some((w) => w.isDemo)} onClick={async () => {
+                  if (!window.confirm(DEMO_RESET_CONFIRM)) return;
+                  setDemoBusy(true);
+                  try {
+                    await demoWorkspaceAction({ action: "reset", confirm: true });
+                    await refreshSession();
+                    toast.success("Demo dataset reset. Real family unchanged.");
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Reset failed.");
+                  } finally {
+                    setDemoBusy(false);
+                  }
+                }}>Reset demo dataset</Button>
+                <Button size="sm" variant="outline" disabled={demoBusy || !session.isDemo} onClick={async () => {
+                  setDemoBusy(true);
+                  try {
+                    const result = await demoWorkspaceAction({ action: "test-reminder", minutesAhead: 2 });
+                    toast.success(`Demo test reminder saved for ${result.dueLocal}. Same reminder tables — not a fake toast.`);
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Test reminder failed.");
+                  } finally {
+                    setDemoBusy(false);
+                  }
+                }}>Schedule 2-minute demo test reminder</Button>
+              </div>
+            )}
           </Card>
 
           <Card title="Data & demo" icon={<Lock className="size-4" />}>

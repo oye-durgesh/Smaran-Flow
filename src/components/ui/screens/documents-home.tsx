@@ -20,11 +20,7 @@ import { pastVisits, upcomingVisits } from "@/lib/appointment-model";
 import { answerQuestion } from "@/lib/nlu";
 import { DASHBOARD_DOC_ROWS, libraryCounts } from "@/lib/document-library";
 import {
-  SAMPLE_BP_SERIES,
   SAMPLE_DEMO_BADGE,
-  SAMPLE_GLUCOSE_SERIES,
-  SAMPLE_HISTORY,
-  SAMPLE_VACCINES,
   advanceDemo,
   documentsDashboardLayout,
   liveOrDemoSeries,
@@ -65,10 +61,10 @@ export function DocumentsHome() {
   const lastVisit = pastVisits(state, selected?.id)[0];
   const liveBp = selected ? bpSeries(state, selected.id, range) : [];
   const liveGlu = selected ? glucoseSeries(state, selected.id, range) : [];
-  const demoBp = demo?.kind === "bp" && demo.step === "confirmed" && demo.preview.length ? demo.preview : SAMPLE_BP_SERIES;
-  const demoGlu = demo?.kind === "glucose" && demo.step === "confirmed" && demo.preview.length ? demo.preview : SAMPLE_GLUCOSE_SERIES;
-  const bpView = liveOrDemoSeries(liveBp, demoBp);
-  const gluView = liveOrDemoSeries(liveGlu, demoGlu);
+  const demoBp = demo?.kind === "bp" && demo.step === "confirmed" && demo.preview.length ? demo.preview : [];
+  const demoGlu = demo?.kind === "glucose" && demo.step === "confirmed" && demo.preview.length ? demo.preview : [];
+  const bpView = liveBp.length ? { series: liveBp, sample: liveBp.every((p) => p.label?.includes("Sample")) } : liveOrDemoSeries([], demoBp);
+  const gluView = liveGlu.length ? { series: liveGlu, sample: false } : liveOrDemoSeries([], demoGlu);
   const latestBp = selected ? latestDisplay(latestMeasurement(state, selected.id, "blood_pressure")) : null;
   const latestGlu = selected ? latestDisplay(latestMeasurement(state, selected.id, "blood_sugar")) : null;
   const docsForRecent = selected ? state.documents.filter((d) => d.familyMemberId === selected.id) : state.documents;
@@ -194,11 +190,7 @@ export function DocumentsHome() {
           <Link href={selected ? `/health-card/${selected.id}` : "/family"} className="text-[13px] font-bold text-peach-deep">View all</Link>
         </div>
         {history.length === 0 ? (
-          <>
-            <p className="text-[14px] text-ink-muted">No medical history recorded yet.</p>
-            <p className="mt-2 text-[12.5px] font-bold text-waiting">{SAMPLE_DEMO_BADGE}</p>
-            <ul className="mt-2 space-y-1 text-[13.5px]">{SAMPLE_HISTORY.map((h) => <li key={h.name}>{h.category}: {h.name}</li>)}</ul>
-          </>
+          <p className="text-[14px] text-ink-muted">No medical history recorded yet.</p>
         ) : (
           <ul className="space-y-2">{history.slice(0, 5).map((h) => <li key={h.id}><span className="font-bold">{h.name}</span> <span className="text-ink-muted">· {h.category}{h.source === "sample" ? " · sample" : ""}</span></li>)}</ul>
         )}
@@ -231,11 +223,7 @@ export function DocumentsHome() {
       <Surface className="p-4">
         <h3 className="mb-3 text-[16px] font-extrabold">Vaccination schedule</h3>
         {vaccines.length === 0 ? (
-          <>
-            <p className="text-[14px] text-ink-muted">No vaccinations recorded yet.</p>
-            <p className="mt-2 text-[12.5px] font-bold text-waiting">{SAMPLE_DEMO_BADGE}</p>
-            <ul className="mt-2 space-y-1 text-[13.5px]">{SAMPLE_VACCINES.map((v) => <li key={v.name}>{v.name} · {v.receivedDate} · {v.status}</li>)}</ul>
-          </>
+          <p className="text-[14px] text-ink-muted">No vaccinations recorded yet.</p>
         ) : (
           <ul className="space-y-2">{vaccines.map((v) => <li key={v.id}><span className="font-bold">{v.name}</span> <span className="text-ink-muted">· {v.receivedDate || "Not recorded"} · {vaccinationStatus(v)}</span></li>)}</ul>
         )}

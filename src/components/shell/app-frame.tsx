@@ -57,16 +57,18 @@ export function AppFrame({ children }: { children: ReactNode }) {
               role="status"
               className={cn(
                 "border-b px-4 py-2 text-[12.5px] font-semibold",
-                session.authenticated ? "border-confirmed/30 bg-confirmed-bg text-confirmed" : "border-line bg-sand/50 text-ink",
+                session.isDemo ? "border-[#E8C4B0] bg-[#FFF1E8] text-[#8F4538]" : session.authenticated ? "border-confirmed/30 bg-confirmed-bg text-confirmed" : "border-line bg-sand/50 text-ink",
               )}
             >
               {vaultError
                 ? `Vault error: ${vaultError}`
-                : session.authenticated
-                  ? "Signed-in family vault (Supabase). Browser sample copies were not deleted."
-                  : session.configured
-                    ? "Supabase is configured. You are not signed in — records on this device are not the cloud."
-                    : "Device-local mode. Nothing is cloud-synced."}
+                : session.isDemo
+                  ? "DEMO WORKSPACE — All family health records shown here are fictional."
+                  : session.authenticated
+                    ? "Signed-in family vault (Supabase). Browser sample copies were not deleted."
+                    : session.configured
+                      ? "Supabase is configured. You are not signed in — records on this device are not the cloud."
+                      : "Device-local mode. Nothing is cloud-synced."}
             </p>
           )}
           {children}

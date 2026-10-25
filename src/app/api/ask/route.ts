@@ -9,7 +9,7 @@ import type { AppState } from "@/lib/types";
 
 export const maxDuration = 30;
 
-function snapshotState(evidence: NonNullable<ReturnType<typeof askBodySchema.parse>["evidence"]>): AppState {
+function snapshotState(evidence: NonNullable<ReturnType<typeof askBodySchema.parse>["evidence"]> & { medicines?: AppState["medicines"]; medicalHistory?: AppState["medicalHistory"] }): AppState {
   return {
     version: 5,
     onboarded: true,
@@ -67,10 +67,10 @@ function snapshotState(evidence: NonNullable<ReturnType<typeof askBodySchema.par
       glucoseContext: (m as { glucoseContext?: "fasting" | "post_meal" | "random" }).glucoseContext,
       source: "manual" as const,
     })),
-    medicines: [],
+    medicines: evidence.medicines ?? [],
     refills: [],
     doctors: [],
-    medicalHistory: [],
+    medicalHistory: evidence.medicalHistory ?? [],
     vaccinations: [],
     diary: [],
     memory: [],
@@ -111,6 +111,8 @@ export async function POST(req: Request) {
         reminders: authorized.reminders,
         measurements: authorized.measurements,
         documents: authorized.documents,
+        medicines: authorized.medicines,
+        medicalHistory: authorized.medicalHistory,
       }
     : session.mode === "device-local"
       ? parsed.data.evidence

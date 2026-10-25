@@ -2,6 +2,66 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
+## Isolated Supabase demo family (this pass)
+
+### What was implemented
+
+A separate **SMARAN Demo Family** workspace, seeded only after a signed-in user confirms **Load demo family data** in Settings. Real-family rows are never written by the seeder. Session `profiles.active_family_id` (verified membership) chooses the vault for Today, Medicines, Appointments, Documents, Health Cards, Ask, and inbox.
+
+Seed contents (deterministic, relative to the seed-day in `Asia/Kolkata`):
+- 4 recipients (Mummy 58, Papa 62, Dadi 78, Dada Ji 82) with stable colours
+- 5 fictional doctors
+- 10 medicine courses (active / paused / stopped / completed)
+- Dose + refill reminders
+- Upcoming, completed, and cancelled appointments
+- ≥6 sample document previews per person (`storage_path = demo-preview`, not a private file)
+- Medical history, vaccinations, diary, memory events
+- 52 weekly BP + 52 weekly glucose readings per person (416 measurements)
+
+### How to activate
+
+1. Apply `supabase/migrations/0008_demo_workspace.sql` in the Supabase SQL editor (do not rewrite 0001–0007).
+2. Sign in.
+3. Settings → Workspace → **Load demo family data** (confirmation required).
+4. **Open SMARAN Demo Family**. Banner: `DEMO WORKSPACE — All family health records shown here are fictional.`
+5. **Use my real family** returns to the non-demo membership.
+6. **Reset demo dataset** deletes only that demo family’s child rows (confirmation required).
+7. **Schedule 2-minute demo test reminder** writes a real `reminders` row in the demo family (`seed_key = rem-demo-test`).
+
+Idempotency: `families.demo_seed_version` + unique `(family_id, seed_key)`. Repeat load reuses.
+
+Auth: `/api/demo` requires a signed-in user. RPCs `ensure_demo_family`, `set_active_family`, `reset_demo_family_records` are `security definer` and check `auth.uid()`.
+
+### Isolation / duplicate fix
+
+- Appointments no longer auto-open the in-memory sample preview when the live vault is empty.
+- Document charts no longer fall back to hardcoded BP/glucose series when live data is empty.
+- Documents dashboard no longer injects SAMPLE_HISTORY / SAMPLE_VACCINES into an empty real family.
+- Ask uses `loadAuthorizedFamily` for the **active** workspace (includes medicines + history).
+
+### Reminders
+
+Existing in-app engine unchanged. `vercel.json` still has `* * * * *` → `/api/cron/reminders`. **Hosted cron is not verified** against a live Vercel project in this session. Browser timer is not the source of truth.
+
+### Claude / OCR
+
+Still deferred. Demo documents are labelled sample extraction fixtures. Real uploads keep honest extract status.
+
+### Commands this pass
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **215 passed**, **4 skipped** |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | includes `/api/demo` |
+
+Seeding against the remote Supabase project was **not** executed here (migration 0008 not applied remotely in this session).
+
+---
+
+
 ## Wispr Flow composer width collapse (this pass)
 
 ### Root cause

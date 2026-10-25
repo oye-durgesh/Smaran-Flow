@@ -34,6 +34,14 @@ export const FAMILY_SWATCHES = {
     border: "#E2BEB2",
     text: "#78483D",
   },
+  dada: {
+    key: "dada",
+    label: "Dada Ji",
+    primary: "#A67C52",
+    background: "#F3E6D4",
+    border: "#DCC4A4",
+    text: "#6E4E2E",
+  },
 } as const satisfies Record<string, FamilySwatch>;
 
 /** Extra warm identities when the family has more people than the named set. */
@@ -41,6 +49,7 @@ export const COLOR_PALETTE: FamilySwatch[] = [
   { ...FAMILY_SWATCHES.mummy },
   { ...FAMILY_SWATCHES.papa },
   { ...FAMILY_SWATCHES.dadi },
+  { ...FAMILY_SWATCHES.dada },
 ];
 
 export const FAMILY_FALLBACK_SWATCHES: FamilySwatch[] = [
@@ -75,12 +84,19 @@ const NAME_ALIAS: Record<string, keyof typeof FAMILY_SWATCHES> = {
   grandma: "dadi",
   nani: "dadi",
   दादी: "dadi",
+  dada: "dada",
+  "dada ji": "dada",
+  dadaji: "dada",
+  grandfather: "dada",
+  grandpa: "dada",
+  दादा: "dada",
 };
 
 const RELATIONSHIP_ALIAS: Partial<Record<Relationship, keyof typeof FAMILY_SWATCHES>> = {
   Mother: "mummy",
   Father: "papa",
   Grandmother: "dadi",
+  Grandfather: "dada",
 };
 
 function hashId(id: string): number {
