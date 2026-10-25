@@ -46,3 +46,7 @@ export function serviceRoleConfigured(): boolean {
 export function claudeConfigured(): boolean {
   return Boolean(anthropicApiKey());
 }
+
+export function cronSecretConfigured(): boolean {
+  return Boolean(read("CRON_SECRET"));
+}

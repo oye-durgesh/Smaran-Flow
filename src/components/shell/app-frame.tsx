@@ -10,6 +10,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { SmaranLogo } from "@/components/smaran/brand";
 import { BottomNavigation, DesktopSidebar, MobileMenuButton, MobileNavDrawer } from "./navigation";
 import { IncomingReminderBanner } from "./incoming-reminder";
+import { NotificationBell } from "./notification-center";
 
 const CHROMELESS = (p: string) => p === "/" || p.startsWith("/welcome") || p.startsWith("/onboarding");
 const FOCUSED = (p: string) => p === "/new" || /^\/reminders\/[^/]+\/chat/.test(p);
@@ -39,9 +40,12 @@ export function AppFrame({ children }: { children: ReactNode }) {
           <Link href="/today">
             <SmaranLogo size="sm" />
           </Link>
-          <Link href="/settings" aria-label="About Me" className="flex size-11 items-center justify-center rounded-full bg-sand text-[14px] font-extrabold text-brown">
-            {state.user.name.charAt(0)}
-          </Link>
+          <div className="flex items-center gap-0.5">
+            <NotificationBell />
+            <Link href="/settings" aria-label="About Me" className="flex size-11 items-center justify-center rounded-full bg-sand text-[14px] font-extrabold text-brown">
+              {state.user.name.charAt(0)}
+            </Link>
+          </div>
         </header>
       )}
       <MobileNavDrawer open={drawer} onClose={() => setDrawer(false)} />

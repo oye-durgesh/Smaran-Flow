@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       .select("id, created_at")
       .single();
     if (error || !data) return NextResponse.json({ error: error?.message || "Create failed." }, { status: 500 });
-    return NextResponse.json({ ok: true, id: data.id, created_at: data.created_at });
+    return NextResponse.json({ ok: true, id: data.id, created_at: data.created_at, scheduled: true });
   } catch (e) {
     if (e instanceof VaultError) return NextResponse.json({ error: e.message }, { status: e.status });
     return NextResponse.json({ error: "Reminder write failed." }, { status: 500 });

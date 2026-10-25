@@ -8,6 +8,7 @@ import {
   SETTINGS_SUBTITLE,
   applySettings,
   familyInviteAvailable,
+  inAppNotificationPolicy,
   notificationPermissionLabel,
   sampleSettingsIsolation,
   sessionStatusLabel,
@@ -50,6 +51,13 @@ describe("settings dashboard", () => {
     expect(notificationPermissionLabel("unsupported")).toMatch(/does not support/);
     expect(speechOutputAvailable()).toBe(false);
     expect(familyInviteAvailable()).toBe(false);
+    expect(inAppNotificationPolicy()).toEqual({
+      bannersOptional: true,
+      persistWhenBannersOff: true,
+      soundImplemented: false,
+      browserPushRequested: false,
+      outboundChannels: [],
+    });
   });
 
   it("persists language and rejects an unsupported value without claiming success", () => {

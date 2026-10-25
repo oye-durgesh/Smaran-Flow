@@ -18,7 +18,7 @@ import { formatTime } from "./dates";
  */
 export const DEMO_TODAY = "2026-10-23";
 export const DEMO_NOW = `${DEMO_TODAY}T10:30`;
-export const STATE_VERSION = 7;
+export const STATE_VERSION = 8;
 
 const family: FamilyMember[] = [
   {
@@ -405,6 +405,7 @@ export function createDemoState(): AppState {
     diary: [],
     memory: seedMemory(),
     conversations: [],
+    inAppNotifications: [],
     settings: {
       language: "en",
       reminderLanguage: "hinglish",
@@ -439,5 +440,6 @@ export function createEmptyState(): AppState {
     diary: [],
     memory: [],
     conversations: [],
+    inAppNotifications: [],
   };
 }

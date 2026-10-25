@@ -33,6 +33,7 @@ function migrate(parsed: AppState): AppState {
   const medicalHistory = Array.isArray(parsed.medicalHistory) ? parsed.medicalHistory : [];
   const vaccinations = Array.isArray(parsed.vaccinations) ? parsed.vaccinations : [];
   const diary = Array.isArray(parsed.diary) ? parsed.diary : [];
+  const inAppNotifications = Array.isArray(parsed.inAppNotifications) ? parsed.inAppNotifications : [];
   const settings = withSettingsDefaults(parsed);
   if (parsed.version === STATE_VERSION && Array.isArray(parsed.measurements)) {
     return {
@@ -45,6 +46,7 @@ function migrate(parsed: AppState): AppState {
       medicalHistory,
       vaccinations,
       diary,
+      inAppNotifications,
       reminders: parsed.reminders.map((r) => ({ ...r, kind: r.kind === "pickup" || r.kind === "check" || r.kind === "medicine" ? r.kind : r.kind === "other" ? "other" : "other" })),
       appointments: parsed.appointments.map((a) => ({ ...a, status: a.status === "completed" || a.status === "cancelled" ? a.status : "upcoming" })),
     };
@@ -60,6 +62,7 @@ function migrate(parsed: AppState): AppState {
     medicalHistory,
     vaccinations,
     diary,
+    inAppNotifications,
     settings,
     family: applyMemberColors(Array.isArray(parsed.family) ? parsed.family : [], settings.memberColors),
   };

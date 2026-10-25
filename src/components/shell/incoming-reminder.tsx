@@ -31,7 +31,7 @@ export function IncomingReminderBanner({}: { placement?: "phone" | "desktop" }) 
           <SmaranMark size={38} className="rounded-[12px]" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2 text-[11.5px] font-bold text-ink-muted">
-              <span>SMARAN · on {member?.name}&apos;s phone</span>
+              <span>SMARAN · in-app for {member?.name}</span>
               <span>{formatTime(reminder.time)}</span>
             </div>
             <p className="mt-0.5 text-[15px] leading-snug font-bold text-ink-strong">{openingMessage(member?.name ?? "", reminder.title, reminder.kind)}</p>

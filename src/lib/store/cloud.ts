@@ -79,6 +79,25 @@ export async function createCloudAppointment(input: { recipientId: string; docto
   return data;
 }
 
+export async function fetchReminderInbox(): Promise<{ ok: boolean; items: unknown[]; error?: string }> {
+  const res = await fetch("/api/reminders/inbox", { cache: "no-store" });
+  const data = (await res.json()) as { items?: unknown[]; error?: string };
+  if (!res.ok) return { ok: false, items: [], error: data.error };
+  return { ok: true, items: data.items ?? [] };
+}
+
+export async function patchReminderInbox(id: string, action: "read" | "acknowledge" | "snooze" | "skip" | "complete" | "taken") {
+  const res = await fetch("/api/reminders/inbox", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action }) });
+  const data = (await res.json()) as { error?: string; ok?: boolean };
+  if (!res.ok) throw new Error(data.error || "Inbox update failed.");
+  return data;
+}
+
+export async function fetchSchedulerStatus(): Promise<{ configured: boolean; message: string; cronSecretConfigured: boolean; serviceRoleConfigured: boolean; hostingCronVerified: boolean }> {
+  const res = await fetch("/api/reminders/status", { cache: "no-store" });
+  return (await res.json()) as { configured: boolean; message: string; cronSecretConfigured: boolean; serviceRoleConfigured: boolean; hostingCronVerified: boolean };
+}
+
 export async function createCloudReminder(input: { recipientId: string; title: string; kind: string; time: string; date?: string; recurrence: string; medicineName?: string }) {
   const res = await fetch("/api/reminders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
   const data = (await res.json()) as { error?: string; id?: string };

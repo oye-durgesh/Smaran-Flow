@@ -17,6 +17,7 @@ import { describeReminder, memberById, todayOf } from "../selectors";
 import { openingMessage, planReply, type ReplyPlan } from "../nlu/chat";
 import type { ReminderDraft } from "../nlu/reminder";
 import type { AppointmentDraft } from "../nlu/appointment";
+import { skipOccurrence, snoozeNotification } from "../in-app-reminders";
 
 function recordedNow(): string {
   return zonedNow().timestamp;
@@ -327,14 +328,27 @@ export function setAppointmentStatus(state: AppState, id: string, status: Appoin
 export function snoozeReminder(state: AppState, reminderId: string): AppState {
   const r = state.reminders.find((x) => x.id === reminderId);
   if (!r) return state;
-  return withEvent(state, { familyMemberId: r.familyMemberId, type: "reminder_snoozed", title: `${r.title} snoozed`, description: "Snoozed 10 minutes (in-app only — not a delivered notification).", source: "manual", refId: reminderId });
+  const store = { reminders: state.reminders, occurrences: [], notifications: [...(state.inAppNotifications ?? [])], attempts: [] };
+  const due = store.notifications.find((n) => n.reminderId === reminderId && (n.status === "due" || n.status === "missed"));
+  if (due) snoozeNotification(store, due.id, "local", new Date());
+  return withEvent(
+    { ...state, inAppNotifications: store.notifications },
+    { familyMemberId: r.familyMemberId, type: "reminder_snoozed", title: `${r.title} snoozed`, description: "Snoozed 10 minutes. Original scheduled time is unchanged. Not marked taken.", source: "manual", refId: reminderId },
+  );
 }
 
 export function skipReminderOccurrence(state: AppState, reminderId: string): AppState {
   const r = state.reminders.find((x) => x.id === reminderId);
   if (!r) return state;
-  return withEvent(state, { familyMemberId: r.familyMemberId, type: "reminder_flagged", title: `${r.title} skipped`, description: "This occurrence was skipped. Not marked taken.", source: "manual", refId: reminderId });
+  const store = { reminders: state.reminders, occurrences: [], notifications: [...(state.inAppNotifications ?? [])], attempts: [] };
+  const due = store.notifications.find((n) => n.reminderId === reminderId && (n.status === "due" || n.status === "missed"));
+  if (due) skipOccurrence(store, due.id, "local", new Date());
+  return withEvent(
+    { ...state, inAppNotifications: store.notifications },
+    { familyMemberId: r.familyMemberId, type: "reminder_flagged", title: `${r.title} skipped`, description: "This occurrence was skipped. Future recurring times stay scheduled. Not marked taken.", source: "manual", refId: reminderId },
+  );
 }
+
 
 export function toggleAppointmentReminder(state: AppState, appointmentId: string, reminderId: string): AppState {
   return {

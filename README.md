@@ -9,7 +9,7 @@ Family health vault: dictate with **Wispr Flow** into the focused text box, pres
 | Wispr Flow | System dictation into the focused textarea. No Wispr API key. |
 | Claude | Optional server-side interpretation (`ANTHROPIC_API_KEY`). Returns an untrusted proposal. |
 | SMARAN | Validates, asks one clarification when unsure, persists only after Confirm. |
-| Scheduler | `GET /api/cron/reminders` is **blocked** until Supabase + VAPID are configured. Saving a reminder is not delivery. |
+| Scheduler | `GET /api/cron/reminders` writes **in-app** notification rows when `SUPABASE_SERVICE_ROLE_KEY` is set. Web-push stays blocked without VAPID. Saving a reminder is not a phone notification. Hosted minute cron is **not verified** until you confirm the job in the Vercel dashboard. |
 
 ## Run locally
 
@@ -50,7 +50,15 @@ CRON_SECRET=
 
 Without Anthropic, `/api/interpret` uses the deterministic parser and sets `claudeUsed: false`. Without `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, the app stays in **device-local mode** (`localStorage` + IndexedDB) and labels that clearly. It does not pretend browser data is cloud-synced.
 
-Apply `supabase/migrations/0001_smaran_family.sql` through `0006_health_record.sql` in a Supabase project, then sign in under Settings. Care recipients (Mummy/Papa) are not login accounts. Use **Copy this browser's records into my family** to migrate local rows; local copies are never deleted automatically.
+Apply `supabase/migrations/0001_smaran_family.sql` through `0007_in_app_notifications.sql` in a Supabase project, then sign in under Settings. Care recipients (Mummy/Papa) are not login accounts. Use **Copy this browser's records into my family** to migrate local rows; local copies are never deleted automatically.
+
+### In-app reminder scheduler
+
+1. Apply migration `0007_in_app_notifications.sql` (unique occurrence times + `in_app_notifications` RLS).
+2. Set `CRON_SECRET` and `SUPABASE_SERVICE_ROLE_KEY` on the host (never `NEXT_PUBLIC_`).
+3. This repo includes `vercel.json` with `* * * * *` → `GET /api/cron/reminders`. Vercel Hobby plans often allow only a **daily** cron. If the dashboard rejects a one-minute schedule, use the shortest interval your plan allows, or trigger the same route from a Supabase `pg_cron` / external worker with `Authorization: Bearer $CRON_SECRET`.
+4. Minute resolution is the honest precision. Do not expect second-level firing.
+5. Two separate login accounts are notified only when both are members of the same family under RLS. Care recipients are not accounts. Cross-device delivery is not proven until those accounts exist and the hosted cron actually runs.
 
 **Medicines** is a first-class section: current courses, dose reminders, refill reminders, and history, grouped by the actual care recipients in the family. Dose reminders and pharmacy pickups stay separate. The Health Card and Today read the same saved medicine records.
 

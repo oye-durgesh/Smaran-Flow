@@ -2,7 +2,53 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## Settings dashboard (this pass)
+## In-app reminder system (this pass)
+
+Persistent, time-based **in-app** reminders. No phone, SMS, WhatsApp, email, or browser-push delivery. Hosted cron is **not verified** on a live Vercel/Supabase project in this session.
+
+### How it works
+
+1. A caregiver saves a reminder (Today / Medicines / `POST /api/reminders`). Recipients are care people (Mummy, Papa), not login accounts. The author is `created_by`.
+2. Due time is the stored `Asia/Kolkata` local stamp compared to the **real clock** (`localStampToUtcMs` ≤ now). Alerts do not fire early. Minute resolution is honest.
+3. `GET /api/cron/reminders` (Bearer `CRON_SECRET` when set) generates `reminder_occurrences`, inserts one `in_app_notifications` row per occurrence (unique), and logs `reminder_delivery_attempts` with `in_app:{occurrenceId}`.
+4. While the app is open, the bell polls `/api/reminders/inbox` (signed-in) and also runs a local processor for device-local rows. A toast shows once per notification id (`sessionStorage`).
+5. If the browser was closed, the due row is still persisted by the worker (when service role + cron actually run). Reopening shows it in the centre with the original scheduled time and an overdue label after 60 minutes. A closed tab cannot show a live banner.
+6. Acknowledge / dismiss ≠ medicine taken. Snooze is +10 minutes on the same occurrence. Skip is this occurrence only. Complete records actor + timestamp.
+
+### Files
+
+- `src/lib/in-app-reminders.ts` + `.test.ts` — clock-controlled engine (20 required cases).
+- `supabase/migrations/0007_in_app_notifications.sql` — new table, unique occurrence time, RLS.
+- `src/lib/server/in-app-processor.ts` — service-role due processor.
+- `src/app/api/cron/reminders/route.ts`, `/api/reminders/inbox`, `/api/reminders/status`.
+- `src/components/shell/notification-center.tsx` — bell, badge, filters, toast.
+- `vercel.json` — `* * * * *` → `/api/cron/reminders`.
+
+### Scheduler configuration status
+
+| Check | This environment |
+|---|---|
+| Processor code | Present |
+| `CRON_SECRET` / service role on this VM | Not treated as configured for live hosting |
+| `vercel.json` cron | Committed; Vercel Hobby may reject minute crons |
+| Host actually running the job | **Not verified** |
+| Two-account RLS live | **Not verified** |
+
+Settings → Notifications shows this honestly. In-app banners can be disabled; rows still persist. Reminder sound is not implemented. Browser push is not requested.
+
+### Commands this pass
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | After restoring `@/components/screens` re-exports |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **183 passed**, **4 skipped** |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | `/api/cron/reminders`, `/api/reminders/inbox`, `/api/reminders/status` |
+
+---
+
+## Settings dashboard (prior pass)
 
 Compact two-column Settings control center. No new migration. Identity colours persist in `settings.memberColors` and are reapplied after vault refresh.
 

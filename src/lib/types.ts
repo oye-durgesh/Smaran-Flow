@@ -375,6 +375,38 @@ export interface Settings {
   memberColors: Record<string, string>;
 }
 
+export type InAppNotificationStatus =
+  | "scheduled"
+  | "due"
+  | "acknowledged"
+  | "snoozed"
+  | "completed"
+  | "skipped"
+  | "missed"
+  | "cancelled";
+
+export type DoseOutcome = "none" | "taken" | "skipped" | "missed";
+
+export interface InAppNotification {
+  id: ID;
+  occurrenceId: ID;
+  reminderId: ID;
+  familyMemberId: ID;
+  title: string;
+  scheduledAt: LocalTimestamp;
+  timezone: string;
+  status: InAppNotificationStatus;
+  unread: boolean;
+  source: "reminder" | "medicine" | "appointment";
+  medicineId?: ID;
+  createdAt: LocalTimestamp;
+  acknowledgedAt?: LocalTimestamp;
+  snoozeUntil?: LocalTimestamp;
+  actorId?: ID;
+  actorAt?: LocalTimestamp;
+  doseOutcome: DoseOutcome;
+}
+
 export interface AppState {
   version: number;
   onboarded: boolean;
@@ -393,6 +425,7 @@ export interface AppState {
   memory: MemoryEvent[];
   conversations: Conversation[];
   settings: Settings;
+  inAppNotifications: InAppNotification[];
   /** Local family clock. Everything "today" is relative to this. */
   demoNow: LocalTimestamp;
   selectedDate: DateKey;

@@ -70,3 +70,13 @@ export function reminderLanguageLabel(value: ReminderLanguage): string {
 export function sampleSettingsIsolation() {
   return { ...fixturesNeverWriteVault(), silentVaultInsert: false as const };
 }
+
+export function inAppNotificationPolicy() {
+  return {
+    bannersOptional: true,
+    persistWhenBannersOff: true,
+    soundImplemented: false,
+    browserPushRequested: false,
+    outboundChannels: [] as const,
+  };
+}

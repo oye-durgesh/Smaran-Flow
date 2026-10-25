@@ -8,6 +8,7 @@ import { useT, type StringKey } from "@/lib/i18n";
 import { useAppState } from "@/lib/store/store";
 import { SmaranLogo } from "@/components/smaran/brand";
 import { MemberAvatar } from "@/components/smaran/primitives";
+import { NotificationBell } from "./notification-center";
 
 interface NavItem {
   href: string;
@@ -118,9 +119,12 @@ export function DesktopSidebar({ className }: { className?: string }) {
   const state = useAppState();
   return (
     <nav aria-label="Main" data-testid="desktop-sidebar" className={cn("flex h-full w-[248px] shrink-0 flex-col border-r border-line bg-surface/70 px-3 py-6", className)}>
-      <Link href="/today" className="mb-7 px-2">
-        <SmaranLogo size="md" />
-      </Link>
+      <div className="mb-7 flex items-start justify-between gap-2 px-2">
+        <Link href="/today">
+          <SmaranLogo size="md" />
+        </Link>
+        <NotificationBell />
+      </div>
       <NavLinks path={path} compact />
       <Link
         href="/settings"
