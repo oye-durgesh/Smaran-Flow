@@ -2,7 +2,33 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## Ask SMARAN composer — Wispr Flow logo (this pass)
+## Family Appointments redesign (this pass)
+
+Premium Appointments workspace on the existing models (`saveAppointment`, `scheduleFollowUp`, `upsertDoctor`, `/api/appointments`). No new migration. Today’s weekly calendar is unchanged.
+
+- Header: **Family Appointments** / “Every visit, every doctor, every follow-up.” plus Add doctor and **+ New appointment**.
+- Summary cards (Upcoming, Awaiting follow-up, Past visits) use live counts and open the matching tab. Past visits count only `status === "completed"`.
+- Tabs: Calendar (default), Upcoming (Today / Tomorrow / This week / Later from Asia/Kolkata), Past visits (needs-review vs completed), Follow-ups, Doctors (primary vs specialist).
+- Independent Monday-first month grid (`monthGridMonday`). Cancelled-only days have no ordinary visit dot. Agenda heading uses `formatFullDate`. Compact empty state: “No visits on this day.”
+- Wispr rail stays on `/appointments` (`stayOnPage`). Examples prefill only. Ambiguous captures ask for missing fields. Confirmed captures save through `saveAppointment`.
+- Duplicate cards: still deduped by appointment id; identical create retries merge (`merged: true`). Sample doctors stay labeled sample.
+- No Claude. No schema change.
+
+### Commands this pass
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **144 passed**, **4 skipped** |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | `/appointments` |
+
+Not verified live: phone notification delivery, two-account RLS, Claude.
+
+---
+
+## Ask SMARAN composer — Wispr Flow logo (prior pass)
 
 Focused Ask composer update only. The overlapping brown circular microphone-style button is gone.
 
