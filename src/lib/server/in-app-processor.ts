@@ -36,9 +36,7 @@ function mapReminderRow(row: Record<string, unknown>): Reminder {
 }
 
 async function processReminderRows(supabase: SupabaseClient, reminderRows: Record<string, unknown>[] | null, now: Date): Promise<PersistedProcessResult> {
-  let created = 0;
-  let duplicates = 0;
-  let skipped = 0;
+  const counts = { created: 0, duplicates: 0, skipped: 0 };
 
   for (const raw of reminderRows ?? []) {
     const row = raw as Record<string, unknown>;
@@ -46,7 +44,7 @@ async function processReminderRows(supabase: SupabaseClient, reminderRows: Recor
     const familyId = String(row.family_id);
     const tz = String(row.timezone || FAMILY_TIMEZONE);
     if (String(row.status) !== "active") {
-      skipped += 1;
+      counts.skipped += 1;
       continue;
     }
     for (const stamp of plannedDueStamps(reminder, now, tz)) {
@@ -69,7 +67,7 @@ async function processReminderRows(supabase: SupabaseClient, reminderRows: Recor
           .eq("due_at", dueAt)
           .maybeSingle();
         if (existing.error || !existing.data) {
-          skipped += 1;
+          counts.skipped += 1;
           continue;
         }
         occ = existing.data;
@@ -85,13 +83,13 @@ async function processReminderRows(supabase: SupabaseClient, reminderRows: Recor
         tz,
         status: String(occ.status),
       });
-      created += result.created;
-      duplicates += result.duplicates;
-      skipped += result.skipped;
+      counts.created += result.created;
+      counts.duplicates += result.duplicates;
+      counts.skipped += result.skipped;
     }
   }
 
-  return { created, duplicates, skipped };
+  return counts;
 }
 
 /** Host cron: all families. Requires service role. */
