@@ -6,6 +6,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { ArrowLeft, Check, Circle, Clock3, Pause, CalendarClock, CircleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { FamilyMember, ReminderDayStatus } from "@/lib/types";
+import { familySwatch } from "@/lib/family-color";
 
 /* ---------- Surface ---------- */
 
@@ -31,12 +32,29 @@ const TONE: Record<FamilyMember["avatar"]["tone"], string> = {
   brown: "bg-[#e9dbd1] text-brown",
 };
 
-export function MemberAvatar({ member, size = 44, className }: { member?: FamilyMember; size?: number; className?: string }) {
+export function MemberAvatar({
+  member,
+  size = 44,
+  className,
+  identity = false,
+}: {
+  member?: FamilyMember;
+  size?: number;
+  className?: string;
+  /** Today dashboard: use the stable family identity swatch. Other screens keep avatar.tone. */
+  identity?: boolean;
+}) {
+  const swatch = identity ? familySwatch(member) : null;
   return (
     <span
       aria-hidden
-      className={cn("inline-flex shrink-0 items-center justify-center rounded-full font-extrabold", TONE[member?.avatar.tone ?? "sand"], className)}
-      style={{ width: size, height: size, fontSize: size * 0.4 }}
+      className={cn("inline-flex shrink-0 items-center justify-center rounded-full font-extrabold", !swatch && TONE[member?.avatar.tone ?? "sand"], className)}
+      style={{
+        width: size,
+        height: size,
+        fontSize: size * 0.4,
+        ...(swatch ? { backgroundColor: swatch.background, color: swatch.text, boxShadow: `inset 0 0 0 1px ${swatch.border}` } : {}),
+      }}
     >
       {member?.avatar.initials ?? "?"}
     </span>

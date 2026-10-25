@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import type { FamilyMember } from "@/lib/types";
 import Link from "next/link";
 import { CalendarHeart, CheckCircle2, FileText, IdCard, MessageCircleQuestion, Pill, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store/store";
@@ -12,8 +13,9 @@ import { formatFullDate, mondayWeekOf, zonedNow } from "@/lib/timezone";
 import { TODAY_EXAMPLES, TODAY_SECTIONS, TODAY_SHORTCUTS, captureOnToday } from "@/lib/store/today-capture";
 import { createCloudAppointment, createCloudReminder, isUuid } from "@/lib/store/cloud";
 import { WeekProgressCalendar } from "@/components/smaran/week-progress-calendar";
-import { EmptyState, MemberAvatar, SectionLabel } from "@/components/smaran/primitives";
+import { EmptyState, MemberAvatar, SectionLabel, StatusBadge } from "@/components/smaran/primitives";
 import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
+import { familyLegend, familySwatch, NEUTRAL_SWATCH } from "@/lib/family-color";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -34,23 +36,55 @@ export function useCaptureSubmit() {
 function Shortcuts() {
   const { state } = useStore();
   const first = state.family[0];
+  const health = first ? familySwatch(first) : NEUTRAL_SWATCH;
   const items = [
-    { href: TODAY_SHORTCUTS[0].href, icon: MessageCircleQuestion, label: TODAY_SHORTCUTS[0].label, testid: "shortcut-ask" },
-    { href: TODAY_SHORTCUTS[1].href, icon: FileText, label: TODAY_SHORTCUTS[1].label, testid: "shortcut-documents" },
-    { href: first ? `${TODAY_SHORTCUTS[2].hrefPrefix}${first.id}` : "/family", icon: IdCard, label: TODAY_SHORTCUTS[2].label, testid: "shortcut-health" },
+    { href: TODAY_SHORTCUTS[0].href, icon: MessageCircleQuestion, label: TODAY_SHORTCUTS[0].label, testid: "shortcut-ask", swatch: null as ReturnType<typeof familySwatch> | null },
+    { href: TODAY_SHORTCUTS[1].href, icon: FileText, label: TODAY_SHORTCUTS[1].label, testid: "shortcut-documents", swatch: null },
+    { href: first ? `${TODAY_SHORTCUTS[2].hrefPrefix}${first.id}` : "/family", icon: IdCard, label: TODAY_SHORTCUTS[2].label, testid: "shortcut-health", swatch: first ? health : null },
   ];
   return (
     <section data-testid="today-shortcuts">
       <SectionLabel>Shortcuts</SectionLabel>
       <div className="grid grid-cols-3 gap-2.5">
         {items.map((i) => (
-          <Link key={i.testid} href={i.href} data-testid={i.testid} className="rounded-[18px] border border-line bg-surface-raised p-3.5 hover:border-line-strong">
-            <i.icon className="size-5 text-peach-deep" aria-hidden />
+          <Link
+            key={i.testid}
+            href={i.href}
+            data-testid={i.testid}
+            className="rounded-[18px] border bg-surface-raised p-3.5 hover:border-line-strong"
+            style={i.swatch ? { borderColor: i.swatch.border } : undefined}
+          >
+            {i.testid === "shortcut-health" && first ? (
+              <MemberAvatar member={first} size={28} identity />
+            ) : (
+              <i.icon className="size-5 text-peach-deep" aria-hidden />
+            )}
             <div className="mt-2 text-[14px] leading-tight font-bold text-ink-strong">{i.label}</div>
           </Link>
         ))}
       </div>
     </section>
+  );
+}
+
+function FamilyLegend() {
+  const { state } = useStore();
+  const items = familyLegend(state.family);
+  if (items.length === 0) return null;
+  return (
+    <ul data-testid="family-legend" className="mt-3 flex min-w-0 flex-wrap gap-2">
+      {items.map((swatch) => (
+        <li
+          key={swatch.key + swatch.label}
+          data-legend={swatch.key}
+          className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-bold text-ink"
+          style={{ borderColor: swatch.border, backgroundColor: swatch.background, color: swatch.text }}
+        >
+          <span className="size-2 rounded-full" style={{ backgroundColor: swatch.primary }} aria-hidden />
+          {swatch.label}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -66,11 +100,8 @@ function UpcomingList({ selected }: { selected: string }) {
         <ul className="space-y-2">
           {items.slice(0, 8).map((item) => (
             <li key={item.id}>
-              <Link
-                href={item.kind === "appointment" ? `/appointments/${item.appointment.id}` : `/reminders/${item.reminder.id}`}
-                className="flex items-center gap-3 rounded-[16px] border border-line bg-surface-raised px-3 py-3 hover:border-line-strong"
-              >
-                <MemberAvatar member={item.member} size={34} />
+              <IdentityCard href={item.kind === "appointment" ? `/appointments/${item.appointment.id}` : `/reminders/${item.reminder.id}`} member={item.member}>
+                <MemberAvatar member={item.member} size={34} identity />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14.5px] font-bold text-ink-strong">{item.title}</span>
                   <span className="block truncate text-[12.5px] text-ink-muted">
@@ -79,12 +110,27 @@ function UpcomingList({ selected }: { selected: string }) {
                     {item.kind === "appointment" && item.appointment.source === "sample" ? " · sample" : ""}
                   </span>
                 </span>
-              </Link>
+              </IdentityCard>
             </li>
           ))}
         </ul>
       )}
+      <FamilyLegend />
     </section>
+  );
+}
+
+function IdentityCard({ href, member, done, children }: { href: string; member?: Pick<FamilyMember, "id" | "name" | "relationship">; done?: boolean; children: ReactNode }) {
+  const swatch = member ? familySwatch(member) : NEUTRAL_SWATCH;
+  return (
+    <Link
+      href={href}
+      data-family={member ? swatch.key : "neutral"}
+      className={cn("flex items-center gap-3 rounded-[16px] border bg-surface-raised px-3 py-3 hover:border-line-strong", done && "bg-ivory/80")}
+      style={{ borderColor: swatch.border, borderLeftWidth: 3, borderLeftColor: swatch.primary, backgroundColor: done ? undefined : `${swatch.background}99` }}
+    >
+      {children}
+    </Link>
   );
 }
 
@@ -123,10 +169,12 @@ function Schedule({ selected, today }: { selected: string; today: string }) {
                     const href = item.kind === "reminder" ? `/reminders/${item.reminder.id}` : `/appointments/${item.appointment.id}`;
                     const title = item.kind === "reminder" ? item.reminder.title : `${item.appointment.doctor} appointment`;
                     const sample = item.kind === "reminder" ? item.reminder.source === "sample" : item.appointment.source === "sample";
+                    const member = memberById(state, item.kind === "reminder" ? item.reminder.familyMemberId : item.appointment.familyMemberId);
+                    const status = item.kind === "reminder" ? item.status : item.status;
                     return (
                       <li key={`${g.key}-${item.id}`}>
-                        <Link href={href} className={cn("flex items-center gap-3 rounded-[16px] border px-3 py-3", done ? "border-line bg-ivory/80" : "border-line bg-surface-raised")}>
-                          <MemberAvatar member={memberById(state, item.kind === "reminder" ? item.reminder.familyMemberId : item.appointment.familyMemberId)} size={34} />
+                        <IdentityCard href={href} member={member} done={done}>
+                          <MemberAvatar member={member} size={34} identity />
                           <span className="min-w-0 flex-1">
                             <span className={cn("block truncate text-[14.5px] font-bold", done ? "text-ink-muted line-through" : "text-ink-strong")}>{title}</span>
                             <span className="block text-[12.5px] text-ink-muted">
@@ -134,7 +182,8 @@ function Schedule({ selected, today }: { selected: string; today: string }) {
                               {sample ? " · sample" : ""}
                             </span>
                           </span>
-                        </Link>
+                          <StatusBadge status={status === "confirmed" ? "confirmed" : status === "completed" ? "completed" : status === "cancelled" ? "cancelled" : status === "missed" ? "missed" : status === "waiting" ? "waiting" : "upcoming"} />
+                        </IdentityCard>
                       </li>
                     );
                   })}
@@ -213,7 +262,7 @@ export function TodayScreen() {
   );
 
   return (
-    <div data-testid="today-screen" className="mx-auto w-full max-w-[1180px] px-4 pt-5 pb-10 sm:px-6 lg:px-8 lg:pt-8">
+    <div data-testid="today-screen" className="mx-auto w-full max-w-[1180px] overflow-x-hidden px-4 pt-5 pb-10 sm:px-6 lg:px-8 lg:pt-8">
       <div className={cn("grid gap-8", isWeb ? "xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start" : "")}>
         <div className="min-w-0">
           <header className="mb-6" data-section={TODAY_SECTIONS[0]}>

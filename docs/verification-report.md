@@ -2,7 +2,11 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## Weekly care-progress calendar (this pass)
+## Family identity colors (this pass)
+
+Today Upcoming/Schedule cards and the Health Card shortcut use `familySwatch()`: Mummy coral, Papa amber, Dadi terracotta-rose. Legend lists only people in `state.family`. Status badges stay independent of identity.
+
+## Weekly care-progress calendar (prior pass)
 
 Today’s month grid is replaced by a Monday-first seven-day strip. Rings use `dayCareProgress()` over the same reminders and appointments as the schedule (paused/cancelled excluded; appointments are not auto-missed). Controllable-clock unit tests cover empty/pending/partial/complete/missed, recurrence, and year-boundary weeks.
 
