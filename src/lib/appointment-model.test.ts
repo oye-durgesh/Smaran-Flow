@@ -1,16 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyState } from "./seed";
-import { addCalendarMonths, monthGrid, yearMonthOf, zonedNow } from "./timezone";
+import { addCalendarMonths, monthGrid, monthGridMonday, yearMonthOf, zonedNow } from "./timezone";
 import { calendarToday } from "./selectors";
 import {
+  APPOINTMENT_WISPR_EXAMPLES,
+  APPOINTMENT_WISPR_HEADING,
   appointmentKind,
   appointmentsOnDate,
+  awaitingFollowUpCount,
+  calendarActiveDates,
   dateLabel,
   doctorDisplayName,
   findDuplicateAppointment,
   findReusableDoctor,
+  groupUpcomingByWhen,
   pastVisits,
   uniqueAppointments,
+  upcomingBucket,
   upcomingVisits,
   validateAppointmentInput,
 } from "./appointment-model";
@@ -31,6 +37,9 @@ describe("appointment calendar and timezone", () => {
     expect(addCalendarMonths("2026-01", -1)).toBe("2025-12");
     expect(monthGrid("2026-02").some((c) => c.date === "2026-02-01" && c.inMonth)).toBe(true);
     expect(yearMonthOf("2026-10-25")).toBe("2026-10");
+    const monday = monthGridMonday("2026-10");
+    expect(monday[0]?.date).toBe("2026-09-28");
+    expect(monday.find((c) => c.date === "2026-10-01")?.inMonth).toBe(true);
   });
 
   it("lists only appointments on the selected date", () => {
@@ -163,5 +172,24 @@ describe("authorization and layout", () => {
 
   it("keeps the appointments calendar overflow-safe", () => {
     expect("overflow-x-hidden grid grid-cols-7").toContain("overflow-x-hidden");
+  });
+
+  it("groups upcoming labels from the actual Asia/Kolkata today", () => {
+    expect(upcomingBucket("2026-10-25", "2026-10-25")).toBe("today");
+    expect(upcomingBucket("2026-10-26", "2026-10-25")).toBe("tomorrow");
+    expect(upcomingBucket("2026-10-30", "2026-10-25")).not.toBe("tomorrow");
+    expect(groupUpcomingByWhen([{ date: "2026-10-26" } as never], "2026-10-25")[0]?.label).toBe("Tomorrow");
+    expect(APPOINTMENT_WISPR_HEADING).toBe("Use Wispr Flow for better voice capture");
+    expect(APPOINTMENT_WISPR_EXAMPLES).toHaveLength(4);
+    expect(APPOINTMENT_WISPR_EXAMPLES[0]).toMatch(/Mummy ki Dr Sharma/);
+  });
+
+  it("does not mark cancelled-only days on the calendar", () => {
+    const created = saveAppointment(createEmptyState(), { familyMemberId: "mummy", doctor: "Dr Rao", date: "2026-12-02", time: "09:00" });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const cancelled = setAppointmentStatus(created.state, created.id, "cancelled");
+    expect(calendarActiveDates(cancelled).has("2026-12-02")).toBe(false);
+    expect(awaitingFollowUpCount(createEmptyState())).toBe(0);
   });
 });

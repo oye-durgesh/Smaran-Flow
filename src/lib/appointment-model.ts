@@ -1,6 +1,17 @@
 import type { AppState, Appointment, DateKey, FamilyDoctor } from "./types";
 import { calendarToday } from "./selectors";
 import { relativeDay } from "./dates";
+import { addCalendarDays, mondayWeekOf } from "./timezone";
+
+export const APPOINTMENT_WISPR_EXAMPLES = [
+  "Mummy ki Dr Sharma ke saath Friday ko 11 baje appointment hai.",
+  "Papa ka follow-up agle Monday ko 3 baje rakhna hai.",
+  "Dadi ki next appointment kal 10 baje schedule karo.",
+  "Mummy ke next checkup ki date yaad dilana.",
+] as const;
+
+export const APPOINTMENT_WISPR_HEADING = "Use Wispr Flow for better voice capture";
+export const APPOINTMENT_WISPR_SUPPORT = "Speak naturally — SMARAN will organize it for you.";
 
 export const UNKNOWN = "Not recorded";
 
@@ -34,6 +45,29 @@ export function uniqueAppointments(items: Appointment[]): Appointment[] {
 
 export function appointmentsOnDate(state: AppState, date: DateKey): Appointment[] {
   return uniqueAppointments(state.appointments.filter((a) => a.date === date)).sort((a, b) => (a.time < b.time ? -1 : 1));
+}
+
+/** Dates that should show a calendar mark. Cancelled-only days stay empty of an ordinary visit dot. */
+export function calendarActiveDates(state: AppState): Set<string> {
+  return new Set(uniqueAppointments(state.appointments).filter((a) => a.status !== "cancelled").map((a) => a.date));
+}
+
+export type UpcomingBucket = "today" | "tomorrow" | "this_week" | "later";
+
+export function upcomingBucket(date: DateKey, today: DateKey): UpcomingBucket {
+  if (date === today) return "today";
+  if (date === addCalendarDays(today, 1)) return "tomorrow";
+  const week = mondayWeekOf(today);
+  if (date > today && week.includes(date)) return "this_week";
+  return "later";
+}
+
+export function groupUpcomingByWhen(items: Appointment[], today: DateKey): { key: UpcomingBucket; label: string; items: Appointment[] }[] {
+  const labels: Record<UpcomingBucket, string> = { today: "Today", tomorrow: "Tomorrow", this_week: "This week", later: "Later" };
+  const order: UpcomingBucket[] = ["today", "tomorrow", "this_week", "later"];
+  return order
+    .map((key) => ({ key, label: labels[key], items: items.filter((a) => upcomingBucket(a.date, today) === key) }))
+    .filter((group) => group.items.length > 0);
 }
 
 export function upcomingVisits(state: AppState, memberId?: string): Appointment[] {

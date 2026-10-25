@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import { CalendarDays, CalendarX2, Check, CheckCircle2, ChevronLeft, ChevronRight, MapPin, Paperclip, Pencil, Plus, Stethoscope, Upload, X } from "lucide-react";
+import { CalendarCheck, CalendarClock, CalendarDays, CalendarRange, CalendarX2, Check, CheckCircle2, ChevronLeft, ChevronRight, MapPin, Paperclip, Pencil, Plus, Stethoscope, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
@@ -13,20 +13,27 @@ import { archiveDoctor, recordVisit, saveAppointment, scheduleFollowUp, upsertDo
 import { createCloudAppointment, isUuid, patchAppointment } from "@/lib/store/cloud";
 import { documentsFor, memberById, todayOf } from "@/lib/selectors";
 import { addMinutes, dateOf, formatDayLong, formatDayShort, formatOffset, formatShort, formatTime, stamp, timeOf } from "@/lib/dates";
-import { addCalendarMonths, formatMonthTitle, monthGrid, yearMonthOf } from "@/lib/timezone";
+import { addCalendarMonths, formatFullDate, formatMonthTitle, monthGridMonday, yearMonthOf } from "@/lib/timezone";
 import {
+  APPOINTMENT_WISPR_EXAMPLES,
+  APPOINTMENT_WISPR_HEADING,
+  APPOINTMENT_WISPR_SUPPORT,
   appointmentKind,
   appointmentsOnDate,
   awaitingFollowUpCount,
+  calendarActiveDates,
   dateLabel,
   doctorDisplayName,
   followUpVisits,
+  groupUpcomingByWhen,
   kindLabel,
   pastVisits,
   reminderStatusLabel,
-  uniqueAppointments,
+  reviewVisits,
   upcomingVisits,
+  validateAppointmentInput,
 } from "@/lib/appointment-model";
+import { missingAppointmentFields, parseAppointment } from "@/lib/nlu";
 import { familySwatch } from "@/lib/family-color";
 import type { AppointmentDraft } from "@/lib/nlu";
 import type { Appointment, FamilyDoctor, FamilyMember } from "@/lib/types";
@@ -62,22 +69,64 @@ export function AppointmentsScreen() {
   const [followTime, setFollowTime] = useState("11:00");
   const [visitFor, setVisitFor] = useState<Appointment | null>(null);
   const [visitNotes, setVisitNotes] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [wisprReview, setWisprReview] = useState<ReturnType<typeof parseAppointment> | null>(null);
 
   const upcoming = upcomingVisits(state);
   const past = pastVisits(state);
+  const reviews = reviewVisits(state);
   const followups = followUpVisits(state);
   const awaiting = awaitingFollowUpCount(state);
   const onDay = appointmentsOnDate(state, selected);
-  const cells = useMemo(() => monthGrid(month), [month]);
-  const busy = useMemo(() => new Set(uniqueAppointments(state.appointments).map((a) => a.date)), [state.appointments]);
+  const cells = useMemo(() => monthGridMonday(month), [month]);
+  const busy = useMemo(() => calendarActiveDates(state), [state]);
+  const upcomingGroups = useMemo(() => groupUpcomingByWhen(upcoming, today), [upcoming, today]);
   const doctors = state.doctors.filter((d) => !d.archived);
+  const primaryDoctors = doctors.filter((d) => d.category === "primary");
+  const specialistDoctors = doctors.filter((d) => d.category !== "primary");
   const persistence = session.authenticated ? "Saved to the family vault after a successful write." : "Saved on this device only — not cloud-saved.";
+
+  function openNew(date = selected) {
+    setEditId(null);
+    setDraft(emptyApptDraft(state.family[0]?.id ?? "", date));
+    setFormError(null);
+    setFormOpen(true);
+  }
+
+  function openEdit(a: Appointment) {
+    setEditId(a.id);
+    setDraft({
+      familyMemberId: a.familyMemberId,
+      doctor: a.doctor,
+      date: a.date,
+      time: a.time,
+      reminderOffsets: a.reminders.filter((r) => r.enabled).map((r) => r.offsetMinutes),
+      clinic: a.clinic ?? "",
+      address: a.location ?? "",
+      purpose: a.purpose ?? "",
+      notes: a.notes ?? "",
+      followUpDate: a.followUpDate ?? "",
+      doctorId: a.doctorId ?? "",
+      doctorCategory: a.doctorCategory ?? "specialist",
+      specialty: a.specialty ?? "",
+      customReminder: "",
+    });
+    setFormError(null);
+    setFormOpen(true);
+  }
 
   async function persistAppointment() {
     setSaving(true);
     setFormError(null);
     try {
-      if (session.authenticated && isUuid(draft.familyMemberId)) {
+      if (editId) {
+        const errors = validateAppointmentInput(draft, state);
+        if (errors.length) {
+          setFormError(errors.join(" "));
+          return;
+        }
+        update((s) => updateAppointment(s, editId, { doctor: draft.doctor, date: draft.date, time: draft.time, location: draft.address, notes: draft.notes, familyMemberId: draft.familyMemberId }));
+      } else if (session.authenticated && isUuid(draft.familyMemberId)) {
         await createCloudAppointment({
           recipientId: draft.familyMemberId,
           doctor: draft.doctor,
@@ -88,21 +137,22 @@ export function AppointmentsScreen() {
           doctorId: draft.doctorId && isUuid(draft.doctorId) ? draft.doctorId : undefined,
           clinic: draft.clinic,
           purpose: draft.purpose,
-          reminderOffsets: draft.reminderOffsets,
+          reminderOffsets: withCustomOffset(draft),
           followUpDate: draft.followUpDate,
         });
         const ok = await refreshVault();
         if (!ok) throw new Error("The server write could not be confirmed.");
       } else {
-        const result = saveAppointment(state, draft);
+        const result = saveAppointment(state, { ...draft, reminderOffsets: withCustomOffset(draft) });
         if (!result.ok) {
           setFormError(result.errors.join(" "));
           return;
         }
         update(() => result.state);
       }
-      toast.success("Appointment saved.");
+      toast.success(editId ? "Appointment updated." : "Appointment saved.");
       setFormOpen(false);
+      setEditId(null);
       setSelected(draft.date);
       setMonth(yearMonthOf(draft.date));
       setTab("calendar");
@@ -119,29 +169,34 @@ export function AppointmentsScreen() {
         title="Family Appointments"
         subtitle="Every visit, every doctor, every follow-up."
         actions={
-          <Button type="button" onClick={() => { setDraft(emptyApptDraft(state.family[0]?.id ?? "", today)); setFormError(null); setFormOpen(true); }} className="h-10 rounded-full bg-peach px-3.5 text-[13px] font-bold text-ink-strong hover:bg-peach">
-            <Plus className="size-4" aria-hidden /> New appointment
-          </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setDoctorOpen(true)} className="h-10 rounded-full px-3.5 text-[13px] font-bold">
+              <Stethoscope className="size-4" aria-hidden /> Add doctor
+            </Button>
+            <Button type="button" onClick={() => openNew(today)} className="h-10 rounded-full bg-peach px-3.5 text-[13px] font-bold text-ink-strong hover:bg-peach">
+              <Plus className="size-4" aria-hidden /> New appointment
+            </Button>
+          </div>
         }
       />
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <SummaryCard label="Upcoming" value={upcoming.length} />
-        <SummaryCard label="Awaiting follow-up" value={awaiting} />
-        <SummaryCard label="Past visits" value={past.length} />
+      <div className="mb-5 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+        <SummaryCard label="Upcoming" value={upcoming.length} icon={<CalendarClock className="size-4" />} accent="#F3D4C4" onClick={() => setTab("upcoming")} />
+        <SummaryCard label="Awaiting follow-up" value={awaiting} icon={<CalendarRange className="size-4" />} accent="#F8EBD5" onClick={() => setTab("followups")} />
+        <SummaryCard label="Past visits" value={past.length} icon={<CalendarCheck className="size-4" />} accent="#E7F0E6" onClick={() => setTab("past")} />
       </div>
       <div className="mb-5 flex flex-wrap gap-2" role="tablist" aria-label="Appointment sections">
         {([["calendar", "Calendar"], ["upcoming", "Upcoming"], ["past", "Past visits"], ["followups", "Follow-ups"], ["doctors", "Doctors"]] as const).map(([key, label]) => (
-          <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} className={cn("h-10 rounded-full px-3 text-[13px] font-bold", tab === key ? "bg-peach text-ink-strong" : "border border-line-strong bg-surface-raised")}>
+          <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} className={cn("h-10 rounded-full px-3.5 text-[13px] font-bold", tab === key ? "bg-[#C45C48] text-white" : "border border-line-strong bg-surface-raised text-ink")}>
             {label}
           </button>
         ))}
       </div>
 
       {tab === "calendar" && (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-          <Surface className="min-w-0 p-4">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-[18px] font-extrabold text-ink-strong">{formatMonthTitle(month)}</h2>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,1fr)]">
+          <Surface className="min-w-0 p-4 sm:p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-[20px] font-extrabold text-ink-strong">{formatMonthTitle(month)}</h2>
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="outline" onClick={() => setMonth(addCalendarMonths(month, -1))} aria-label="Previous month"><ChevronLeft className="size-4" /></Button>
                 <Button size="sm" variant="outline" onClick={() => { setMonth(yearMonthOf(today)); setSelected(today); }}>Today</Button>
@@ -149,7 +204,7 @@ export function AppointmentsScreen() {
               </div>
             </div>
             <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-ink-muted">
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d}>{d}</div>)}
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => <div key={d} className="py-1">{d}</div>)}
             </div>
             <div className="mt-1 grid grid-cols-7 gap-1">
               {cells.map((cell) => {
@@ -161,27 +216,33 @@ export function AppointmentsScreen() {
                     type="button"
                     onClick={() => setSelected(cell.date)}
                     className={cn(
-                      "relative min-h-11 rounded-[12px] text-[13px] font-bold focus-visible:outline focus-visible:outline-peach",
-                      cell.inMonth ? "text-ink-strong" : "text-ink-muted/50",
+                      "relative flex min-h-12 flex-col items-center justify-center rounded-[14px] text-[13px] font-bold sm:min-h-14",
+                      cell.inMonth ? "text-ink-strong" : "text-ink-muted/45",
                       isSelected && "bg-peach text-ink-strong",
-                      isToday && !isSelected && "ring-2 ring-terracotta/70",
+                      isToday && !isSelected && "bg-[#F8E8DC] ring-2 ring-[#C45C48]/70",
                     )}
                     aria-current={isToday ? "date" : undefined}
                     aria-pressed={isSelected}
                   >
                     {Number(cell.date.slice(8))}
-                    {busy.has(cell.date) && <span className="absolute bottom-1 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-brown" aria-hidden />}
+                    {busy.has(cell.date) && <span className={cn("mt-1 size-1.5 rounded-full", isSelected ? "bg-[#5C3A2E]" : "bg-[#C45C48]")} aria-hidden />}
                   </button>
                 );
               })}
             </div>
           </Surface>
           <section className="min-w-0">
-            <h3 className="mb-3 text-[15px] font-extrabold text-ink-strong">On {formatDayLong(selected)}</h3>
+            <h3 className="mb-2 text-[16px] font-extrabold text-ink-strong">{formatFullDate(selected)}</h3>
             {onDay.length === 0 ? (
-              <EmptyState icon={<CalendarX2 className="size-6" />} title="No visits on this day." body="SMARAN only shows appointments that were actually saved." action={{ label: "New appointment", onClick: () => { setDraft({ ...emptyApptDraft(state.family[0]?.id ?? "", selected), date: selected }); setFormOpen(true); } }} />
+              <div className="rounded-[18px] border border-dashed border-line-strong bg-surface/70 px-4 py-5">
+                <p className="text-[15px] font-bold text-ink-strong">No visits on this day.</p>
+                <p className="mt-1 text-[13px] leading-5 text-ink-muted">Appointments saved for this date will appear here.</p>
+                <Button type="button" size="sm" className="mt-3 rounded-full bg-peach text-ink-strong hover:bg-peach" onClick={() => openNew(selected)}>
+                  <Plus className="size-4" /> New appointment
+                </Button>
+              </div>
             ) : (
-              <ul className="space-y-3">{onDay.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} onCancel={() => setConfirmCancel(a.id)} onComplete={() => { setVisitFor(a); setVisitNotes(""); }} /></li>)}</ul>
+              <ul className="space-y-3">{onDay.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} onEdit={() => openEdit(a)} onCancel={() => setConfirmCancel(a.id)} onComplete={() => { setVisitFor(a); setVisitNotes(""); }} /></li>)}</ul>
             )}
           </section>
         </div>
@@ -189,48 +250,57 @@ export function AppointmentsScreen() {
 
       {tab === "upcoming" && (
         upcoming.length === 0 ? (
-          <EmptyState icon={<CalendarX2 className="size-6" />} title="No upcoming appointments." body="Add a visit for someone already in this family." action={{ label: "New appointment", onClick: () => setFormOpen(true) }} />
+          <EmptyState icon={<CalendarX2 className="size-6" />} title="No upcoming appointments." body="Add a visit for someone already in this family." action={{ label: "New appointment", onClick: () => openNew(today) }} />
         ) : (
-          <ul className="grid gap-3 md:grid-cols-2">{upcoming.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} onCancel={() => setConfirmCancel(a.id)} onComplete={() => { setVisitFor(a); setVisitNotes(""); }} /></li>)}</ul>
+          <div className="space-y-6">
+            {upcomingGroups.map((group) => (
+              <section key={group.key}>
+                <h3 className="mb-2 text-[13px] font-extrabold tracking-wide text-ink-muted uppercase">{group.label}</h3>
+                <ul className="grid gap-3 md:grid-cols-2">{group.items.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} onEdit={() => openEdit(a)} onCancel={() => setConfirmCancel(a.id)} onComplete={() => { setVisitFor(a); setVisitNotes(""); }} /></li>)}</ul>
+              </section>
+            ))}
+          </div>
         )
       )}
 
       {tab === "past" && (
-        past.length === 0 ? (
+        past.length === 0 && reviews.length === 0 ? (
           <EmptyState icon={<CalendarDays className="size-6" />} title="No completed visits yet." body="Overdue visits stay as needs review until someone records what happened. Dates alone do not mark attendance." />
         ) : (
-          <ul className="grid gap-3 md:grid-cols-2">{past.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} onFollow={() => { setFollowFrom(a); setFollowDate(a.followUpDate ?? ""); }} /></li>)}</ul>
+          <div className="space-y-6">
+            {reviews.length > 0 && (
+              <section>
+                <h3 className="mb-2 text-[13px] font-extrabold tracking-wide text-ink-muted uppercase">Needs review</h3>
+                <ul className="grid gap-3 md:grid-cols-2">{reviews.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} onEdit={() => openEdit(a)} onCancel={() => setConfirmCancel(a.id)} onComplete={() => { setVisitFor(a); setVisitNotes(""); }} /></li>)}</ul>
+              </section>
+            )}
+            {past.length > 0 && (
+              <section>
+                <h3 className="mb-2 text-[13px] font-extrabold tracking-wide text-ink-muted uppercase">Completed visits</h3>
+                <ul className="grid gap-3 md:grid-cols-2">{past.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} onFollow={() => { setFollowFrom(a); setFollowDate(a.followUpDate ?? ""); }} /></li>)}</ul>
+              </section>
+            )}
+          </div>
         )
       )}
 
       {tab === "followups" && (
         followups.length === 0 ? (
-          <EmptyState icon={<CalendarDays className="size-6" />} title="No follow-ups recorded." body="A follow-up needs a confirmed date. A general note is not enough." />
+          <EmptyState icon={<CalendarDays className="size-6" />} title="No follow-ups recorded." body="A follow-up needs a confirmed date. Passing a visit does not create one automatically." />
         ) : (
-          <ul className="grid gap-3 md:grid-cols-2">{followups.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} onFollow={() => { setFollowFrom(a); setFollowDate(a.followUpDate ?? ""); }} /></li>)}</ul>
+          <ul className="grid gap-3 md:grid-cols-2">{followups.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} onEdit={() => openEdit(a)} onFollow={() => { setFollowFrom(a); setFollowDate(a.followUpDate ?? ""); }} /></li>)}</ul>
         )
       )}
 
       {tab === "doctors" && (
-        <div>
-          <Button type="button" variant="outline" className="mb-4" onClick={() => setDoctorOpen(true)}><Plus className="size-4" /> Add doctor</Button>
+        <div className="space-y-6">
           {doctors.length === 0 ? (
-            <EmptyState icon={<Stethoscope className="size-6" />} title="No doctors recorded." body="Add a doctor as written on the prescription or visit note. Names are never invented." />
+            <EmptyState icon={<Stethoscope className="size-6" />} title="No doctors recorded." body="Add a doctor as written on the prescription or visit note. Names are never invented." action={{ label: "Add doctor", onClick: () => setDoctorOpen(true) }} />
           ) : (
-            <ul className="grid gap-3 md:grid-cols-2">
-              {doctors.map((d) => (
-                <li key={d.id}>
-                  <Surface className="p-4">
-                    <p className="text-[16px] font-extrabold text-ink-strong">{doctorDisplayName(d.name)} {d.source === "sample" && <span className="text-[12px] font-bold text-ink-muted">· sample</span>}</p>
-                    <p className="text-[13px] text-ink-muted">{d.category === "primary" ? "Primary doctor" : "Specialist"}{d.specialty ? ` · ${d.specialty}` : " · specialty not recorded"}</p>
-                    <p className="text-[13px] text-ink-muted">{d.clinic || "Clinic not recorded"}{d.address ? ` · ${d.address}` : ""}</p>
-                    <p className="text-[13px] text-ink-muted">{d.phone || "Contact not recorded"}</p>
-                    <p className="text-[12.5px] text-ink-muted">Used by {d.recipientIds.map((id) => memberById(state, id)?.name).filter(Boolean).join(", ") || "not linked yet"}</p>
-                    <Button size="sm" variant="ghost" className="mt-2" onClick={() => update((s) => archiveDoctor(s, d.id))}>Archive</Button>
-                  </Surface>
-                </li>
-              ))}
-            </ul>
+            <>
+              <DoctorGroup title="Primary doctor" doctors={primaryDoctors} empty="No primary doctor recorded." />
+              <DoctorGroup title="Specialist doctors" doctors={specialistDoctors} empty="No specialists recorded." />
+            </>
           )}
         </div>
       )}
@@ -238,12 +308,31 @@ export function AppointmentsScreen() {
   );
 
   return (
-    <Screen aside={<><SmaranSpeakBox context="appointments" /><p className="text-[13px] text-ink-muted">{persistence} Reminder rows are schedules, not delivered notifications.</p></>}>
+    <Screen width="wide" aside={
+      <>
+        <SmaranSpeakBox
+          context="appointments"
+          stayOnPage
+          examples={APPOINTMENT_WISPR_EXAMPLES}
+          support={APPOINTMENT_WISPR_SUPPORT}
+          onCapture={async (text) => {
+            const parsed = parseAppointment(text, state.family, today);
+            const missing = missingAppointmentFields(parsed);
+            if (missing.length) {
+              return `I need ${missing.join(", ").replace("memberId", "who it is for").replace("doctor", "the doctor").replace("date", "the date").replace("time", "the time")} before I can save. Nothing was created.`;
+            }
+            setWisprReview(parsed);
+          }}
+        />
+        <p className="sr-only">{APPOINTMENT_WISPR_HEADING}</p>
+        <p className="text-[13px] text-ink-muted">{persistence} Reminder rows are schedules, not delivered notifications.</p>
+      </>
+    }>
       {content}
-      <Modal open={formOpen} onOpenChange={setFormOpen} title="New appointment" description="Enter only recorded details. The care recipient must be someone in this family." className="sm:max-w-xl" footer={
+      <Modal open={formOpen} onOpenChange={(open) => { setFormOpen(open); if (!open) setEditId(null); }} title={editId ? "Edit appointment" : "New appointment"} description="Enter only recorded details. The care recipient must be someone in this family." className="sm:max-w-xl" footer={
         <>
           <Button variant="outline" onClick={() => setFormOpen(false)}>Cancel</Button>
-          <Button disabled={saving} onClick={() => void persistAppointment()}>{saving ? "Saving…" : "Save appointment"}</Button>
+          <Button disabled={saving} onClick={() => void persistAppointment()}>{saving ? "Saving…" : editId ? "Save changes" : "Save appointment"}</Button>
         </>
       }>
         {formError && <p className="mb-3 text-[13.5px] font-semibold text-missed" role="alert">{formError}</p>}
@@ -314,6 +403,41 @@ export function AppointmentsScreen() {
       }>
         <Field label="Family notes"><Textarea value={visitNotes} onChange={(e) => setVisitNotes(e.target.value)} /></Field>
       </Modal>
+      <Modal open={Boolean(wisprReview)} onOpenChange={(o) => !o && setWisprReview(null)} title="Review appointment" description="Confirm these details before SMARAN saves anything." footer={
+        <>
+          <Button variant="outline" onClick={() => setWisprReview(null)}>Cancel</Button>
+          <Button onClick={() => {
+            if (!wisprReview?.memberId || !wisprReview.doctor || !wisprReview.date || !wisprReview.time) return;
+            const result = saveAppointment(state, {
+              familyMemberId: wisprReview.memberId,
+              doctor: wisprReview.doctor,
+              date: wisprReview.date,
+              time: wisprReview.time,
+              address: wisprReview.location,
+              notes: wisprReview.notes,
+              reminderOffsets: wisprReview.reminderOffsets,
+            });
+            if (!result.ok) {
+              toast.error(result.errors.join(" "));
+              return;
+            }
+            update(() => result.state);
+            setSelected(wisprReview.date);
+            setMonth(yearMonthOf(wisprReview.date));
+            setTab("calendar");
+            setWisprReview(null);
+            toast.success("Appointment saved.");
+          }}>Confirm and save</Button>
+        </>
+      }>
+        {wisprReview && (
+          <dl className="space-y-2 text-[14px]">
+            <div><dt className="text-ink-muted">For</dt><dd className="font-bold">{memberById(state, wisprReview.memberId ?? "")?.name ?? "Not recorded"}</dd></div>
+            <div><dt className="text-ink-muted">Doctor</dt><dd className="font-bold">{wisprReview.doctor}</dd></div>
+            <div><dt className="text-ink-muted">When</dt><dd className="font-bold">{wisprReview.date} · {wisprReview.time}</dd></div>
+          </dl>
+        )}
+      </Modal>
     </Screen>
   );
 }
@@ -333,19 +457,49 @@ function emptyApptDraft(memberId: string, date: string) {
     doctorId: "",
     doctorCategory: "specialist" as FamilyDoctor["category"],
     specialty: "",
+    customReminder: "",
   };
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+function SummaryCard({ label, value, icon, accent, onClick }: { label: string; value: number; icon: React.ReactNode; accent: string; onClick: () => void }) {
   return (
-    <Surface className="p-4">
-      <p className="text-[12px] font-bold tracking-[0.12em] text-ink-muted uppercase">{label}</p>
-      <p className="mt-1 text-[28px] font-extrabold text-ink-strong">{value}</p>
-    </Surface>
+    <button type="button" onClick={onClick} className="rounded-[16px] border border-line bg-surface-raised px-3.5 py-3 text-left shadow-[var(--shadow-soft)]">
+      <div className="flex items-center gap-2">
+        <span className="inline-flex size-8 items-center justify-center rounded-[10px] text-ink-strong" style={{ background: accent }}>{icon}</span>
+        <p className="text-[12px] font-bold text-ink-muted">{label}</p>
+      </div>
+      <p className="mt-1 text-[26px] font-extrabold leading-none text-ink-strong">{value}</p>
+    </button>
   );
 }
 
-function VisitCard({ appointment, today, onCancel, onComplete, onFollow }: { appointment: Appointment; today: string; onCancel?: () => void; onComplete?: () => void; onFollow?: () => void }) {
+function DoctorGroup({ title, doctors, empty }: { title: string; doctors: FamilyDoctor[]; empty: string }) {
+  const { state, update } = useStore();
+  return (
+    <section>
+      <h3 className="mb-2 text-[13px] font-extrabold tracking-wide text-ink-muted uppercase">{title}</h3>
+      {doctors.length === 0 ? <p className="text-[13.5px] text-ink-muted">{empty}</p> : (
+        <ul className="grid gap-3 md:grid-cols-2">
+          {doctors.map((d) => (
+            <li key={d.id}>
+              <Surface className="p-4">
+                <p className="text-[16px] font-extrabold text-ink-strong">{doctorDisplayName(d.name)} {d.source === "sample" && <span className="text-[12px] font-bold text-ink-muted">· sample</span>}</p>
+                <p className="text-[13px] text-ink-muted">{d.category === "primary" ? "Primary doctor" : "Specialist"}{d.specialty ? ` · ${d.specialty}` : " · specialty not recorded"}</p>
+                <p className="text-[13px] text-ink-muted">{d.clinic || "Clinic not recorded"}{d.address ? ` · ${d.address}` : ""}</p>
+                <p className="text-[13px] text-ink-muted">{d.phone || "Contact not recorded"}</p>
+                <p className="text-[12.5px] text-ink-muted">Used by {d.recipientIds.map((id) => memberById(state, id)?.name).filter(Boolean).join(", ") || "not linked yet"}</p>
+                <p className="mt-1 text-[12.5px] text-ink-muted">{state.appointments.filter((a) => a.doctorId === d.id || a.doctor === d.name).length} linked visit{state.appointments.filter((a) => a.doctorId === d.id || a.doctor === d.name).length === 1 ? "" : "s"}</p>
+                <Button size="sm" variant="ghost" className="mt-2" onClick={() => update((s) => archiveDoctor(s, d.id))}>Archive</Button>
+              </Surface>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function VisitCard({ appointment, today, onCancel, onComplete, onFollow, onEdit }: { appointment: Appointment; today: string; onCancel?: () => void; onComplete?: () => void; onFollow?: () => void; onEdit?: () => void }) {
   const { state } = useStore();
   const member = memberById(state, appointment.familyMemberId);
   const swatch = familySwatch(member);
@@ -369,8 +523,9 @@ function VisitCard({ appointment, today, onCancel, onComplete, onFollow }: { app
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <Link href={`/appointments/${appointment.id}`} className="inline-flex h-9 items-center rounded-[12px] px-3 text-[13px] font-bold text-peach-deep hover:underline">View details</Link>
-        {onComplete && kind === "upcoming" && <Button size="sm" variant="outline" onClick={onComplete}>Mark attended</Button>}
-        {onCancel && kind === "upcoming" && <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>}
+        {onEdit && kind !== "cancelled" && <Button size="sm" variant="outline" onClick={onEdit}>Edit</Button>}
+        {onComplete && (kind === "upcoming" || kind === "needs_review") && <Button size="sm" variant="outline" onClick={onComplete}>Mark attended</Button>}
+        {onCancel && (kind === "upcoming" || kind === "needs_review") && <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>}
         {onFollow && appointment.status === "completed" && <Button size="sm" variant="outline" onClick={onFollow}>Schedule follow-up</Button>}
       </div>
     </Surface>
@@ -418,9 +573,20 @@ function AppointmentForm({ draft, people, doctors, onChange }: { draft: ReturnTy
         ))}
         <p className="mt-1 text-[12px] text-ink-muted">These are saved reminder schedules. They are not delivered phone notifications unless the server notifier is configured.</p>
       </fieldset>
+      <Field label="Custom reminder date and time">
+        <Input type="datetime-local" value={draft.customReminder} onChange={(e) => set({ customReminder: e.target.value })} />
+      </Field>
       <Field label="Follow-up date (optional)"><Input type="date" value={draft.followUpDate} onChange={(e) => set({ followUpDate: e.target.value })} /></Field>
     </div>
   );
+}
+
+function withCustomOffset(draft: ReturnType<typeof emptyApptDraft>): number[] {
+  if (!draft.customReminder) return draft.reminderOffsets;
+  const appt = Date.parse(`${draft.date}T${draft.time}`);
+  const when = Date.parse(draft.customReminder);
+  if (!Number.isFinite(appt) || !Number.isFinite(when)) return draft.reminderOffsets;
+  return [...new Set([...draft.reminderOffsets, Math.round((appt - when) / 60000)])];
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

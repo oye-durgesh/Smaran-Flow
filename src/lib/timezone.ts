@@ -90,8 +90,16 @@ export interface CalendarCell {
 
 /** Sunday-first 6-week grid for a YYYY-MM month. */
 export function monthGrid(yearMonth: string): CalendarCell[] {
+  return monthGridWithLead(yearMonth, weekdayOf(`${yearMonth}-01`));
+}
+
+/** Monday-first 6-week grid used by Family Appointments. Does not change Today. */
+export function monthGridMonday(yearMonth: string): CalendarCell[] {
+  return monthGridWithLead(yearMonth, (weekdayOf(`${yearMonth}-01`) + 6) % 7);
+}
+
+function monthGridWithLead(yearMonth: string, lead: number): CalendarCell[] {
   const first = `${yearMonth}-01`;
-  const lead = weekdayOf(first);
   const start = addCalendarDays(first, -lead);
   return Array.from({ length: 42 }, (_, i) => {
     const date = addCalendarDays(start, i);
