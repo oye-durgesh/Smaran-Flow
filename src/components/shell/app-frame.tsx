@@ -24,7 +24,7 @@ function useScrollReset(path: string, ref: React.RefObject<HTMLElement | null>) 
 
 export function AppFrame({ children }: { children: ReactNode }) {
   const path = usePathname();
-  const { state, session, vaultError } = useStore();
+  const { state, session } = useStore();
   const { setPortalEl } = useView();
   const scrollRef = useRef<HTMLElement>(null);
   const [drawer, setDrawer] = useState(false);
@@ -60,15 +60,13 @@ export function AppFrame({ children }: { children: ReactNode }) {
                 session.isDemo ? "border-[#E8C4B0] bg-[#FFF1E8] text-[#8F4538]" : session.authenticated ? "border-confirmed/30 bg-confirmed-bg text-confirmed" : "border-line bg-sand/50 text-ink",
               )}
             >
-              {vaultError
-                ? `Vault error: ${vaultError}`
-                : session.isDemo
-                  ? "DEMO WORKSPACE — All family health records shown here are fictional."
-                  : session.authenticated
-                    ? "Signed-in family vault (Supabase). Browser sample copies were not deleted."
-                    : session.configured
-                      ? "Supabase is configured. You are not signed in — records on this device are not the cloud."
-                      : "Device-local mode. Nothing is cloud-synced."}
+              {session.isDemo
+                ? "DEMO WORKSPACE — All family health records shown here are fictional."
+                : session.authenticated
+                  ? "Signed-in family vault (Supabase). Browser sample copies were not deleted."
+                  : session.configured
+                    ? "Supabase is configured. You are not signed in — records on this device are not the cloud."
+                    : "Device-local mode. Nothing is cloud-synced."}
             </p>
           )}
           {children}
