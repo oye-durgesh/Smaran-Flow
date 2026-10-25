@@ -2,21 +2,21 @@ import "server-only";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
-import { backendConfigured, supabaseAnonKey, supabaseServiceRoleKey, supabaseUrl } from "./env";
+import { backendConfigured, supabasePublishableKey, supabaseServiceRoleKey, supabaseUrl } from "./env";
 
-export function requireSupabaseUrl(): { url: string; anon: string } {
+export function requireSupabaseUrl(): { url: string; publishableKey: string } {
   const url = supabaseUrl();
-  const anon = supabaseAnonKey();
-  if (!url || !anon) {
+  const publishableKey = supabasePublishableKey();
+  if (!url || !publishableKey) {
     throw new Error("DEVICE_LOCAL_MODE");
   }
-  return { url, anon };
+  return { url, publishableKey };
 }
 
 export async function createUserClient(): Promise<SupabaseClient> {
-  const { url, anon } = requireSupabaseUrl();
+  const { url, publishableKey } = requireSupabaseUrl();
   const cookieStore = await cookies();
-  return createServerClient(url, anon, {
+  return createServerClient(url, publishableKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -41,5 +41,5 @@ export function createServiceClient(): SupabaseClient {
 }
 
 export function persistenceLabel(): "supabase" | "device-local" {
-  return backendConfigured() && supabaseAnonKey() ? "supabase" : "device-local";
+  return backendConfigured() && supabasePublishableKey() ? "supabase" : "device-local";
 }

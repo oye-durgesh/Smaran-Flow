@@ -18,8 +18,8 @@ export function supabaseUrl(): string | undefined {
   return read("NEXT_PUBLIC_SUPABASE_URL");
 }
 
-export function supabaseAnonKey(): string | undefined {
-  return read("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+export function supabasePublishableKey(): string | undefined {
+  return read("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
 }
 
 export function supabaseServiceRoleKey(): string | undefined {
@@ -34,9 +34,9 @@ export function vapidPrivateKey(): string | undefined {
   return read("VAPID_PRIVATE_KEY");
 }
 
-/** True when the browser/server can talk to Supabase Auth + RLS (anon key). */
+/** True when the browser/server can talk to Supabase Auth + RLS (publishable key). */
 export function backendConfigured(): boolean {
-  return Boolean(supabaseUrl() && supabaseAnonKey());
+  return Boolean(supabaseUrl() && supabasePublishableKey());
 }
 
 export function serviceRoleConfigured(): boolean {

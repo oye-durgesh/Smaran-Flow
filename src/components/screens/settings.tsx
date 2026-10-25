@@ -239,7 +239,7 @@ export function SettingsScreen() {
                 </div>
               </form>
             ) : (
-              <p className="text-[13px] text-ink-muted">Device-local mode. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable a real family vault. Browser data is not cloud-synced.</p>
+              <p className="text-[13px] text-ink-muted">Device-local mode. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to enable a real family vault. Browser data is not cloud-synced.</p>
             )}
           </div>
         </Group>

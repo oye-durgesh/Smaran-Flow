@@ -15,7 +15,7 @@ describe("database failures", () => {
   });
 
   it("maps missing backend to 503 device-local, not a fake cloud write", () => {
-    const err = new VaultError("This server is in device-local mode. Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.", 503);
+    const err = new VaultError("This server is in device-local mode. Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.", 503);
     expect(err.status).toBe(503);
     expect(err.message).toContain("device-local");
   });

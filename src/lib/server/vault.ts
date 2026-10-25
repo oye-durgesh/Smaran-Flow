@@ -11,7 +11,7 @@ export { VaultError };
 
 export async function requireAuthedFamily(): Promise<{ session: DeviceSession; supabase: SupabaseClient; familyId: string; userId: string }> {
   const session = await readSession();
-  if (session.mode === "device-local") throw new VaultError("This server is in device-local mode. Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.", 503);
+  if (session.mode === "device-local") throw new VaultError("This server is in device-local mode. Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.", 503);
   if (!session.authenticated || !session.userId) throw new VaultError("Sign in to use the family vault.", 401);
   const supabase = await createUserClient();
   let familyId = session.familyId;

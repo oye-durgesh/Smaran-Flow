@@ -13,7 +13,7 @@ Single source of truth and authentication foundation:
 - Server session uses `supabase.auth.getUser()` plus `family_memberships`. No stub JWT.
 - Family records load through the user-scoped Supabase client and RLS (`is_family_member`). The service role key is server-only and never `NEXT_PUBLIC_`.
 - Authenticated UI hydrates appointments, reminders, measurements, documents, memory, and care recipients from `GET /api/vault`. Browser `localStorage` is kept as a **separate** device copy and is never auto-deleted.
-- Device-local mode is explicit when URL/anon keys are missing. The chrome banner and Settings copy say so. Browser data is not labeled as cloud-synced.
+- Device-local mode is explicit when URL/publishable keys are missing. The chrome banner and Settings copy say so. Browser data is not labeled as cloud-synced.
 - New local records stamp `zonedNow()` (Asia/Kolkata), not `demoNow`.
 - Appointment complete / cancel / reschedule: unique match only; ambiguous match asks which visit; writes go to Postgres when signed in; success only after the API confirms.
 - Interpret uses vault appointments when authenticated. In device-local mode it may use `deviceAppointments` from the same UI store so “appointment done” can match what is on screen. Client-supplied family IDs are never authorization.
@@ -40,7 +40,7 @@ Configure in `.env.local` (gitignored) or the host. Values are never committed.
 | Name | Where | Required for |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | public | Auth + vault |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public (anon) | User-scoped client / RLS |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | public (publishable) | User-scoped client / RLS |
 | `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Admin/service paths; never `NEXT_PUBLIC_` |
 | `ANTHROPIC_API_KEY` | server only | Live Claude |
 | `ANTHROPIC_MODEL` | server only | Optional model override |
@@ -78,7 +78,7 @@ Unit coverage added for: own-family allow, other-family deny, two permitted acco
 
 ## 6. How to verify two separate family accounts
 
-1. Apply migrations 0001–0003 on a Supabase project. Put URL + anon key in `.env.local`. Restart the app.
+1. Apply migrations 0001–0003 on a Supabase project. Put URL + publishable key in `.env.local`. Restart the app.
 2. Browser A: Settings → Create account (`family-a@…`). Add a care recipient (not a login). Create an appointment. Reload — the same row must return from `/api/vault`.
 3. Browser B (private): Create `family-b@…`. `/api/vault` must not contain family A’s appointment. Completing family A’s id must 404/deny.
 4. To share one family: insert a second `family_memberships` row for user B on family A (owner action). Both sessions should then see that appointment.

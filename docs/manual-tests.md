@@ -23,7 +23,7 @@ Do not paste API keys into chat.
 
 ## Backend / push
 
-- Cross-family auth and real web-push are **blocked** until `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and VAPID keys are set.
+- Cross-family auth and real web-push are **blocked** until `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and VAPID keys are set.
 - `GET /api/cron/reminders` reports `status: "blocked"` and `delivered: 0` when those are missing.
 
 ## Appointments

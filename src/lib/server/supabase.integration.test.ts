@@ -2,7 +2,7 @@ import { describe, it } from "vitest";
 
 /**
  * Live Supabase RLS / two-account tests are blocked in this environment:
- * NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and two test accounts
+ * NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, and two test accounts
  * are not configured. These cases must be run against a real project after
  * applying supabase/migrations/0001–0003.
  */
