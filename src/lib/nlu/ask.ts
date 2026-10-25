@@ -2,6 +2,7 @@ import type { AppState, FamilyMember } from "../types";
 import { formatDayLong, formatLong, formatShort, formatTime, relativeDay, timeOf, dateOf } from "../dates";
 import { documentsFor, latestConfirmation, latestMeasurement, memberDaySummary, memberById, todayOf, upcomingAppointments } from "../selectors";
 import { currentMedicines } from "../medicine-model";
+import { historyFor, vaccinationsFor } from "../health-record-model";
 import { findDoctor, findPerson, normalize } from "./common";
 
 export type AnswerRef =
@@ -32,9 +33,24 @@ const DOC_TERMS: { test: RegExp; match: (name: string, type: string) => boolean;
   { test: /\b(report|reports|document|documents|papers?)\b/, match: () => true, label: "document" },
 ];
 
-export function answerQuestion(question: string, state: AppState): Answer {
+export function resolveAskPerson(question: string, state: AppState, filterMemberId?: string): { person?: FamilyMember; mismatch?: { asked: FamilyMember; selected: FamilyMember } } {
+  const mentioned = findPerson(question, state.family) ?? undefined;
+  const selected = filterMemberId && filterMemberId !== "all" ? memberById(state, filterMemberId) : undefined;
+  if (mentioned && selected && mentioned.id !== selected.id) return { person: mentioned, mismatch: { asked: mentioned, selected } };
+  return { person: mentioned ?? selected };
+}
+
+export function answerQuestion(question: string, state: AppState, filterMemberId?: string): Answer {
   const t = normalize(question);
-  const person = findPerson(question, state.family) ?? undefined;
+  const resolved = resolveAskPerson(question, state, filterMemberId);
+  if (resolved.mismatch) {
+    return {
+      found: false,
+      refs: [],
+      text: `You asked about ${resolved.mismatch.asked.name}, but ${resolved.mismatch.selected.name} is selected. Switch the family filter or ask about ${resolved.mismatch.selected.name} — I will not show another person's records.`,
+    };
+  }
+  const person = resolved.person;
   const today = todayOf(state);
 
   if (/\b(dose|dosage|should i|chahiye kya|side effect|diagnos|kya khana|khana chahiye|band kar|increase|badha|kam kar|replace)\b/.test(t) && !/\b(bp|sugar|weight|glucose)\b/.test(t)) {
@@ -50,12 +66,17 @@ export function answerQuestion(question: string, state: AppState): Answer {
   if (measureKind && person && !/\b(medicine|dawai|check|yaad)\b/.test(t)) {
     const m = latestMeasurement(state, person.id, measureKind);
     const label = measureKind === "blood_pressure" ? "blood pressure" : measureKind === "blood_sugar" ? "blood sugar" : measureKind === "heart_rate" ? "heart rate" : "weight";
-    if (!m) return { found: false, refs: [], text: `I couldn't find a saved ${label} for ${person.name} in SMARAN.` };
+    if (!m) return { found: false, refs: [], text: `I couldn't find that information in your family's saved records. There is no saved ${label} for ${person.name}.` };
+    const value = m.kind === "blood_pressure" && m.systolic != null ? `${m.systolic}/${m.diastolic}` : m.value;
+    const context = m.glucoseContext ? ` (${m.glucoseContext.replace("_", " ")})` : "";
     return {
       found: true,
       refs: [{ kind: "measurement", id: m.id }],
-      text: `${possessive(person)} latest ${label} is ${m.value} ${m.unit}, recorded on ${formatShort(dateOf(m.recordedAt))} at ${formatTime(timeOf(m.recordedAt))}${m.source === "sample" ? " (sample family note)" : ""}.`,
+      text: `${possessive(person)} latest ${label} is ${value} ${m.unit}${context}, recorded on ${formatShort(dateOf(m.recordedAt))} at ${formatTime(timeOf(m.recordedAt))}${m.source === "sample" ? " (sample family note)" : ""}.`,
     };
+  }
+  if (measureKind && !person) {
+    return { found: false, refs: [], text: "Whose information would you like to check? Choose a family member or name them in the question." };
   }
 
   const docTerm = DOC_TERMS.find((d) => d.test.test(t));
@@ -129,6 +150,20 @@ export function answerQuestion(question: string, state: AppState): Answer {
     if (!reminders.length) return { found: false, refs: [], text: `There are no current medicines${person ? ` for ${person.name}` : ""} yet.` };
     const list = reminders.map((r) => `${r.title} at ${formatTime(r.time)}${person ? "" : ` (${memberById(state, r.familyMemberId)?.name})`}`).join(", ");
     return { found: true, refs: reminders.map((r) => ({ kind: "reminder" as const, id: r.id })), text: `${possessive(person)} medicine reminders: ${list}.` };
+  }
+
+  if (/\b(vaccin|teeka|immuni)\b/.test(t)) {
+    const rows = person ? vaccinationsFor(state, person.id) : (state.vaccinations ?? []);
+    if (!rows.length) return { found: false, refs: [], text: `I couldn't find that information in your family's saved records.${person ? ` No vaccinations are recorded for ${person.name}.` : ""}` };
+    const list = rows.slice(0, 5).map((v) => `${v.name}${v.receivedDate ? ` (${v.receivedDate})` : ""}`).join(", ");
+    return { found: true, refs: [], text: `${possessive(person)} recorded vaccinations: ${list}.` };
+  }
+
+  if (/\b(medical history|bimari|illness|surgery|surgeries)\b/.test(t)) {
+    if (!person) return { found: false, refs: [], text: "Whose medical history should I look up?" };
+    const rows = historyFor(state, person.id);
+    if (!rows.length) return { found: false, refs: [], text: `I couldn't find that information in your family's saved records. No medical history is recorded for ${person.name}.` };
+    return { found: true, refs: [], text: `${possessive(person)} recorded history: ${rows.map((h) => h.name).join(", ")}.` };
   }
 
   if (/\b(aaj|today|status|kaisa|sab theek|how is|how are)\b/.test(t)) {

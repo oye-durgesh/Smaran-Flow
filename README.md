@@ -98,4 +98,5 @@ Apply `supabase/migrations/0001_smaran_family.sql` only after you create a Supab
 | Cross-family RLS live | blocked | policy SQL + unit rules; no live two-account run | two Supabase users |
 | Family Health Record (per person) | verified (local persist + unit) | Health Record tabs, charts from saved measurements, `/api/health-record` | Apply 0006; signed-in UUID recipients for cloud writes |
 | Documents library + extract review | verified (local persist + unit) | Documents workspace, local PDF text extract, sample demos isolated | Claude/vision OCR still unconfigured |
+| Ask SMARAN chat UI | verified (unit + local retrieve) | WhatsApp-style `/ask`, `answerQuestion` + `/api/ask` | Claude not used; live vault unverified |
 | Health Card share across devices | blocked | Same-browser store | Print to PDF |

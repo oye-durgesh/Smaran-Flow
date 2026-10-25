@@ -2,7 +2,31 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## Documents & Reports scanner (this pass)
+## Ask SMARAN chat (this pass)
+
+Ask SMARAN is a WhatsApp-style conversation. Global sidebar is unchanged. Retrieval is still `answerQuestion` via `POST /api/ask` (rule-based, `claudeUsed: false`).
+
+- Center chat: greeting with profile name, family filter chips from `state.family`, assistant bot avatar, peach user bubbles, source-linked result cards.
+- Bottom composer: paperclip → existing `/documents/upload`, Wispr Flow control focuses the box (no browser recording claim), Enter submits / Shift+Enter newline.
+- Right **Try asking** panel (mobile: expandable). Suggestions use the same `/api/ask` path. Upload suggestion routes to Documents.
+- Papa questions never return Mummy's readings when the filter mismatches.
+- Missing records stay empty. Failed API requests keep the local grounded answer and an error, not a fabricated success.
+
+### Commands this pass
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **140 passed**, **4 skipped** |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | `/ask`, `/api/ask` |
+
+Not verified live: Ask against a signed-in Supabase vault, Wispr desktop dictation, two-account RLS.
+
+---
+
+## Documents & Reports scanner (prior pass)
 
 The Documents page is a person-centered library. Filters and counts come from stored documents. Sample family notes stay labelled.
 

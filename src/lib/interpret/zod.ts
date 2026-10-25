@@ -82,12 +82,13 @@ export const interpretResponseSchema = z.object({
 export const askBodySchema = z.object({
   question: z.string().min(1).max(4000),
   timezone: z.string().optional(),
+  filterMemberId: z.string().optional(),
   evidence: z
     .object({
       family: z.array(z.object({ id: z.string(), name: z.string(), relationship: z.string().optional() })).max(20),
       appointments: z.array(z.object({ id: z.string(), familyMemberId: z.string(), doctor: z.string(), date: z.string(), time: z.string(), status: z.string() })).max(50),
       reminders: z.array(z.object({ id: z.string(), familyMemberId: z.string(), title: z.string(), kind: z.string(), time: z.string(), frequency: z.string() })).max(50),
-      measurements: z.array(z.object({ id: z.string(), familyMemberId: z.string(), kind: z.string(), value: z.string(), unit: z.string(), recordedAt: z.string() })).max(80),
+      measurements: z.array(z.object({ id: z.string(), familyMemberId: z.string(), kind: z.string(), value: z.string(), unit: z.string(), recordedAt: z.string(), systolic: z.number().optional(), diastolic: z.number().optional(), glucoseContext: z.string().optional() })).max(80),
       documents: z.array(z.object({ id: z.string(), familyMemberId: z.string(), name: z.string(), type: z.string(), date: z.string() })).max(50),
     })
     .optional(),

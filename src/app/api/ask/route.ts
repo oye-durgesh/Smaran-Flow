@@ -62,7 +62,10 @@ function snapshotState(evidence: NonNullable<ReturnType<typeof askBodySchema.par
       value: m.value,
       unit: m.unit,
       recordedAt: m.recordedAt,
-      source: "manual",
+      systolic: "systolic" in m ? (m as { systolic?: number }).systolic : undefined,
+      diastolic: "diastolic" in m ? (m as { diastolic?: number }).diastolic : undefined,
+      glucoseContext: (m as { glucoseContext?: "fasting" | "post_meal" | "random" }).glucoseContext,
+      source: "manual" as const,
     })),
     medicines: [],
     refills: [],
@@ -122,6 +125,6 @@ export async function POST(req: Request) {
     });
   }
 
-  const answer = answerQuestion(parsed.data.question, snapshotState(evidence));
+  const answer = answerQuestion(parsed.data.question, snapshotState(evidence), parsed.data.filterMemberId);
   return NextResponse.json({ ...answer, persistence: authorized.persistence, claudeUsed: false });
 }
