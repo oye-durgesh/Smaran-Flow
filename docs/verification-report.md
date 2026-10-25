@@ -2,7 +2,56 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## Shared Wispr Flow composer (this pass)
+## Wispr Flow composer width collapse (this pass)
+
+### Root cause
+
+The shared composer sat in a ~292px inner rail (`Screen` aside `w-[340px]` + `px-6`, Today `320px` column). Header used a single flex row and showed `Powered by Wispr Flow` at the viewport `sm:` breakpoint, so a 1440px desktop still treated the 292px rail as “wide”. The pill (~170px) plus the 48px logo left almost no track for “Ask SMARAN” and the helper copy, which wrapped into one-word / few-character columns. The input used the same one-row flex: attachment + `field-sizing-content` textarea + `Use Wispr Flow` + send. The button ate the row; `field-sizing-content` then grew a tall, narrow field with an internal scrollbar.
+
+### Fix (shared composer + parent rail only)
+
+- Header: `grid-cols-[48px_minmax(0,1fr)]`. Pill stacks under the title unless the **composer container** is ≥420px (`@[420px]/composer`).
+- Input: full-width textarea (`w-full min-w-0 min-h-[72px]`) on its own row; actions wrap below. Auto-grow; overflow-y only after the max height.
+- `Screen` right rail starts at `xl` (not `lg`) and uses `min-w-0` + tighter padding. Below `xl` the aside stays in the main column. Today already did this.
+- Container-width rules in `src/lib/wispr-flow-layout.ts` (stack actions below 400px).
+
+Logo, submit handler, section policy, and medical examples are unchanged. No microphone. Input starts empty.
+
+### Files
+
+- `src/components/smaran/wispr-flow-composer.tsx`
+- `src/components/shell/screen.tsx`
+- `src/lib/wispr-flow-layout.ts`
+- `src/lib/wispr-flow-layout.test.ts`
+- `docs/verification-report.md`
+
+### Viewports actually captured (headless Chrome → `/today` and `/ask`)
+
+| Width | Result |
+|---|---|
+| 320 | Today header/schedule OK; composer is below the fold on Today. `/ask` sometimes still on boot splash (virtual-time). |
+| 360, 375, 430 | Today captured. `/ask` at **430**: header stacks, helper wraps by word, textarea spans the card, Wispr + send sit on the row below. No one-character column. |
+| 768 | Today captured; no squeezed rail. |
+| 1024 | Today: **no** desktop right rail (aside stays in the column). Main content uses the full width beside the sidebar. |
+| 1280, 1440 | Today rail: title + pill readable, textarea full card width, actions below the field. `/ask` 1440: pill top-right, textarea wide, no overlap. |
+
+Narrow-rail case is the 1440 Today aside (~320px), not a second invented card.
+
+Typing/submit were not re-clicked in Chrome (handlers unchanged; existing composer tests still pass). Horizontal overflow was not visible on the captured viewports.
+
+### Commands this pass
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **204 passed**, **4 skipped** |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | Next.js 16.4.2 |
+
+---
+
+## Shared Wispr Flow composer (prior pass)
 
 One reusable composer (`WisprFlowComposer` + `WISPR_SECTIONS` policy) on Today, Medicines, Appointments, Documents, Health Card, Ask SMARAN, and Settings. Logo is `/brand/wispr-flow.png`. No microphone button. No Claude. No new migration.
 
@@ -12,13 +61,13 @@ Windows / Mac / phone shortcut copy is shown when **Use Wispr Flow** is clicked.
 
 Supabase writes were **not** live-tested in this environment.
 
-### Commands this pass
+### Commands that pass (composer policy)
 
 | Command | Exit | Notes |
 |---|---|---|
 | `npx tsc --noEmit` | **0** | |
 | `npm run lint` | **0** | |
-| `npm test` | **0** | **200 passed**, **4 skipped** |
+| `npm test` | **0** | **200 passed**, **4 skipped** (then); **204** after layout tests |
 | `git diff --check` | **0** | |
 | `npm run build` | **0** | |
 
