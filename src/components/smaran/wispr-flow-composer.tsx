@@ -2,18 +2,21 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowUp, Loader2, Paperclip, X } from "lucide-react";
+import { ArrowUp, ChevronDown, Loader2, Paperclip, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WisprFlowMark } from "./brand";
 import {
+  TEXTAREA_MAX_HEIGHT_COMPACT_PX,
+  TEXTAREA_MAX_HEIGHT_DEFAULT_PX,
+  TEXTAREA_MIN_HEIGHT_DEFAULT_PX,
+  TEXTAREA_MIN_HEIGHT_PX,
+} from "@/lib/wispr-flow-layout";
+import {
   WISPR_BUTTON_LABEL,
   WISPR_HEADING,
-  WISPR_HELPER_BODY,
-  WISPR_HELPER_TITLE,
   WISPR_ORGANIZE,
   WISPR_POWERED,
   WISPR_SHORTCUTS,
-  WISPR_TAGLINE,
   wisprSection,
   type WisprSectionId,
 } from "@/lib/wispr-flow-context";
@@ -63,6 +66,8 @@ export function WisprFlowComposer({
 
   const list = examples ?? config.examples;
   const shownPlaceholder = placeholder ?? config.placeholder;
+  const minHeight = compact ? TEXTAREA_MIN_HEIGHT_PX : TEXTAREA_MIN_HEIGHT_DEFAULT_PX;
+  const maxHeight = compact ? TEXTAREA_MAX_HEIGHT_COMPACT_PX : TEXTAREA_MAX_HEIGHT_DEFAULT_PX;
 
   useEffect(() => {
     onSubmitRef.current = onSubmit;
@@ -79,12 +84,11 @@ export function WisprFlowComposer({
   const growField = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
-    const max = compact ? 112 : 160;
     el.style.height = "auto";
-    const next = Math.min(Math.max(el.scrollHeight, 72), max);
+    const next = Math.min(Math.max(el.scrollHeight, minHeight), maxHeight);
     el.style.height = `${next}px`;
-    el.style.overflowY = el.scrollHeight > max ? "auto" : "hidden";
-  }, [compact]);
+    el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
+  }, [maxHeight, minHeight]);
 
   useEffect(() => {
     growField();
@@ -114,7 +118,7 @@ export function WisprFlowComposer({
       setValue("");
       if (textareaRef.current) {
         textareaRef.current.value = "";
-        textareaRef.current.style.height = "72px";
+        textareaRef.current.style.height = `${minHeight}px`;
         textareaRef.current.style.overflowY = "hidden";
       }
     } catch {
@@ -122,7 +126,7 @@ export function WisprFlowComposer({
     } finally {
       inFlight.current = false;
     }
-  }, [disabled, isLoading, value]);
+  }, [disabled, isLoading, minHeight, value]);
 
   const focusWispr = () => {
     textareaRef.current?.focus();
@@ -140,39 +144,77 @@ export function WisprFlowComposer({
     <div
       data-wispr-composer={context}
       className={cn(
-        "@container/composer w-full min-w-0 max-w-full overflow-x-hidden rounded-[24px] border border-line bg-surface-raised p-3 shadow-[var(--shadow-soft)] sm:p-4",
+        "@container/composer w-full min-w-0 max-w-full overflow-x-hidden rounded-[20px] border border-line/80 bg-surface-raised",
+        compact ? "p-2 shadow-none" : "p-3 shadow-[var(--shadow-soft)] sm:p-3.5",
         className,
       )}
     >
-      <div className="grid w-full min-w-0 grid-cols-[48px_minmax(0,1fr)] items-start gap-3">
-        <button
-          type="button"
-          onClick={focusWispr}
-          aria-label={WISPR_BUTTON_LABEL}
-          className="inline-flex size-12 shrink-0 items-center justify-center rounded-[16px] bg-[#EDE7F8] hover:bg-[#E3DBF4] focus-visible:ring-2 focus-visible:ring-[#C4B5E0]"
-        >
-          <WisprFlowMark size={22} className="max-h-7 max-w-10 rounded-[6px] object-contain" />
-        </button>
-        <div className="min-w-0">
-          <div className="flex min-w-0 flex-col gap-2 @[420px]/composer:flex-row @[420px]/composer:items-start @[420px]/composer:justify-between">
-            <p className="text-[16px] font-extrabold break-words text-ink-strong">{WISPR_HEADING}</p>
-            <div className="inline-flex max-w-full shrink-0 items-center gap-1.5 self-start rounded-full bg-[#EDE7F8] px-2.5 py-1">
-              <WisprFlowMark size={14} className="max-h-4 max-w-7 rounded-[4px] object-contain" />
-              <span className="text-[11px] font-extrabold whitespace-nowrap text-[#5E4B72]">{WISPR_POWERED}</span>
+      {compact ? (
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <div className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-full border border-[#E4D8F0] bg-[#F6F1FB] px-1.5 py-0.5">
+            <WisprFlowMark size={11} className="max-h-3 max-w-5 rounded-[3px] object-contain" />
+            <span className="truncate text-[10px] font-semibold tracking-wide text-[#6B5A8A]">{WISPR_POWERED}</span>
+          </div>
+          <details
+            className="shrink-0"
+            open={hint}
+            onToggle={(e) => setHint(e.currentTarget.open)}
+          >
+            <summary className="flex cursor-pointer list-none items-center gap-0.5 text-[11px] font-semibold text-ink-muted marker:content-none [&::-webkit-details-marker]:hidden">
+              Shortcuts
+              <ChevronDown className={cn("size-3 transition-transform", hint && "rotate-180")} aria-hidden />
+            </summary>
+          </details>
+        </div>
+      ) : (
+        <div className="grid w-full min-w-0 grid-cols-[40px_minmax(0,1fr)] items-start gap-2.5">
+          <button
+            type="button"
+            onClick={focusWispr}
+            aria-label={WISPR_BUTTON_LABEL}
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-[14px] bg-[#F6F1FB] hover:bg-[#EDE7F8] focus-visible:ring-2 focus-visible:ring-[#C4B5E0]"
+          >
+            <WisprFlowMark size={18} className="max-h-6 max-w-8 rounded-[5px] object-contain" />
+          </button>
+          <div className="min-w-0">
+            <div className="flex min-w-0 flex-col gap-1.5 @[420px]/composer:flex-row @[420px]/composer:items-center @[420px]/composer:justify-between">
+              <p className="text-[15px] font-extrabold break-words text-ink-strong">{WISPR_HEADING}</p>
+              <div className="flex items-center gap-2 self-start">
+                <div className="inline-flex max-w-full shrink-0 items-center gap-1 rounded-full border border-[#E4D8F0] bg-[#F6F1FB] px-2 py-0.5">
+                  <WisprFlowMark size={12} className="max-h-3.5 max-w-6 rounded-[3px] object-contain" />
+                  <span className="text-[10px] font-semibold whitespace-nowrap text-[#6B5A8A]">{WISPR_POWERED}</span>
+                </div>
+                <details
+                  className="shrink-0"
+                  open={hint}
+                  onToggle={(e) => setHint(e.currentTarget.open)}
+                >
+                  <summary className="flex cursor-pointer list-none items-center gap-0.5 text-[11px] font-semibold text-ink-muted marker:content-none [&::-webkit-details-marker]:hidden">
+                    Shortcuts
+                    <ChevronDown className={cn("size-3 transition-transform", hint && "rotate-180")} aria-hidden />
+                  </summary>
+                </details>
+              </div>
             </div>
           </div>
-          <p className="mt-1 text-[13px] leading-5 font-semibold break-words text-[#6B5A8A]">{WISPR_TAGLINE}</p>
-          <p className="text-[12.5px] leading-5 break-words text-ink-muted">{config.subtitle}</p>
-          <p className="text-[12.5px] leading-5 break-words text-ink-muted">{WISPR_ORGANIZE}</p>
         </div>
-      </div>
+      )}
 
-      <div className="mt-3 flex w-full min-w-0 flex-col gap-2 rounded-[22px] border border-line bg-[#FFF6F0] p-2.5 transition-colors focus-within:border-peach">
+      <p className={cn("min-w-0 text-[12px] leading-4 break-words text-ink-muted", compact ? "mt-1.5" : "mt-2")}>
+        {WISPR_ORGANIZE}
+      </p>
+
+      <div
+        className={cn(
+          "flex w-full min-w-0 flex-col gap-1.5 rounded-[16px] border border-line bg-[#FFF8F3] transition-colors focus-within:border-peach",
+          compact ? "mt-1.5 p-1.5" : "mt-2 p-2",
+        )}
+      >
         <textarea
           ref={textareaRef}
           id={inputId}
           value={value}
-          rows={compact ? 2 : 3}
+          rows={1}
           onInput={(e) => {
             onChange(e.currentTarget.value);
             growField();
@@ -193,50 +235,56 @@ export function WisprFlowComposer({
           disabled={busy}
           aria-label={`${WISPR_HEADING}: ${shownPlaceholder}`}
           aria-describedby={helperId}
-          className="block min-h-[72px] w-full min-w-0 resize-none overflow-y-hidden bg-transparent px-1.5 py-2 text-[16px] leading-relaxed font-semibold break-words text-ink-strong outline-none placeholder:font-semibold placeholder:text-ink-muted/60"
+          className={cn(
+            "block w-full min-w-0 resize-none overflow-y-hidden bg-transparent px-1.5 text-[15px] leading-snug font-semibold break-words text-ink-strong outline-none placeholder:font-medium placeholder:text-ink-muted/55",
+            compact ? "min-h-12 py-1.5" : "min-h-14 py-2",
+          )}
         />
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
           {showAttach && (
             <Link
               href={config.attachmentHref ?? "/documents/upload"}
               aria-label="Attach a medical document"
               onClick={onAttachment}
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-[12px] text-ink-muted hover:bg-ivory-deep"
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] text-ink-muted hover:bg-ivory-deep"
             >
-              <Paperclip className="size-5" />
+              <Paperclip className="size-4" />
             </Link>
           )}
           {hasText && !busy && (
-            <button type="button" onClick={() => onChange("")} aria-label="Clear" className="inline-flex size-11 shrink-0 items-center justify-center rounded-[12px] text-ink-muted hover:bg-ivory-deep">
-              <X className="size-4" />
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              aria-label="Clear"
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] text-ink-muted hover:bg-ivory-deep"
+            >
+              <X className="size-3.5" />
             </button>
           )}
           <button
             type="button"
             onClick={focusWispr}
             aria-label={WISPR_BUTTON_LABEL}
-            className="inline-flex h-11 min-w-0 items-center gap-1.5 rounded-[14px] bg-[#EDE7F8] px-2.5 text-[12px] font-extrabold text-[#5E4B72] hover:bg-[#E3DBF4] focus-visible:ring-2 focus-visible:ring-[#C4B5E0]"
+            className="inline-flex h-9 min-h-9 min-w-0 items-center gap-1 rounded-full bg-[#EDE7F8] px-2.5 text-[11px] font-bold text-[#5E4B72] hover:bg-[#E3DBF4] focus-visible:ring-2 focus-visible:ring-[#C4B5E0]"
           >
-            <WisprFlowMark size={18} className="max-h-5 max-w-8 rounded-[5px] object-contain" />
-            <span className="max-w-[9.5rem] truncate @[420px]/composer:max-w-none">{WISPR_BUTTON_LABEL}</span>
+            <WisprFlowMark size={14} className="max-h-3.5 max-w-6 rounded-[4px] object-contain" />
+            <span className="max-w-[8.5rem] truncate @[360px]/composer:max-w-none">{WISPR_BUTTON_LABEL}</span>
           </button>
           <button
             type="button"
             onClick={() => void submit()}
             disabled={busy || !hasText}
             aria-label="Send to SMARAN"
-            className="inline-flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-peach text-ink-strong hover:bg-[#e29c7e] focus-visible:ring-2 focus-visible:ring-peach-deep disabled:bg-ivory-deep disabled:text-ink-muted/50"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-peach text-ink-strong hover:bg-[#e29c7e] focus-visible:ring-2 focus-visible:ring-peach-deep disabled:bg-ivory-deep disabled:text-ink-muted/50"
           >
-            {isLoading ? <Loader2 className="size-5 animate-spin" /> : <ArrowUp className="size-5" strokeWidth={2.6} />}
+            {isLoading ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" strokeWidth={2.6} />}
           </button>
         </div>
       </div>
 
-      <div id={helperId} className="mt-2 min-w-0">
-        <p className="text-[12.5px] font-bold break-words text-ink-strong">{WISPR_HELPER_TITLE}</p>
-        <p className="text-[12px] leading-5 break-words text-ink-muted">{WISPR_HELPER_BODY}</p>
+      <div id={helperId} className="min-w-0">
         {hint && (
-          <div role="status" className="mt-1 space-y-0.5 text-[12px] leading-5 break-words text-[#5E4B72]">
+          <div role="status" className="mt-1.5 space-y-0.5 rounded-[12px] bg-ivory px-2.5 py-1.5 text-[11px] leading-4 break-words text-[#5E4B72]">
             <p>{WISPR_SHORTCUTS.windows}</p>
             <p>{WISPR_SHORTCUTS.mac}</p>
             <p>{WISPR_SHORTCUTS.phone}</p>
@@ -245,13 +293,13 @@ export function WisprFlowComposer({
       </div>
 
       {shownError && (
-        <p role="alert" className="mt-2 rounded-[14px] bg-missed-bg/70 px-3 py-2 text-[13px] font-semibold break-words text-missed">
+        <p role="alert" className="mt-1.5 rounded-[12px] bg-missed-bg/70 px-2.5 py-1.5 text-[12.5px] font-semibold break-words text-missed">
           {shownError}
         </p>
       )}
 
       {!hasText && !busy && (
-        <ul className="mt-3 flex min-w-0 flex-wrap gap-1.5">
+        <ul className="mt-2 flex min-w-0 flex-wrap gap-1">
           {chips.map((chip) => {
             const Icon = chip.icon;
             return (
@@ -262,9 +310,9 @@ export function WisprFlowComposer({
                     onChange(chip.text);
                     textareaRef.current?.focus();
                   }}
-                  className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-line bg-ivory px-2.5 py-1.5 text-left text-[12px] font-semibold text-ink hover:border-peach"
+                  className="inline-flex max-w-full items-center gap-1 rounded-full border border-line bg-ivory px-2 py-1 text-left text-[11px] font-semibold text-ink hover:border-peach"
                 >
-                  <Icon className="size-3.5 shrink-0 text-peach-deep" aria-hidden />
+                  <Icon className="size-3 shrink-0 text-peach-deep" aria-hidden />
                   <span className="min-w-0 break-words">{chip.text}</span>
                 </button>
               </li>

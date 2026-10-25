@@ -37,11 +37,11 @@ export function Screen({
         {footer && (
           <div
             className={cn(
-              "min-w-0 shrink-0 border-t border-line/70 bg-ivory/95",
-              dockComposer && "pb-[max(0.75rem,env(safe-area-inset-bottom))] max-xl:pb-[calc(5.25rem+env(safe-area-inset-bottom))]",
+              "min-w-0 shrink-0 border-t border-line/50 bg-ivory/95",
+              dockComposer && "pb-[max(0.5rem,env(safe-area-inset-bottom))] max-xl:pb-[calc(5rem+env(safe-area-inset-bottom))]",
             )}
           >
-            <div className={cn("mx-auto w-full min-w-0 px-3 py-2.5 sm:px-8 sm:py-3 lg:px-10", max)}>{footer}</div>
+            <div className={cn("mx-auto w-full min-w-0 px-3 py-1.5 sm:px-8 sm:py-2 lg:px-10", max)}>{footer}</div>
           </div>
         )}
       </div>

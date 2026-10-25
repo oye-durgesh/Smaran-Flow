@@ -200,7 +200,7 @@ export function AskScreen() {
           </div>
         )}
 
-        <div className="space-y-5" aria-live="polite">
+        <div className="space-y-4" aria-live="polite">
           <AssistantBubble>
             <p className="whitespace-pre-wrap text-[15.5px] leading-relaxed">{greetingText(state.user.name)}</p>
             <div className="mt-3 flex flex-wrap gap-2">
