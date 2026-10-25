@@ -53,6 +53,20 @@ export const interpretBodySchema = z.object({
   timezone: z.string().max(64).optional(),
   /** Display names only. Server never treats these IDs as authorized records. */
   deviceFamilyNames: z.array(z.string().min(1).max(40)).max(20).optional(),
+  /** Used only in device-local mode so interpret can match the same records the UI shows. Ignored when a family session exists. */
+  deviceAppointments: z
+    .array(
+      z.object({
+        id: z.string(),
+        familyMemberId: z.string(),
+        doctor: z.string(),
+        date: z.string(),
+        time: z.string(),
+        status: z.enum(["upcoming", "completed", "cancelled"]),
+      }),
+    )
+    .max(50)
+    .optional(),
 });
 
 export const interpretResponseSchema = z.object({

@@ -2,6 +2,8 @@ import "server-only";
 import type { AppState } from "@/lib/types";
 import { backendConfigured } from "./env";
 import type { DeviceSession } from "./session";
+import { createUserClient } from "./supabase";
+import { loadVault, VaultError } from "./vault";
 
 export interface AuthorizedSnapshot {
   persistence: "supabase" | "device-local";
@@ -23,18 +25,31 @@ const EMPTY: AuthorizedSnapshot = {
   documents: [],
 };
 
-/**
- * Family rows come from the backend when configured.
- * Client-supplied IDs are never treated as authorized records.
- */
 export async function loadAuthorizedFamily(session: DeviceSession): Promise<AuthorizedSnapshot> {
-  if (!backendConfigured() || session.mode === "device-local") {
-    return EMPTY;
+  if (!backendConfigured() || session.mode === "device-local" || !session.authenticated || !session.userId) {
+    return {
+      ...EMPTY,
+      persistence: backendConfigured() ? "supabase" : "device-local",
+      authorization: session.authenticated ? "family-scoped" : "device-local-unauthenticated",
+    };
   }
-  if (!session.authenticated || !session.familyId) {
-    return { ...EMPTY, persistence: "supabase", authorization: "family-scoped" };
+  if (!session.familyId) return { ...EMPTY, persistence: "supabase", authorization: "family-scoped" };
+  try {
+    const supabase = await createUserClient();
+    const vault = await loadVault(supabase, session.familyId);
+    return {
+      persistence: "supabase",
+      authorization: "family-scoped",
+      family: vault.family.map((m) => ({ id: m.id, name: m.name })),
+      appointments: vault.appointments,
+      reminders: vault.reminders,
+      measurements: vault.measurements,
+      documents: vault.documents,
+    };
+  } catch (e) {
+    if (e instanceof VaultError) throw e;
+    throw new VaultError("Family vault read failed.", 500);
   }
-  return { ...EMPTY, persistence: "supabase", authorization: "family-scoped" };
 }
 
 export function namesOnlyFamily(names: string[]): AuthorizedSnapshot["family"] {

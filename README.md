@@ -48,7 +48,11 @@ CRON_SECRET=
 
 `.env*` is gitignored except `.env.example` (placeholders only).
 
-Without Anthropic, `/api/interpret` uses the deterministic parser and sets `claudeUsed: false`. Without Supabase, family data stays in this browser (`localStorage` + IndexedDB) and is **not** a multi-device vault. Importing that data to a server requires explicit consent (not implemented as a silent upload).
+Without Anthropic, `/api/interpret` uses the deterministic parser and sets `claudeUsed: false`. Without `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`, the app stays in **device-local mode** (`localStorage` + IndexedDB) and labels that clearly. It does not pretend browser data is cloud-synced.
+
+Apply `supabase/migrations/0001_smaran_family.sql`, `0002_rls_history_and_auth.sql`, and `0003_reminder_delivery.sql` in a Supabase project, then sign in under Settings. Care recipients (Mummy/Papa) are not login accounts. Use **Copy this browser's records into my family** to migrate local rows; local copies are never deleted automatically.
+
+`SUPABASE_SERVICE_ROLE_KEY` is server-only. Never put it in a `NEXT_PUBLIC_` variable.
 
 ## Consent / privacy
 
@@ -81,8 +85,9 @@ Apply `supabase/migrations/0001_smaran_family.sql` only after you create a Supab
 | Medicine reminders section `/medicines` | verified (local persist) | Medicines screen + store | — |
 | Claude `/api/ai/interpret` | partial | Zod + local parser tests; live Claude needs key | `ANTHROPIC_API_KEY` |
 | Grounded Ask `/api/ask` | partial | Local evidence + `answerQuestion` tests; no live Claude summarizer | device evidence or Supabase |
-| Supabase multi-device vault | blocked | Migration file only | Supabase URL + service role |
+| Supabase family vault + session | code ready, live unverified | `/api/session`, `/api/vault`, `/api/auth`, RLS SQL | URL + anon key + apply migrations |
+| Appointment complete/cancel/reschedule | unit + API | matching asks when ambiguous; writes go to DB when signed in | signed-in family |
 | Web Push / cron delivery | blocked | `/api/cron/reminders` returns `delivered: 0` | VAPID + cron secret |
 | OCR on scans | blocked | Extract route fails honestly without key/worker | Anthropic vision or OCR worker |
-| Cross-family auth | blocked | No live accounts | two Supabase users |
+| Cross-family RLS live | blocked | policy SQL + unit rules; no live two-account run | two Supabase users |
 | Health Card share across devices | blocked | Same-browser store | Print to PDF |

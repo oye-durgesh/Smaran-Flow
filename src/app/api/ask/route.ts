@@ -4,6 +4,7 @@ import { askBodySchema } from "@/lib/interpret/zod";
 import { rateLimit } from "@/lib/server/rate-limit";
 import { readSession } from "@/lib/server/session";
 import { loadAuthorizedFamily } from "@/lib/server/family-store";
+import { VaultError } from "@/lib/server/vault";
 import type { AppState } from "@/lib/types";
 
 export const maxDuration = 30;
@@ -85,9 +86,15 @@ export async function POST(req: Request) {
   const parsed = askBodySchema.safeParse(raw);
   if (!parsed.success) return NextResponse.json({ error: "Invalid question." }, { status: 400 });
 
-  const session = readSession(req);
-  const authorized = await loadAuthorizedFamily(session);
-  const evidence = authorized.family.length
+  const session = await readSession();
+  let authorized;
+  try {
+    authorized = await loadAuthorizedFamily(session);
+  } catch (e) {
+    if (e instanceof VaultError) return NextResponse.json({ error: e.message, persistence: "supabase" }, { status: e.status });
+    return NextResponse.json({ error: "Family vault read failed." }, { status: 500 });
+  }
+  const evidence = session.authenticated
     ? {
         family: authorized.family,
         appointments: authorized.appointments,
@@ -95,7 +102,9 @@ export async function POST(req: Request) {
         measurements: authorized.measurements,
         documents: authorized.documents,
       }
-    : parsed.data.evidence;
+    : session.mode === "device-local"
+      ? parsed.data.evidence
+      : undefined;
 
   if (!evidence) {
     return NextResponse.json({

@@ -9,6 +9,7 @@ import { primaryAction, requestInterpretation } from "@/lib/interpret/client";
 import type { InterpretSession } from "@/lib/interpret/schema";
 import type { ProposedAction } from "@/lib/interpret/zod";
 import { setAppointmentStatus, updateAppointment, updateMember, upsertMeasurement } from "@/lib/store/actions";
+import { createCloudMeasurement, isUuid, patchAppointment } from "@/lib/store/cloud";
 import { latestMeasurement, memberById, todayOf } from "@/lib/selectors";
 import { formatLong } from "@/lib/dates";
 import { promptsFor, speakCopy, type SpeakContext } from "@/lib/speak-prompts";
@@ -42,7 +43,7 @@ export function SmaranSpeakBox({
   onCapture?: (text: string) => void;
 }) {
   const router = useRouter();
-  const { state, update, commit } = useStore();
+  const { state, session, update, commit, refreshVault } = useStore();
   const [pendingHealth, setPendingHealth] = useState<HealthDraft | null>(null);
   const [pendingFact, setPendingFact] = useState<ProposedAction | null>(null);
   const [pendingAppt, setPendingAppt] = useState<ProposedAction | null>(null);
@@ -98,6 +99,15 @@ export function SmaranSpeakBox({
           setClarify(action.clarificationQuestion || "Which existing appointment? I will not create a new one.");
           return;
         }
+        if (action.matchedAppointmentIds.length > 1) {
+          const names = action.matchedAppointmentIds
+            .map((id) => state.appointments.find((a) => a.id === id))
+            .filter(Boolean)
+            .map((a) => `${a!.doctor} · ${a!.date} ${a!.time}`)
+            .join("; ");
+          setClarify(`Which appointment? ${names || "More than one upcoming visit matches."} I will not pick one for you.`);
+          return;
+        }
         setPendingAppt(action);
         return;
       }
@@ -128,17 +138,29 @@ export function SmaranSpeakBox({
     }
   };
 
-  const saveHealth = () => {
+  const saveHealth = async () => {
     if (!pendingHealth?.memberId || !pendingHealth.kind || !pendingHealth.value) return;
     setBusy(true);
     try {
       const who = memberById(state, pendingHealth.memberId);
-      commit((s) => upsertMeasurement(s, { familyMemberId: pendingHealth.memberId!, kind: pendingHealth.kind!, value: pendingHealth.value!, unit: pendingHealth.unit ?? "", source: "wispr" }));
+      if (session.authenticated && isUuid(pendingHealth.memberId)) {
+        await createCloudMeasurement({
+          recipientId: pendingHealth.memberId,
+          kind: pendingHealth.kind,
+          value: pendingHealth.value,
+          unit: pendingHealth.unit ?? "",
+          sourceType: "wispr",
+        });
+        const ok = await refreshVault();
+        if (!ok) throw new Error("Saved, but the vault did not refresh.");
+      } else {
+        commit((s) => upsertMeasurement(s, { familyMemberId: pendingHealth.memberId!, kind: pendingHealth.kind!, value: pendingHealth.value!, unit: pendingHealth.unit ?? "", source: "wispr" }));
+      }
       setSaved(`Saved to ${who?.name}'s health card.`);
       setPendingHealth(null);
       toast.success(`Saved to ${who?.name}'s health card.`);
-    } catch {
-      toast.error("We couldn't update this health record. Please try again.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "We couldn't update this health record. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -151,25 +173,43 @@ export function SmaranSpeakBox({
     setPendingFact(null);
   };
 
-  const applyAppt = () => {
+  const applyAppt = async () => {
     const result = pendingAppt;
     if (!result?.matchedAppointmentIds?.[0]) return;
-    const id = result.matchedAppointmentIds[0];
-    if (result.intent === "appointment_complete") {
-      update((s) => setAppointmentStatus(s, id, "completed"));
-      toast.success("Appointment marked completed");
-    } else if (result.intent === "appointment_cancel") {
-      update((s) => setAppointmentStatus(s, id, "cancelled"));
-      toast.success("Appointment cancelled");
-    } else if (result.intent === "appointment_reschedule") {
-      if (!result.date || !result.time) {
-        setClarify("I need the new date and time.");
-        return;
-      }
-      update((s) => updateAppointment(s, id, { date: result.date, time: result.time }));
-      toast.success("Appointment rescheduled");
+    if (result.matchedAppointmentIds.length > 1) {
+      setClarify("Which appointment? I will not pick one for you.");
+      return;
     }
-    setPendingAppt(null);
+    const id = result.matchedAppointmentIds[0];
+    try {
+      if (session.authenticated && isUuid(id)) {
+        if (result.intent === "appointment_reschedule") {
+          if (!result.date || !result.time) {
+            setClarify("I need the new date and time.");
+            return;
+          }
+          await patchAppointment(id, "reschedule", { date: result.date, time: result.time });
+        } else {
+          await patchAppointment(id, result.intent === "appointment_complete" ? "complete" : "cancel");
+        }
+        const ok = await refreshVault();
+        if (!ok) throw new Error("The server saved the change, but the vault did not refresh.");
+      } else {
+        if (result.intent === "appointment_complete") update((s) => setAppointmentStatus(s, id, "completed"));
+        else if (result.intent === "appointment_cancel") update((s) => setAppointmentStatus(s, id, "cancelled"));
+        else if (result.intent === "appointment_reschedule") {
+          if (!result.date || !result.time) {
+            setClarify("I need the new date and time.");
+            return;
+          }
+          update((s) => updateAppointment(s, id, { date: result.date, time: result.time }));
+        }
+      }
+      toast.success(result.intent === "appointment_complete" ? "Appointment marked completed" : result.intent === "appointment_cancel" ? "Appointment cancelled" : "Appointment rescheduled");
+      setPendingAppt(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The appointment was not changed.");
+    }
   };
 
   const member = pendingHealth ? memberById(state, pendingHealth.memberId) : undefined;

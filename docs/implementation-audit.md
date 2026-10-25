@@ -2,7 +2,7 @@
 
 Read-only inspection of the current working tree on `main` (`0c83847`, “Initial Smaran release”). Application logic was not changed for this audit. Line numbers match the tree as inspected.
 
-**Working tree:** clean (`git status` reported nothing to commit).  
+**Working tree:** clean (`git status` reported nothing to commit).
 **Stack:** Next.js 16.4.2 App Router, React 19.3, TypeScript 5, Tailwind 4, shadcn/Base UI. No `src/app/api` routes.
 
 ---

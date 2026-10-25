@@ -34,7 +34,12 @@ export function vapidPrivateKey(): string | undefined {
   return read("VAPID_PRIVATE_KEY");
 }
 
+/** True when the browser/server can talk to Supabase Auth + RLS (anon key). */
 export function backendConfigured(): boolean {
+  return Boolean(supabaseUrl() && supabaseAnonKey());
+}
+
+export function serviceRoleConfigured(): boolean {
   return Boolean(supabaseUrl() && supabaseServiceRoleKey());
 }
 

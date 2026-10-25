@@ -53,12 +53,33 @@ export async function runInterpretation(raw: unknown, session: DeviceSession): P
   const body = interpretBodySchema.safeParse(raw);
   if (!body.success) return { status: 400, body: { error: "We could not read that request." } };
 
-  const snapshot = await loadAuthorizedFamily(session);
+  let snapshot;
+  try {
+    snapshot = await loadAuthorizedFamily(session);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Family vault read failed.";
+    return { status: 500, body: { error: message } };
+  }
   const hintFamily = snapshot.family.length ? snapshot.family : namesOnlyFamily(body.data.deviceFamilyNames ?? []);
   const members = asMembers(hintFamily);
+  const deviceAppointments =
+    !session.authenticated && body.data.deviceAppointments
+      ? body.data.deviceAppointments.map((a) => ({
+          id: a.id,
+          familyMemberId: a.familyMemberId,
+          doctor: a.doctor,
+          date: a.date,
+          time: a.time,
+          status: a.status,
+          documentIds: [],
+          reminders: [],
+          createdAt: "",
+          source: "manual" as const,
+        }))
+      : [];
   const state: Pick<AppState, "family" | "appointments"> = {
     family: members,
-    appointments: snapshot.appointments,
+    appointments: session.authenticated ? snapshot.appointments : deviceAppointments,
   };
   const now = zonedNow(body.data.timezone || "Asia/Kolkata");
   const sessionHint = body.data.session === "general" || body.data.session === "reminder" ? "general_reminder" : body.data.session;

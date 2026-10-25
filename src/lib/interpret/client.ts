@@ -30,6 +30,14 @@ export async function requestInterpretation(transcript: string, state: AppState,
         session,
         timezone: "Asia/Kolkata",
         deviceFamilyNames: state.family.map((m) => m.name),
+        deviceAppointments: state.appointments.map((a) => ({
+          id: a.id,
+          familyMemberId: a.familyMemberId,
+          doctor: a.doctor,
+          date: a.date,
+          time: a.time,
+          status: a.status,
+        })),
       }),
     });
     const data = (await res.json()) as InterpretResponse & { error?: string };

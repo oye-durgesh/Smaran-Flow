@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
 import { addAppointmentReminder, linkDocument, setAppointmentStatus, toggleAppointmentReminder, updateAppointment } from "@/lib/store/actions";
+import { isUuid, patchAppointment } from "@/lib/store/cloud";
 import { completedAppointments, documentsFor, memberById, todayOf, upcomingAppointments } from "@/lib/selectors";
 import { addDays, addMinutes, dateOf, formatDayLong, formatDayShort, formatOffset, formatShort, formatTime, stamp, timeOf, weekOf } from "@/lib/dates";
 import type { AppointmentDraft } from "@/lib/nlu";
@@ -109,7 +110,7 @@ const EXTRA_OFFSETS = [4320, 1440, 180, 60];
 
 export function AppointmentDetailScreen() {
   const { id } = useParams<{ id: string }>();
-  const { state, update } = useStore();
+  const { state, session, update, refreshVault } = useStore();
   const { isWeb } = useView();
   const [editing, setEditing] = useState(false);
   const [attaching, setAttaching] = useState(false);
@@ -250,9 +251,19 @@ export function AppointmentDetailScreen() {
       </Button>
       <Button
         variant={done ? "outline" : "secondary"}
-        onClick={() => {
-          update((s) => setAppointmentStatus(s, appointment.id, done ? "upcoming" : "completed"));
-          toast.success(done ? "Marked as upcoming" : `${appointment.doctor} appointment completed`);
+        onClick={async () => {
+          try {
+            if (session.authenticated && isUuid(appointment.id)) {
+              await patchAppointment(appointment.id, done ? "upcoming" : "complete");
+              const ok = await refreshVault();
+              if (!ok) throw new Error("Saved on the server, but the vault did not refresh.");
+            } else {
+              update((s) => setAppointmentStatus(s, appointment.id, done ? "upcoming" : "completed"));
+            }
+            toast.success(done ? "Marked as upcoming" : `${appointment.doctor} appointment completed`);
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "The appointment was not changed.");
+          }
         }}
       >
         <CheckCircle2 className="size-4" aria-hidden /> {done ? "Mark upcoming" : "Mark done"}
@@ -261,9 +272,19 @@ export function AppointmentDetailScreen() {
         <Button
           variant="outline"
           className="col-span-2"
-          onClick={() => {
-            update((s) => setAppointmentStatus(s, appointment.id, "cancelled"));
-            toast.success("Appointment cancelled");
+          onClick={async () => {
+            try {
+              if (session.authenticated && isUuid(appointment.id)) {
+                await patchAppointment(appointment.id, "cancel");
+                const ok = await refreshVault();
+                if (!ok) throw new Error("Saved on the server, but the vault did not refresh.");
+              } else {
+                update((s) => setAppointmentStatus(s, appointment.id, "cancelled"));
+              }
+              toast.success("Appointment cancelled");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "The appointment was not cancelled.");
+            }
           }}
         >
           Cancel appointment

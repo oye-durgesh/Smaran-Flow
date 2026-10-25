@@ -24,7 +24,7 @@ import { useSendReminderNow } from "@/components/shell/use-send-reminder";
 const RELATIONSHIPS: Relationship[] = ["Mother", "Father", "Grandmother", "Grandfather", "Partner", "Other"];
 
 function MemberDialog({ open, onOpenChange, member }: { open: boolean; onOpenChange: (o: boolean) => void; member?: FamilyMember }) {
-  const { commit, update } = useStore();
+  const { session, commit, update, refreshVault } = useStore();
   const [form, setForm] = useState({ name: "", relationship: "Mother" as Relationship, age: "", phone: "" });
   const [error, setError] = useState<string | null>(null);
   const [prevOpen, setPrevOpen] = useState(open);
@@ -35,18 +35,33 @@ function MemberDialog({ open, onOpenChange, member }: { open: boolean; onOpenCha
       setError(null);
     }
   }
-  const save = () => {
+  const save = async () => {
     if (!form.name.trim()) return setError("Add a name so SMARAN knows who this is.");
     const age = form.age ? Number(form.age) : undefined;
     if (age !== undefined && (age < 1 || age > 120)) return setError("That age doesn't look right.");
-    if (member) {
-      update((s) => updateMember(s, member.id, { name: form.name.trim(), relationship: form.relationship, age, phone: form.phone.trim() || undefined }));
-      toast.success("Details saved");
-    } else {
-      commit((s) => addMember(s, { name: form.name, relationship: form.relationship, age, phone: form.phone }));
-      toast.success(`${form.name.trim()} added to your family`);
+    try {
+      if (member) {
+        update((s) => updateMember(s, member.id, { name: form.name.trim(), relationship: form.relationship, age, phone: form.phone.trim() || undefined }));
+        toast.success("Details saved");
+      } else if (session.authenticated) {
+        const res = await fetch("/api/family", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: form.name.trim(), relationship: form.relationship }),
+        });
+        const data = (await res.json()) as { error?: string };
+        if (!res.ok) throw new Error(data.error || "Could not add this person.");
+        const ok = await refreshVault();
+        if (!ok) throw new Error("Saved on the server, but the vault did not refresh.");
+        toast.success(`${form.name.trim()} added to your family vault`);
+      } else {
+        commit((s) => addMember(s, { name: form.name, relationship: form.relationship, age, phone: form.phone }));
+        toast.success(`${form.name.trim()} added to your family`);
+      }
+      onOpenChange(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save.");
     }
-    onOpenChange(false);
   };
   return (
     <Modal

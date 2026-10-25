@@ -5,9 +5,10 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { ChevronRight, Download, Eraser, Lock, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useStore } from "@/lib/store/store";
+import { readDeviceState, useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
 import { updateSettings } from "@/lib/store/actions";
+import { authAction, migrateDeviceRecords } from "@/lib/store/cloud";
 import type { Settings } from "@/lib/types";
 import { Screen } from "@/components/shell/screen";
 import { ResetDemoDialog } from "@/components/shell/demo-controls";
@@ -41,11 +42,15 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function SettingsScreen() {
-  const { state, update, resetDemo, clearAll } = useStore();
+  const { state, session, update, resetDemo, clearAll, refreshSession, refreshVault } = useStore();
   const { isWeb } = useView();
   const [name, setName] = useState(state.user.name);
   const [resetting, setResetting] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [migrating, setMigrating] = useState(false);
   const s = state.settings;
   const set = (patch: Partial<Settings>) => update((st) => updateSettings(st, patch));
 
@@ -127,11 +132,125 @@ export function SettingsScreen() {
           <Row htmlFor="s-fam" title="Family updates" body="Tell me when someone confirms or needs help." control={<Switch id="s-fam" checked={s.familyUpdates} onCheckedChange={(v) => set({ familyUpdates: v })} />} />
         </Group>
 
+        <Group label="Family account">
+          <div className="space-y-3 px-5 py-4">
+            <p className="text-[13.5px] leading-relaxed text-ink">{session.message}</p>
+            {session.authenticated ? (
+              <>
+                <p className="text-[13px] text-ink-muted">Signed in. Care recipients such as Mummy or Papa are family profiles, not login accounts.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={authBusy}
+                  onClick={async () => {
+                    setAuthBusy(true);
+                    try {
+                      await authAction({ action: "logout" });
+                      await refreshSession();
+                      toast.success("Signed out. Browser records were not deleted.");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Sign-out failed.");
+                    } finally {
+                      setAuthBusy(false);
+                    }
+                  }}
+                >
+                  Sign out
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={migrating}
+                  onClick={async () => {
+                    setMigrating(true);
+                    try {
+                      const device = readDeviceState();
+                      await migrateDeviceRecords({
+                        consent: "copy-device-records-to-my-family",
+                        recipients: device.family.map((m) => ({ name: m.name, relationship: m.relationship })),
+                        appointments: device.appointments.filter((a) => a.source !== "sample").map((a) => ({
+                          recipientName: device.family.find((m) => m.id === a.familyMemberId)?.name ?? "Family",
+                          doctor: a.doctor,
+                          date: a.date,
+                          time: a.time,
+                        })),
+                        reminders: device.reminders.filter((r) => r.source !== "sample").map((r) => ({
+                          recipientName: device.family.find((m) => m.id === r.familyMemberId)?.name ?? "Family",
+                          title: r.title,
+                          kind: r.kind,
+                          time: r.time,
+                          recurrence: r.frequency,
+                        })),
+                      });
+                      await refreshVault();
+                      toast.success("Copied into your family vault. Browser copies were not deleted.");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Migration failed.");
+                    } finally {
+                      setMigrating(false);
+                    }
+                  }}
+                >
+                  Copy this browser&apos;s records into my family
+                </Button>
+              </>
+            ) : session.configured ? (
+              <form
+                className="space-y-2"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setAuthBusy(true);
+                  try {
+                    await authAction({ action: "login", email, password });
+                    await refreshSession();
+                    toast.success("Signed in. Showing your family vault.");
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Sign-in failed.");
+                  } finally {
+                    setAuthBusy(false);
+                  }
+                }}
+              >
+                <Label htmlFor="s-email">Email</Label>
+                <Input id="s-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+                <Label htmlFor="s-pass">Password</Label>
+                <Input id="s-pass" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="current-password" />
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button type="submit" size="sm" disabled={authBusy}>Sign in</Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={authBusy}
+                    onClick={async () => {
+                      setAuthBusy(true);
+                      try {
+                        const out = await authAction({ action: "signup", email, password, displayName: name });
+                        toast.success(out.needsEmailConfirmation ? "Check your email to confirm the account." : "Account created.");
+                        await refreshSession();
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Sign-up failed.");
+                      } finally {
+                        setAuthBusy(false);
+                      }
+                    }}
+                  >
+                    Create account
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <p className="text-[13px] text-ink-muted">Device-local mode. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable a real family vault. Browser data is not cloud-synced.</p>
+            )}
+          </div>
+        </Group>
+
         <Group label="Data & privacy">
           <div className="flex items-start gap-3 px-5 py-4">
             <Lock className="mt-0.5 size-5 shrink-0 text-brown" aria-hidden />
             <p className="text-[13.5px] leading-relaxed text-ink">
-              Everything stays in this browser: family details and memory in local storage, document files in IndexedDB. SMARAN has no server and no account in this prototype. Please use fictional details only.
+              {session.authenticated
+                ? "Signed-in family records load from Supabase under row-level security. This browser still keeps a separate local copy. We never upload that copy unless you use Copy into my family."
+                : "Family details and memory on this device live in local storage; document files live in IndexedDB. That is not a shared cloud vault."}
             </p>
           </div>
           <Row title="Export family memory" body="Download everything as a JSON file." control={<Button variant="outline" size="sm" onClick={exportData}><Download className="size-4" aria-hidden /> Export</Button>} />

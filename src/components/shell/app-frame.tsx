@@ -4,7 +4,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useAppState } from "@/lib/store/store";
+import { useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
 import { Toaster } from "@/components/ui/sonner";
 import { SmaranLogo } from "@/components/smaran/brand";
@@ -23,7 +23,7 @@ function useScrollReset(path: string, ref: React.RefObject<HTMLElement | null>) 
 
 export function AppFrame({ children }: { children: ReactNode }) {
   const path = usePathname();
-  const state = useAppState();
+  const { state, session, vaultError } = useStore();
   const { setPortalEl } = useView();
   const scrollRef = useRef<HTMLElement>(null);
   const chromeless = CHROMELESS(path);
@@ -50,6 +50,23 @@ export function AppFrame({ children }: { children: ReactNode }) {
       <div className="flex min-h-0 flex-1">
         {showNav && <DesktopSidebar className="hidden lg:flex" />}
         <main ref={scrollRef} className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto", showNav && "pb-24 lg:pb-0")}>
+          {showNav && (
+            <p
+              role="status"
+              className={cn(
+                "border-b px-4 py-2 text-[12.5px] font-semibold",
+                session.authenticated ? "border-confirmed/30 bg-confirmed-bg text-confirmed" : "border-line bg-sand/50 text-ink",
+              )}
+            >
+              {vaultError
+                ? `Vault error: ${vaultError}`
+                : session.authenticated
+                  ? "Signed-in family vault (Supabase). Browser sample copies were not deleted."
+                  : session.configured
+                    ? "Supabase is configured. You are not signed in — records on this device are not the cloud."
+                    : "Device-local mode. Nothing is cloud-synced."}
+            </p>
+          )}
           {children}
         </main>
       </div>

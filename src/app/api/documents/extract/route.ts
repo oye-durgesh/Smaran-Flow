@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   if (req.headers.get("x-smaran-consent") !== "cloud-extract") {
     return NextResponse.json({ error: "Consent is required before document content is processed off this device." }, { status: 403 });
   }
-  const session = readSession(req);
+  const session = await readSession();
   if (backendConfigured() && !session.authenticated) {
     return NextResponse.json({ error: "Sign in to extract documents for your family." }, { status: 401 });
   }

@@ -18,6 +18,6 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "We could not read that request." }, { status: 400 });
   }
-  const result = await runInterpretation(raw, readSession(req));
+  const result = await runInterpretation(raw, await readSession());
   return NextResponse.json(result.body, { status: result.status });
 }

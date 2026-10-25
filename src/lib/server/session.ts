@@ -1,20 +1,36 @@
 import "server-only";
 import { backendConfigured } from "./env";
+import { createUserClient } from "./supabase";
 
 export interface DeviceSession {
   mode: "supabase" | "device-local";
   userId: string | null;
   familyId: string | null;
+  role: string | null;
   authenticated: boolean;
+  configured: boolean;
 }
 
-/** Session is authenticated only when a family backend is configured and a bearer/cookie is present. */
-export function readSession(req: Request): DeviceSession {
+export async function readSession(): Promise<DeviceSession> {
   if (!backendConfigured()) {
-    return { mode: "device-local", userId: null, familyId: null, authenticated: false };
+    return { mode: "device-local", userId: null, familyId: null, role: null, authenticated: false, configured: false };
   }
-  const auth = req.headers.get("authorization");
-  const token = auth?.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-  if (!token) return { mode: "supabase", userId: null, familyId: null, authenticated: false };
-  return { mode: "supabase", userId: "pending-jwt", familyId: null, authenticated: false };
+  try {
+    const supabase = await createUserClient();
+    const { data: userData, error } = await supabase.auth.getUser();
+    if (error || !userData.user) {
+      return { mode: "supabase", userId: null, familyId: null, role: null, authenticated: false, configured: true };
+    }
+    const { data: membership } = await supabase.from("family_memberships").select("family_id, role").eq("user_id", userData.user.id).limit(1).maybeSingle();
+    return {
+      mode: "supabase",
+      userId: userData.user.id,
+      familyId: membership?.family_id ?? null,
+      role: membership?.role ?? null,
+      authenticated: true,
+      configured: true,
+    };
+  } catch {
+    return { mode: "supabase", userId: null, familyId: null, role: null, authenticated: false, configured: true };
+  }
 }

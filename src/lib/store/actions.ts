@@ -12,16 +12,21 @@ import type {
   Settings,
 } from "../types";
 import { addMinutes, compareTs, dateOf, formatDayShort, formatOffset, formatTime, minutesOf, stamp, timeOf } from "../dates";
+import { zonedNow } from "../timezone";
 import { describeReminder, memberById, todayOf } from "../selectors";
 import { openingMessage, planReply, type ReplyPlan } from "../nlu/chat";
 import type { ReminderDraft } from "../nlu/reminder";
 import type { AppointmentDraft } from "../nlu/appointment";
 
+function recordedNow(): string {
+  return zonedNow().timestamp;
+}
+
 export const uid = (prefix: string) =>
   `${prefix}-${typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10)}`;
 
 function withEvent(state: AppState, event: Omit<MemoryEvent, "id" | "timestamp"> & { timestamp?: string }): AppState {
-  const full: MemoryEvent = { id: uid("m"), timestamp: state.demoNow, ...event };
+  const full: MemoryEvent = { id: uid("m"), timestamp: event.timestamp ?? recordedNow(), ...event };
   const memory = [full, ...state.memory].sort((a, b) => compareTs(b.timestamp, a.timestamp));
   return { ...state, memory };
 }
@@ -39,7 +44,7 @@ export function addMember(state: AppState, input: { name: string; relationship: 
     age: input.age,
     phone: input.phone?.trim() || undefined,
     avatar: { initials: input.name.trim().charAt(0).toUpperCase(), tone: TONES[state.family.length % TONES.length] },
-    createdAt: state.demoNow,
+    createdAt: recordedNow(),
   };
   const next = { ...state, family: [...state.family, member] };
   return [withEvent(next, { familyMemberId: id, type: "member_added", title: `${member.name} added to your family`, source: "manual", refId: id }), id];
@@ -94,7 +99,7 @@ export function createReminder(state: AppState, draft: Required<Pick<ReminderDra
     date: draft.date,
     weekday: draft.weekday,
     status: "active",
-    createdAt: state.demoNow,
+    createdAt: recordedNow(),
     source,
     confirmationHistory: [],
   };
@@ -282,7 +287,7 @@ export function createAppointment(state: AppState, draft: Required<Pick<Appointm
     documentIds,
     reminders,
     status: "upcoming",
-    createdAt: state.demoNow,
+    createdAt: recordedNow(),
     source: "wispr",
   };
   const next = { ...state, appointments: [...state.appointments, appointment] };
@@ -362,7 +367,7 @@ export function linkDocument(state: AppState, documentId: string, appointmentId:
 
 export function addDocument(state: AppState, doc: Omit<HealthDocument, "id" | "addedAt">): [AppState, string] {
   const id = uid("d");
-  const full: HealthDocument = { ...doc, id, addedAt: state.demoNow };
+  const full: HealthDocument = { ...doc, id, addedAt: recordedNow() };
   let next: AppState = { ...state, documents: [full, ...state.documents] };
   next = withEvent(next, { familyMemberId: doc.familyMemberId, type: "document_added", title: `${doc.name} added`, description: doc.file.name, source: "upload", refId: id });
   if (doc.linkedAppointmentId) next = linkDocument(next, id, doc.linkedAppointmentId);
@@ -397,7 +402,7 @@ export function upsertMeasurement(
     kind: input.kind,
     value: input.value,
     unit: input.unit,
-    recordedAt: state.demoNow,
+    recordedAt: recordedNow(),
     source: input.source ?? "wispr",
     documentId: input.documentId,
     note: input.note,

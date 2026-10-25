@@ -21,6 +21,7 @@ import {
 } from "@/lib/nlu";
 import { zonedNow } from "@/lib/timezone";
 import { createAppointment, createReminder } from "@/lib/store/actions";
+import { createCloudAppointment, createCloudReminder, isUuid } from "@/lib/store/cloud";
 import { describeReminder, documentsFor, memberById } from "@/lib/selectors";
 import { formatDayLong, formatShort, formatTime } from "@/lib/dates";
 import { Screen } from "@/components/shell/screen";
@@ -52,7 +53,7 @@ const FOLLOW_UP: Record<string, (name?: string) => string> = {
 export function CaptureScreen() {
   const params = useSearchParams();
   const router = useRouter();
-  const { state, commit } = useStore();
+  const { state, session, commit, refreshVault } = useStore();
   const { isWeb } = useView();
   const sendNow = useSendReminderNow();
   const today = zonedNow().date;
@@ -134,24 +135,57 @@ export function CaptureScreen() {
         ? state.appointments.find((a) => a.familyMemberId === appointment.memberId && a.doctor === appointment.doctor && a.date === appointment.date && a.status === "upcoming")
         : undefined;
 
-  const create = () => {
+  const create = async () => {
     if (missing.length) return;
-    if (isReminder && reminder) {
-      const res = commit((s) => {
-        const r = createReminder(s, reminder as Required<Pick<ReminderDraft, "memberId" | "title" | "time">> & ReminderDraft);
-        return [r.state, { id: r.id, merged: r.merged }];
-      });
-      setResult(res);
-      setPhase("done");
-    }
-    if (kind === "appointment" && appointment) {
-      const res = commit((s) => {
-        const r = createAppointment(s, appointment as Required<Pick<AppointmentDraft, "memberId" | "doctor" | "date" | "time">> & AppointmentDraft, docIds);
-        return [r.state, { id: r.id, merged: r.merged }];
-      });
-      setResult(res);
-      setPhase("done");
-      if (docIds.length) toast.success(`${docIds.length} document${docIds.length === 1 ? "" : "s"} attached`);
+    try {
+      if (isReminder && reminder) {
+        if (session.authenticated && isUuid(reminder.memberId)) {
+          await createCloudReminder({
+            recipientId: reminder.memberId!,
+            title: reminder.title!,
+            kind: reminder.kind ?? "other",
+            time: reminder.time!,
+            date: reminder.date,
+            recurrence: reminder.frequency ?? "once",
+            medicineName: reminder.medicineName,
+          });
+          const ok = await refreshVault();
+          if (!ok) throw new Error("Saved on the server, but the vault did not refresh.");
+          setResult({ id: "cloud", merged: false });
+        } else {
+          const res = commit((s) => {
+            const r = createReminder(s, reminder as Required<Pick<ReminderDraft, "memberId" | "title" | "time">> & ReminderDraft);
+            return [r.state, { id: r.id, merged: r.merged }];
+          });
+          setResult(res);
+        }
+        setPhase("done");
+      }
+      if (kind === "appointment" && appointment) {
+        if (session.authenticated && isUuid(appointment.memberId)) {
+          await createCloudAppointment({
+            recipientId: appointment.memberId!,
+            doctor: appointment.doctor!,
+            date: appointment.date!,
+            time: appointment.time!,
+            location: appointment.location,
+            notes: appointment.notes,
+          });
+          const ok = await refreshVault();
+          if (!ok) throw new Error("Saved on the server, but the vault did not refresh.");
+          setResult({ id: "cloud", merged: false });
+        } else {
+          const res = commit((s) => {
+            const r = createAppointment(s, appointment as Required<Pick<AppointmentDraft, "memberId" | "doctor" | "date" | "time">> & AppointmentDraft, docIds);
+            return [r.state, { id: r.id, merged: r.merged }];
+          });
+          setResult(res);
+        }
+        setPhase("done");
+        if (docIds.length) toast.success(`${docIds.length} document${docIds.length === 1 ? "" : "s"} attached`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Nothing was saved.");
     }
   };
 
