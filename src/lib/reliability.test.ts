@@ -10,6 +10,7 @@ import { recordMeasurement } from "./store/health-record-actions";
 import { isComplexLanguage, needsClaudeFallback } from "./interpret/fallback";
 import { requestInterpretation } from "./interpret/client";
 import { parseLabText, scanUnavailableResult, isHba1c } from "./document-extract";
+import { applyExtractResponse } from "./document-extract-client";
 import { evaluateSectionPolicy } from "./wispr-flow-context";
 import { snapshotFromVault } from "./ask-state";
 import { claimDueNotifications } from "./in-app-reminders";
@@ -99,6 +100,9 @@ describe("documents and ask retrieval", () => {
 
   it("22 missing OCR stays unavailable", () => {
     expect(scanUnavailableResult().status).toBe("not_extracted");
+    const mapped = applyExtractResponse({ status: "not_extracted", error: "ANTHROPIC_API_KEY is not configured", provider: "none" });
+    expect(mapped.extractStatus).toBe("not_extracted");
+    expect(mapped.fields).toHaveLength(0);
   });
 
   it("31-32 latest measurement uses the correct person", () => {

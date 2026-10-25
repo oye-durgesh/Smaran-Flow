@@ -2,6 +2,7 @@ import "server-only";
 import type { Reminder } from "@/lib/types";
 import { FAMILY_TIMEZONE } from "@/lib/timezone";
 import { localStampToUtcMs, plannedDueStamps, utcMsToLocalStamp } from "@/lib/in-app-reminders";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient, createUserClient } from "./supabase";
 import { serviceRoleConfigured } from "./env";
 
@@ -34,15 +35,7 @@ function mapReminderRow(row: Record<string, unknown>): Reminder {
   };
 }
 
-/** Durable in-app delivery. Requires service role. Never claims phone/SMS/email delivery. */
-export async function processPersistedDueReminders(now = new Date()): Promise<PersistedProcessResult> {
-  if (!serviceRoleConfigured()) {
-    return { created: 0, duplicates: 0, skipped: 0, error: "SUPABASE_SERVICE_ROLE_KEY is not configured." };
-  }
-  const supabase = createServiceClient();
-  const { data: reminderRows, error: remErr } = await supabase.from("reminders").select("*").eq("status", "active");
-  if (remErr) return { created: 0, duplicates: 0, skipped: 0, error: remErr.message };
-
+async function processReminderRows(supabase: SupabaseClient, reminderRows: Record<string, unknown>[] | null, now: Date): Promise<PersistedProcessResult> {
   let created = 0;
   let duplicates = 0;
   let skipped = 0;
@@ -99,6 +92,25 @@ export async function processPersistedDueReminders(now = new Date()): Promise<Pe
   }
 
   return { created, duplicates, skipped };
+}
+
+/** Host cron: all families. Requires service role. */
+export async function processPersistedDueReminders(now = new Date()): Promise<PersistedProcessResult> {
+  if (!serviceRoleConfigured()) {
+    return { created: 0, duplicates: 0, skipped: 0, error: "SUPABASE_SERVICE_ROLE_KEY is not configured." };
+  }
+  const supabase = createServiceClient();
+  const { data: reminderRows, error: remErr } = await supabase.from("reminders").select("*").eq("status", "active");
+  if (remErr) return { created: 0, duplicates: 0, skipped: 0, error: remErr.message };
+  return processReminderRows(supabase, (reminderRows ?? []) as Record<string, unknown>[], now);
+}
+
+/** Signed-in family only. Uses the user session so due rows persist while the app is open. */
+export async function processDueRemindersForFamily(familyId: string, now = new Date()): Promise<PersistedProcessResult> {
+  const supabase = await createUserClient();
+  const { data: reminderRows, error: remErr } = await supabase.from("reminders").select("*").eq("status", "active").eq("family_id", familyId);
+  if (remErr) return { created: 0, duplicates: 0, skipped: 0, error: remErr.message };
+  return processReminderRows(supabase, (reminderRows ?? []) as Record<string, unknown>[], now);
 }
 
 async function deliverOccurrence(

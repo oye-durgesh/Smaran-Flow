@@ -2,6 +2,23 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed. No demo reseed. No family data wipe.**
 
+## User-facing reliability follow-up
+
+What was still broken in the running app:
+- Upload never called `/api/documents/extract`, so OCR could not run.
+- `ensure_own_family` inserted `families.created_by` without a `profiles` row → vault error, empty Ask, no cloud reminders.
+- Due notifications were not written to Supabase while the app was open unless a service role cron ran.
+
+Fixes in this pass:
+- Upload reading step now calls the existing extract API and shows honest review text.
+- Migration `0010_ensure_profile_before_family.sql` creates the profile before the family.
+- Signed-in `/api/reminders/process` writes due in-app notifications for the active family; the Alerts bell calls it every 20s while the tab is open.
+
+Still not live-verified: Anthropic OCR, hosted minute cron, applying 0010 on the remote project.
+
+---
+
+
 ## Reliability pass — parser, scheduler, selective Claude, OCR, Ask
 
 ### Root causes found

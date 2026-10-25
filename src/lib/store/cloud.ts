@@ -103,6 +103,13 @@ export async function createCloudAppointment(input: { recipientId: string; docto
   return data;
 }
 
+export async function processDueReminders(): Promise<{ ok: boolean; created: number; error?: string }> {
+  const res = await fetch("/api/reminders/process", { method: "POST" });
+  const data = (await res.json()) as { created?: number; error?: string };
+  if (!res.ok) return { ok: false, created: 0, error: data.error };
+  return { ok: true, created: data.created ?? 0, error: data.error };
+}
+
 export async function fetchReminderInbox(): Promise<{ ok: boolean; items: unknown[]; error?: string }> {
   const res = await fetch("/api/reminders/inbox", { cache: "no-store" });
   const data = (await res.json()) as { items?: unknown[]; error?: string };

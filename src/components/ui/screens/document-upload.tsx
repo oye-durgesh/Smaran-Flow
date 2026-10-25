@@ -11,6 +11,7 @@ import { useView } from "@/lib/store/view";
 import { persistUploadedDocument } from "@/lib/store/document-actions";
 import { fileChecksum } from "@/lib/document-library";
 import { extractHealthValues, guessFromFileName, parseDocumentDescription } from "@/lib/nlu";
+import { applyExtractResponse } from "@/lib/document-extract-client";
 import { memberById, todayOf } from "@/lib/selectors";
 import { formatShort, formatTime } from "@/lib/dates";
 import { ACCEPTED_TYPES, MAX_FILE_BYTES, deleteFile, formatBytes, saveFile } from "@/lib/files";
@@ -43,6 +44,8 @@ interface Draft {
   detectedFrom: HealthDocument["metadata"]["detectedFrom"];
   description?: string;
   extracted: { kind: string; value: string; unit: string }[];
+  extractNote?: string;
+  extractStatus?: "needs_review" | "not_extracted" | "failed";
 }
 
 const SAMPLE: Picked = { name: "blood_report_oct2026.pdf", size: 248_000, mime: "application/pdf", sample: true };
@@ -118,13 +121,55 @@ export function DocumentUploadScreen() {
         if (picked.blob) await saveFile(`pending-${picked.name}`, picked.blob);
         if (!cancelled) {
           setProgress(100);
-          setPhase("review");
+          setPhase(picked.blob && !picked.sample ? "reading" : "review");
         }
       } catch {
         if (!cancelled) {
           setError(UPLOAD_ERROR);
           setPhase("pick");
         }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, picked]);
+
+  useEffect(() => {
+    if (phase !== "reading" || !picked?.blob || picked.sample) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const form = new FormData();
+        form.append("file", picked.blob as Blob, picked.name);
+        const res = await fetch("/api/documents/extract", {
+          method: "POST",
+          headers: { "x-smaran-consent": "cloud-extract" },
+          body: form,
+        });
+        const data = (await res.json()) as Parameters<typeof applyExtractResponse>[0] & { error?: string };
+        const applied = applyExtractResponse(data);
+        if (cancelled) return;
+        setDraft((current) =>
+          current
+            ? {
+                ...current,
+                extracted: applied.fields.length ? applied.fields : current.extracted,
+                extractNote: applied.note,
+                extractStatus: applied.extractStatus,
+              }
+            : current,
+        );
+      } catch {
+        if (!cancelled) {
+          setDraft((current) =>
+            current
+              ? { ...current, extractNote: "Extraction could not run. The file is still on this device.", extractStatus: "failed" }
+              : current,
+          );
+        }
+      } finally {
+        if (!cancelled) setPhase("review");
       }
     })();
     return () => {
@@ -176,7 +221,7 @@ export function DocumentUploadScreen() {
           doctor: draft.doctor.trim() || undefined,
           file: { name: picked.name, size: picked.size, mime: picked.mime, storage: picked.sample ? "sample" : "local" },
           checksum: fileChecksum({ name: picked.name, size: picked.size, familyMemberId: draft.memberId! }),
-          extractStatus: picked.mime.startsWith("image/") ? "not_extracted" : draft.description ? "needs_review" : "not_extracted",
+          extractStatus: draft.extractStatus ?? (picked.mime.startsWith("image/") ? "not_extracted" : draft.description ? "needs_review" : "not_extracted"),
           description: draft.description,
           linkedAppointmentId: draft.appointmentId,
         });
@@ -270,7 +315,7 @@ export function DocumentUploadScreen() {
   } else if (phase === "reading") {
     body = (
       <>
-        <PageHeader eyebrow="Adding document" title="SMARAN is reading this document…" subtitle="It looks at the file name and what you tell it — not the medical contents." />
+        <PageHeader eyebrow="Adding document" title="SMARAN is reading this document…" subtitle="The file is sent to the server extractor only if you chose a real file. Scanned pages need the optional server key." />
         <ProcessingState steps={["Checking the file", "Matching it to your family", "Preparing the details"]} layout={isWeb ? "horizontal" : "vertical"} onDone={onReadingDone} />
       </>
     );
@@ -318,9 +363,10 @@ export function DocumentUploadScreen() {
               </div>
             </div>
           )}
+          {draft.extractNote && <p className="text-[13.5px] font-semibold text-ink">{draft.extractNote}</p>}
           {draft.extracted.length > 0 && (
             <div className="rounded-[16px] bg-peach-soft/40 p-3">
-              <p className="text-[13px] font-extrabold text-ink-strong">Values mentioned (from the file name or your description)</p>
+              <p className="text-[13px] font-extrabold text-ink-strong">Values to review</p>
               <ul className="mt-1 space-y-1 text-[14px] text-ink">
                 {draft.extracted.map((e) => (
                   <li key={`${e.kind}-${e.value}`}>{e.kind.replace("_", " ")} · <b>{e.value} {e.unit}</b></li>
@@ -396,7 +442,7 @@ export function DocumentUploadScreen() {
         <ul className="mt-2 list-disc space-y-1 pl-4">
           <li>Keeps the file in this browser only (IndexedDB).</li>
           <li>Guesses the name and type from the file name or your description.</li>
-          <li>Never reads or interprets medical values.</li>
+          <li>Reads selectable PDF text on the server. Scanned photos need the optional extraction key.</li>
         </ul>
       </div>
       <p className="text-[12.5px] text-ink-muted">Please only use fictional or test documents in this prototype.</p>

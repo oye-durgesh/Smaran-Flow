@@ -7,7 +7,7 @@ import { Bell } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store/store";
-import { fetchReminderInbox, fetchSchedulerStatus, isUuid, patchReminderInbox } from "@/lib/store/cloud";
+import { fetchReminderInbox, fetchSchedulerStatus, isUuid, patchReminderInbox, processDueReminders } from "@/lib/store/cloud";
 import {
   acknowledgeNotification,
   applyLocalProcessor,
@@ -70,6 +70,7 @@ export function NotificationBell() {
       if (document.visibilityState === "hidden") return;
       update((s) => applyLocalProcessor(s, new Date()));
       if (session.authenticated) {
+        await processDueReminders();
         const inbox = await fetchReminderInbox();
         if (cancelled) return;
         if (!inbox.ok) setPollError(inbox.error || "Inbox unavailable.");
