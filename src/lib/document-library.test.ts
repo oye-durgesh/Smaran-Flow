@@ -4,7 +4,8 @@ import { addMember } from "./store/actions";
 import { persistUploadedDocument, confirmDocumentMeasurement, findDuplicateDocument } from "./store/document-actions";
 import { parseLabText, scanUnavailableResult, SCAN_UNAVAILABLE, isHba1c, validateBpField, validateGlucoseField } from "./document-extract";
 import { authorizeDocumentAccess, filterLibrary, fileChecksum, layoutContract } from "./document-library";
-import { advanceDemo, demoNeverTouchesState, SAMPLE_DEMO_BADGE, startSampleDemo } from "./document-demo";
+import { advanceDemo, demoNeverTouchesState, documentsDashboardLayout, liveOrDemoSeries, SAMPLE_BP_SERIES, SAMPLE_DEMO_BADGE, SAMPLE_GLUCOSE_SERIES, startSampleDemo } from "./document-demo";
+import { WISPR_DOC_EXAMPLES } from "./document-library";
 import { bpSeries, glucoseSeries } from "./health-record-model";
 import { recordMeasurement } from "./store/health-record-actions";
 
@@ -150,8 +151,8 @@ describe("sample demos stay isolated", () => {
     const glu = advanceDemo(startSampleDemo("glucose"), "confirmed");
     expect(bp.labelled).toBe(SAMPLE_DEMO_BADGE);
     expect(glu.labelled).toBe(SAMPLE_DEMO_BADGE);
-    expect(bp.preview[0].value).toBe(122);
-    expect(glu.preview[0].value).toBe(104);
+    expect(bp.preview.some((p) => p.value === 122 && p.extra === 78)).toBe(true);
+    expect(glu.preview.some((p) => p.value === 104)).toBe(true);
     expect(demoNeverTouchesState().writesMeasurements).toBe(false);
     expect(state.measurements).toHaveLength(before);
     expect(bpSeries(state, "mummy", "all")).toHaveLength(0);
@@ -160,5 +161,18 @@ describe("sample demos stay isolated", () => {
 
   it("responsive contract", () => {
     expect(layoutContract()).toContain("overflow-x-hidden");
+    expect(documentsDashboardLayout().charts).toContain("lg:grid-cols-2");
+    expect(documentsDashboardLayout().lower).toContain("lg:grid-cols-3");
+  });
+
+  it("uses live series when present and keeps demo 38 unchanged", () => {
+    const live = [{ id: "real", date: "2026-10-01", label: "2026-10-01", value: 130, extra: 80, unit: "mmHg", recordedAt: "2026-10-01T09:00" }];
+    const mixed = liveOrDemoSeries(live, SAMPLE_BP_SERIES);
+    expect(mixed.sample).toBe(false);
+    expect(mixed.series).toEqual(live);
+    const empty = liveOrDemoSeries([], SAMPLE_GLUCOSE_SERIES);
+    expect(empty.sample).toBe(true);
+    expect(empty.series.find((p) => p.value === 38)?.value).toBe(38);
+    expect(WISPR_DOC_EXAMPLES[0]).toMatch(/BP report/);
   });
 });

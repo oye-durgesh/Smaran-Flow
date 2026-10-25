@@ -119,3 +119,22 @@ export function authorizeDocumentAccess(memberships: Membership[], userId: strin
 export function layoutContract() {
   return "overflow-x-hidden min-w-0";
 }
+
+export const DASHBOARD_DOC_ROWS: { key: Exclude<LibraryCategory, "all">; label: string }[] = [
+  { key: "prescriptions", label: "Prescriptions" },
+  { key: "blood_tests", label: "Blood reports" },
+  { key: "imaging", label: "Imaging and scans" },
+  { key: "discharge", label: "Discharge summaries" },
+  { key: "notes", label: "Consultation notes" },
+  { key: "vaccination", label: "Vaccination records" },
+  { key: "insurance", label: "Insurance and other health documents" },
+  { key: "other", label: "Other" },
+];
+
+export const WISPR_DOC_EXAMPLES = [
+  "Mummy ka latest BP report dikhao.",
+  "Papa ka sugar report kab ka hai?",
+  "Mummy ki next appointment kab hai?",
+  "Dadi ka prescription dikhao.",
+  "Mummy ki medical history kholo.",
+] as const;

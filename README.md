@@ -56,7 +56,7 @@ Apply `supabase/migrations/0001_smaran_family.sql` through `0006_health_record.s
 
 **Family Health Record** (open a person from Family / Health Card) is a person-specific file: Overview, Medical History, Measurements, Documents & Reports, Appointments & Visits, Vaccinations, and Health Diary. Charts use only confirmed saved readings for that person. Sample notes stay labelled and are excluded from BP/glucose trends. Blood pressure stores systolic and diastolic separately. A reported glucose of `38` is kept exactly and marked for review. `+ Add record` stays on the selected person. The standalone Documents page uses the same document rows.
 
-**Documents & Reports** is a person-centered library with category and extraction-status filters. Text PDFs can be extracted locally for review. Scanned-image OCR is not configured. Sample BP/glucose demos stay labelled and never write to the family Health Card. Confirmed BP/glucose from a real report become one linked measurement and refresh that person's charts.
+**Documents & Reports** is a person-centered health-vault dashboard: summary cards, separate BP and glucose charts, medical history, document categories, vaccinations, and a Wispr Flow ask panel. Text PDFs can be extracted locally for review. Scanned-image OCR is not configured. Sample BP/glucose fixtures stay labelled and never write to the family Health Card. Confirmed BP/glucose from a real report become one linked measurement and refresh that person's charts.
 
 `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never put it in a `NEXT_PUBLIC_` variable.
 

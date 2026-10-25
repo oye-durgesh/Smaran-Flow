@@ -2,7 +2,32 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## Ask SMARAN chat (this pass)
+## Documents dashboard (this pass)
+
+Documents & Reports is a person-centered health-vault dashboard: identity header, four summary cards, separate BP and glucose charts, medical history, category document rows, vaccination schedule, library, and a right Wispr Flow / recent / upcoming rail.
+
+- Live cards and charts use saved records when present (`bpSeries` / `glucoseSeries`, sample rows excluded).
+- Empty live charts show isolated fictional fixtures with **Sample demo — values are fictional.** They never write to `health_measurements` or Health Card.
+- `Try sample BP/glucose report` reviews and updates only demo preview state.
+- Wispr panel uses `WisprFlowInput` + `POST /api/ask`. Examples fill only. No Claude.
+- Print uses the existing Health Card share page when a person is selected.
+- No new migration.
+
+### Commands this pass
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **141 passed**, **4 skipped** |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | `/documents` |
+
+Not verified live: OCR/vision, Claude, two-account Storage RLS, browser print.
+
+---
+
+## Ask SMARAN chat (prior pass)
 
 Ask SMARAN is a WhatsApp-style conversation. Global sidebar is unchanged. Retrieval is still `answerQuestion` via `POST /api/ask` (rule-based, `claudeUsed: false`).
 

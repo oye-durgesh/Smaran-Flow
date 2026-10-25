@@ -90,9 +90,47 @@ export function advanceDemo(session: DemoSession, to: DemoSession["step"]): Demo
       id: `demo-${session.kind}`,
       recordedAt: "2026-10-20T09:00",
     };
-    return { ...next, preview: [point], result: { ...session.result, status: "needs_review", provider: "demo" } };
+    const base = session.kind === "bp" ? SAMPLE_BP_SERIES : SAMPLE_GLUCOSE_SERIES;
+    return { ...next, preview: [...base.filter((p) => p.id !== point.id), point], result: { ...session.result, status: "needs_review", provider: "demo" } };
   }
   return next;
+}
+
+export const SAMPLE_BP_SERIES: ChartPoint[] = [
+  { id: "demo-bp-1", date: "2025-11-12", label: "Sample · 2025-11-12", value: 118, extra: 76, unit: "mmHg", recordedAt: "2025-11-12T09:10" },
+  { id: "demo-bp-2", date: "2026-02-08", label: "Sample · 2026-02-08", value: 122, extra: 80, unit: "mmHg", recordedAt: "2026-02-08T08:40" },
+  { id: "demo-bp-3", date: "2026-06-19", label: "Sample · 2026-06-19", value: 124, extra: 78, unit: "mmHg", recordedAt: "2026-06-19T10:05" },
+  { id: "demo-bp-4", date: "2026-10-20", label: "Sample · 2026-10-20", value: 128, extra: 82, unit: "mmHg", recordedAt: "2026-10-20T09:00" },
+];
+
+export const SAMPLE_GLUCOSE_SERIES: ChartPoint[] = [
+  { id: "demo-glu-1", date: "2025-12-04", label: "Sample · 2025-12-04", value: 102, unit: "mg/dL", context: "fasting", recordedAt: "2025-12-04T07:50" },
+  { id: "demo-glu-2", date: "2026-03-14", label: "Sample · 2026-03-14", value: 110, unit: "mg/dL", context: "fasting", recordedAt: "2026-03-14T08:05" },
+  { id: "demo-glu-3", date: "2026-07-22", label: "Sample · 2026-07-22", value: 38, unit: "mg/dL", context: "fasting", recordedAt: "2026-07-22T07:40" },
+  { id: "demo-glu-4", date: "2026-10-20", label: "Sample · 2026-10-20", value: 104, unit: "mg/dL", context: "fasting", recordedAt: "2026-10-20T09:00" },
+];
+
+export const SAMPLE_HISTORY = [
+  { category: "chronic", name: "Example hypertension note", note: "Fictional sample only." },
+  { category: "illness", name: "Example seasonal illness", note: "Fictional sample only." },
+];
+
+export const SAMPLE_VACCINES = [
+  { name: "Influenza (sample)", dose: "Annual", receivedDate: "2026-09-02", nextDueDate: "2027-09-02", status: "completed" as const },
+];
+
+export function liveOrDemoSeries(live: ChartPoint[], demo: ChartPoint[]): { series: ChartPoint[]; sample: boolean } {
+  if (live.length) return { series: live, sample: false };
+  return { series: demo, sample: true };
+}
+
+export function documentsDashboardLayout() {
+  return {
+    desktop: "lg:grid-cols-2 xl:grid-cols-3 overflow-x-hidden",
+    charts: "lg:grid-cols-2",
+    lower: "lg:grid-cols-3",
+    mobile: "stack-vertical",
+  };
 }
 
 export function demoNeverTouchesState(): { writesMeasurements: false; writesDocuments: false } {

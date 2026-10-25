@@ -1,217 +1,31 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileSearch, FolderHeart, MessageCircleQuestion, Pencil, Plus, Trash2 } from "lucide-react";
+import { FileSearch, MessageCircleQuestion, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
 import { deleteDocument, linkDocument, updateDocument } from "@/lib/store/actions";
 import { confirmDocumentMeasurement } from "@/lib/store/document-actions";
 import { parseLabText, SCAN_UNAVAILABLE } from "@/lib/document-extract";
-import { latestMeasurement, memberById } from "@/lib/selectors";
+import { memberById } from "@/lib/selectors";
 import { formatLong, formatShort, formatTime, dateOf, timeOf } from "@/lib/dates";
 import { deleteFile, formatBytes } from "@/lib/files";
-import type { DocumentType, ExtractStatus, HealthDocument } from "@/lib/types";
+import type { DocumentType, HealthDocument } from "@/lib/types";
 import { Screen } from "@/components/shell/screen";
 import { DOC_TYPE_LABEL } from "@/components/smaran/cards";
 import { DocumentPreview } from "@/components/smaran/document-preview";
-import { DetailRow, EmptyState, MemberAvatar, PageHeader, PillGroup, SectionLabel, Surface } from "@/components/smaran/primitives";
+import { DetailRow, EmptyState, PageHeader, PillGroup, SectionLabel, Surface } from "@/components/smaran/primitives";
 import { Modal } from "@/components/smaran/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
-import { TrendChart } from "@/components/smaran/trend-chart";
-import { familySwatch } from "@/lib/family-color";
-import { bpSeries, glucoseSeries, latestDisplay } from "@/lib/health-record-model";
-import {
-  CATEGORY_LABELS,
-  STATUS_LABELS,
-  categoryDisplayLabel,
-  extractStatusOf,
-  filterLibrary,
-  libraryCounts,
-  linkedMeasurements,
-  type DocSort,
-  type LibraryCategory,
-} from "@/lib/document-library";
-import { advanceDemo, SAMPLE_DEMO_BADGE, startSampleDemo, type DemoSession } from "@/lib/document-demo";
+import { STATUS_LABELS, extractStatusOf, linkedMeasurements } from "@/lib/document-library";
 
-export function DocumentsScreen() {
-  const { state } = useStore();
-  const { isWeb } = useView();
-  const [person, setPerson] = useState("all");
-  const [category, setCategory] = useState<LibraryCategory>("all");
-  const [status, setStatus] = useState<ExtractStatus | "all">("all");
-  const [sort, setSort] = useState<DocSort>("newest");
-  const [query, setQuery] = useState("");
-  const [demo, setDemo] = useState<DemoSession | null>(null);
-
-  const docs = useMemo(
-    () => filterLibrary(state, { person, category, status, query, sort }),
-    [state, person, category, status, query, sort],
-  );
-  const counts = libraryCounts(state, person);
-  const selectedMember = person === "all" ? undefined : memberById(state, person);
-  const bp = selectedMember ? bpSeries(state, selectedMember.id, "90d") : [];
-  const glu = selectedMember ? glucoseSeries(state, selectedMember.id, "90d") : [];
-  const latestBp = selectedMember ? latestDisplay(latestMeasurement(state, selectedMember.id, "blood_pressure")) : null;
-  const latestGlu = selectedMember ? latestDisplay(latestMeasurement(state, selectedMember.id, "blood_sugar")) : null;
-
-  const addButton = (
-    <Link href="/documents/upload" className="inline-flex h-10 items-center gap-1.5 rounded-[14px] bg-peach px-4 text-[14px] font-bold text-ink-strong hover:bg-[#e29c7e]">
-      <Plus className="size-4" aria-hidden /> Add document
-    </Link>
-  );
-
-  const filters = (
-    <div className="mb-5 space-y-3 overflow-x-hidden">
-      <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by title or extracted text" aria-label="Search documents" />
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {[{ id: "all", name: "All" }, ...state.family.map((m) => ({ id: m.id, name: m.name }))].map((m) => {
-          const swatch = m.id === "all" ? null : familySwatch(memberById(state, m.id)!);
-          return (
-            <button key={m.id} type="button" onClick={() => setPerson(m.id)} className={cn("h-9 shrink-0 rounded-full px-3 text-[13px] font-bold", person === m.id ? "bg-peach text-ink-strong" : "border border-line-strong bg-surface-raised")} style={swatch && person === m.id ? { backgroundColor: swatch.primary, color: "#fff" } : undefined}>
-              {m.name}
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {(Object.keys(CATEGORY_LABELS) as LibraryCategory[]).map((key) => (
-          <button key={key} type="button" onClick={() => setCategory(key)} className={cn("h-8 rounded-full px-3 text-[12.5px] font-bold", category === key ? "bg-peach" : "border border-line-strong")}>
-            {CATEGORY_LABELS[key]}{counts.categories[key] ? ` · ${counts.categories[key]}` : ""}
-          </button>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {(["all", "confirmed", "needs_review", "processing", "failed", "not_extracted"] as const).map((key) => (
-          <button key={key} type="button" onClick={() => setStatus(key)} className={cn("h-8 rounded-full px-3 text-[12.5px] font-bold", status === key ? "bg-sand" : "border border-line")}>
-            {STATUS_LABELS[key]}{key === "all" ? ` · ${counts.statuses.all}` : counts.statuses[key] ? ` · ${counts.statuses[key]}` : ""}
-          </button>
-        ))}
-        <select className="h-8 rounded-full border border-line-strong bg-surface px-3 text-[12.5px] font-bold" value={sort} onChange={(e) => setSort(e.target.value as DocSort)} aria-label="Sort documents">
-          <option value="newest">Newest</option>
-          <option value="oldest">Oldest</option>
-          <option value="title">Title</option>
-        </select>
-      </div>
-    </div>
-  );
-
-  const library = counts.total === 0 ? (
-    <EmptyState icon={<FolderHeart className="size-6" />} title="No documents uploaded yet." body={selectedMember ? `${selectedMember.name} has no reports yet.` : "Add a prescription, report or scan for a family member."} action={{ label: "Add document", href: "/documents/upload" }} />
-  ) : docs.length === 0 ? (
-    <EmptyState icon={<FileSearch className="size-6" />} title="No documents match these filters." body="Try another person, category or search." action={{ label: "Show everything", onClick: () => { setPerson("all"); setCategory("all"); setStatus("all"); setQuery(""); } }} />
-  ) : (
-    <ul className="space-y-3">
-      {docs.map((d) => {
-        const member = memberById(state, d.familyMemberId);
-        const swatch = member ? familySwatch(member) : undefined;
-        const linked = linkedMeasurements(state, d.id);
-        return (
-          <li key={d.id}>
-            <Link href={`/documents/${d.id}`} className="block overflow-hidden rounded-[18px] border border-line bg-surface-raised hover:border-peach">
-              <span className="block h-1" style={{ backgroundColor: swatch?.primary ?? "#E8D4C4" }} />
-              <div className="flex flex-wrap items-start gap-3 px-4 py-3">
-                {member && <MemberAvatar member={member} size={40} identity />}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[16px] font-extrabold text-ink-strong">{d.name}</p>
-                  <p className="text-[13px] text-ink-muted">
-                    {member?.name} · {categoryDisplayLabel(d)} · {formatShort(d.date)} · uploaded {formatShort(dateOf(d.addedAt))}
-                  </p>
-                  <p className="mt-1 text-[12.5px] text-ink-muted">
-                    {STATUS_LABELS[extractStatusOf(d)]}
-                    {d.metadata.source === "sample" ? " · sample family note" : ""}
-                    {linked.length ? ` · ${linked.length} linked reading${linked.length === 1 ? "" : "s"}` : ""}
-                    {d.linkedAppointmentId ? " · linked visit" : ""}
-                  </p>
-                </div>
-              </div>
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
-  );
-
-  const scanner = (
-    <Surface className="space-y-3 p-4">
-      <p className="text-[15px] font-extrabold">Document scanner</p>
-      <p className="text-[13px] leading-relaxed text-ink-muted">Upload stays on the selected person. Scanned-image OCR is not configured. Text PDFs can be extracted locally for review.</p>
-      <Link href={person === "all" ? "/documents/upload" : `/documents/upload?member=${person}`} className="inline-flex h-10 items-center justify-center rounded-[14px] bg-peach px-3 text-[13.5px] font-bold">
-        Upload document
-      </Link>
-      <div className="rounded-[14px] border border-dashed border-line-strong p-3">
-        <p className="text-[13px] font-extrabold">Try a sample report</p>
-        <p className="mt-1 text-[12.5px] text-ink-muted">Deterministic fixtures only. They never write to the family Health Card.</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" onClick={() => setDemo(advanceDemo(startSampleDemo("bp"), "review"))}>Try BP report demo</Button>
-          <Button size="sm" variant="outline" onClick={() => setDemo(advanceDemo(startSampleDemo("glucose"), "review"))}>Try glucose report demo</Button>
-        </div>
-      </div>
-      {demo && (
-        <div className="rounded-[14px] bg-sand/40 p-3 text-[13px]">
-          <p className="font-extrabold text-waiting">{SAMPLE_DEMO_BADGE}</p>
-          <p className="mt-1">Provider: local fixture — not Claude or OCR.</p>
-          <p className="mt-1">{demo.result.fields[0]?.label}: {demo.result.fields[0]?.value} {demo.result.fields[0]?.unit}</p>
-          <p className="mt-1 text-ink-muted">Evidence: {demo.result.fields[0]?.excerpt}</p>
-          {demo.step !== "confirmed" ? (
-            <Button size="sm" className="mt-2" onClick={() => setDemo(advanceDemo(demo, "confirmed"))}>Confirm sample preview</Button>
-          ) : (
-            <TrendChart title={demo.kind === "bp" ? "Sample BP preview" : "Sample glucose preview"} help="Demo series only — not saved family history." seriesA={demo.preview} labelA={demo.kind === "bp" ? "Systolic" : "Glucose"} unit={demo.preview[0]?.unit || ""} empty="No confirmed readings recorded yet." />
-          )}
-        </div>
-      )}
-    </Surface>
-  );
-
-  const trends = (
-    <div className="space-y-3">
-      <p className="text-[15px] font-extrabold">Extracted health records</p>
-      {!selectedMember ? (
-        <p className="text-[13.5px] text-ink-muted">Choose a person to see confirmed BP and glucose from their Health Record.</p>
-      ) : (
-        <>
-          <TrendChart title="Blood pressure" help={latestBp ? `${latestBp.value} · ${latestBp.meta}` : undefined} seriesA={bp} seriesB={bp.map((p) => ({ ...p, value: p.extra ?? p.value }))} labelA="Systolic" labelB="Diastolic" unit="mmHg" empty="No confirmed readings recorded yet." />
-          <TrendChart title="Blood glucose" help={latestGlu ? `${latestGlu.value} · ${latestGlu.meta}` : undefined} seriesA={glu} labelA="Glucose" unit={glu[0]?.unit || "as recorded"} empty="No confirmed readings recorded yet." />
-          <Link href={`/health-card/${selectedMember.id}`} className="text-[13px] font-bold text-peach-deep hover:underline">Open {selectedMember.name}&apos;s Health Record</Link>
-        </>
-      )}
-    </div>
-  );
-
-  const activity = state.memory.filter((e) => e.type.startsWith("document") || e.type === "measurement_recorded").slice(0, 5);
-
-  const aside = (
-    <>
-      <SmaranSpeakBox context="documents" onQuestion={setQuery} />
-      {scanner}
-      {trends}
-      <div>
-        <SectionLabel>Recent document activity</SectionLabel>
-        {activity.length === 0 ? <p className="text-[13.5px] text-ink-muted">No saved document events yet.</p> : (
-          <ul className="space-y-2">{activity.map((e) => <li key={e.id} className="text-[13.5px]"><span className="font-bold">{e.title}</span> <span className="text-ink-muted">· {e.timestamp}{e.source === "sample" ? " · sample" : ""}</span></li>)}</ul>
-        )}
-      </div>
-    </>
-  );
-
-  return (
-    <Screen width="wide" aside={isWeb ? aside : undefined}>
-      <div className="overflow-x-hidden">
-        <PageHeader title="Documents & Reports" subtitle="Prescriptions, reports, scans and medical records — organized by person." actions={addButton} />
-        {!isWeb && <div className="mb-5">{scanner}</div>}
-        {filters}
-        {library}
-        {!isWeb && <div className="mt-8 space-y-6">{trends}</div>}
-      </div>
-    </Screen>
-  );
-}
+export { DocumentsHome as DocumentsScreen } from "./documents-home";
 
 const TYPES: { value: DocumentType; label: string }[] = [
   { value: "report", label: "Report" },
