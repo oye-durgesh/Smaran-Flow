@@ -2,7 +2,11 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## Today / Home (this pass)
+## Weekly care-progress calendar (this pass)
+
+Today’s month grid is replaced by a Monday-first seven-day strip. Rings use `dayCareProgress()` over the same reminders and appointments as the schedule (paused/cancelled excluded; appointments are not auto-missed). Controllable-clock unit tests cover empty/pending/partial/complete/missed, recurrence, and year-boundary weeks.
+
+## Today / Home (prior pass)
 
 Today uses `calendarToday()` / `zonedNow("Asia/Kolkata")`, not `demoNow` (Friday 23 Oct). Greeting date is formatted at runtime (`Sunday, 25 October 2026` when that is the live Kolkata day). Month grid + year-boundary helpers live in `src/lib/timezone.ts`.
 

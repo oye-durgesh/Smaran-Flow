@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addCalendarMonths, formatFullDate, monthGrid, weekdayOf, yearMonthOf, zonedNow } from "./timezone";
+import { addCalendarMonths, formatFullDate, mondayWeekOf, monthGrid, weekdayOf, yearMonthOf, zonedNow } from "./timezone";
 import { calendarToday, todayOf, upcomingAfter, agendaFor } from "./selectors";
 import { createDemoState, DEMO_TODAY } from "./seed";
 
@@ -27,6 +27,18 @@ describe("Asia/Kolkata calendar today", () => {
     expect(cells[0]?.date).toBe("2026-09-27");
     expect(cells.find((c) => c.date === "2026-10-01") && weekdayOf("2026-10-01")).toBe(4);
     expect(cells.find((c) => c.date === "2026-10-25")?.inMonth).toBe(true);
+  });
+
+  it("builds a Monday-first week around 25 October 2026", () => {
+    expect(mondayWeekOf("2026-10-25")).toEqual([
+      "2026-10-19",
+      "2026-10-20",
+      "2026-10-21",
+      "2026-10-22",
+      "2026-10-23",
+      "2026-10-24",
+      "2026-10-25",
+    ]);
   });
 });
 

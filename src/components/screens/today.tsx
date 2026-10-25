@@ -1,21 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CalendarHeart, CheckCircle2, FileText, IdCard, MessageCircleQuestion, Pill, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
 import { useT } from "@/lib/i18n";
-import { agendaFor, busyDays, memberById, todayOf, upcomingAfter } from "@/lib/selectors";
+import { agendaFor, memberById, todayOf, upcomingAfter } from "@/lib/selectors";
 import { formatTime, greetingFor } from "@/lib/dates";
-import { formatFullDate, monthGrid, yearMonthOf, zonedNow } from "@/lib/timezone";
-
-function monthGridDays(month: string) {
-  return monthGrid(month).map((c) => c.date);
-}
+import { formatFullDate, mondayWeekOf, zonedNow } from "@/lib/timezone";
 import { TODAY_EXAMPLES, TODAY_SECTIONS, TODAY_SHORTCUTS, captureOnToday } from "@/lib/store/today-capture";
 import { createCloudAppointment, createCloudReminder, isUuid } from "@/lib/store/cloud";
-import { MonthCalendar } from "@/components/smaran/month-calendar";
+import { WeekProgressCalendar } from "@/components/smaran/week-progress-calendar";
 import { EmptyState, MemberAvatar, SectionLabel } from "@/components/smaran/primitives";
 import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
 import { cn } from "@/lib/utils";
@@ -160,24 +156,21 @@ export function TodayScreen() {
   const selected = state.selectedDate;
   const now = zonedNow();
   const greeting = t(greetingFor(now.time));
-  const [month, setMonth] = useState(yearMonthOf(selected));
+  const [weekStart, setWeekStart] = useState(mondayWeekOf(selected)[0]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       update((s) => ({ ...s, selectedDate: today }));
-      setMonth(yearMonthOf(today));
+      setWeekStart(mondayWeekOf(today)[0]);
     }, 0);
     return () => window.clearTimeout(timer);
     // Reset only when Today is opened — not after the user picks another day.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const monthDays = useMemo(() => monthGridDays(month), [month]);
-  const busy = busyDays(state, monthDays);
-
   const goToday = () => {
     update((s) => ({ ...s, selectedDate: today }));
-    setMonth(yearMonthOf(today));
+    setWeekStart(mondayWeekOf(today)[0]);
   };
 
   const wispr = (
@@ -232,16 +225,16 @@ export function TodayScreen() {
             </p>
             <p className="mt-1 text-[15px] text-ink-muted">{t("todaySubtitle")}</p>
           </header>
-          <MonthCalendar
-            month={month}
+          <WeekProgressCalendar
+            weekStart={weekStart}
             today={today}
             selected={selected}
-            busy={busy}
+            state={state}
             onSelect={(date) => {
               update((s) => ({ ...s, selectedDate: date }));
-              setMonth(yearMonthOf(date));
+              setWeekStart(mondayWeekOf(date)[0]);
             }}
-            onMonthChange={setMonth}
+            onWeekChange={(monday) => setWeekStart(monday)}
             onToday={goToday}
           />
           <UpcomingList selected={selected} />

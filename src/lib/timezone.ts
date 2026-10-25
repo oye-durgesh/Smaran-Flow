@@ -112,6 +112,42 @@ export function formatFullDate(dateKey: string, timeZone = FAMILY_TIMEZONE): str
   }).format(utcNoon);
 }
 
+/** Monday-first week containing `dateKey`. Safe for date-only keys. */
+export function mondayWeekOf(dateKey: string): string[] {
+  const offset = (weekdayOf(dateKey) + 6) % 7;
+  const monday = addCalendarDays(dateKey, -offset);
+  return Array.from({ length: 7 }, (_, i) => addCalendarDays(monday, i));
+}
+
+export function addCalendarWeeks(dateKey: string, weeks: number): string {
+  return addCalendarDays(dateKey, weeks * 7);
+}
+
+/** "20–26 Oct 2026" or "29 Sep – 5 Oct 2026". */
+export function formatWeekRange(days: string[], timeZone = FAMILY_TIMEZONE): string {
+  if (days.length < 2) return "";
+  const start = days[0];
+  const end = days[days.length - 1];
+  const fmt = (key: string, withYear: boolean) => {
+    const [y, m, d] = key.split("-").map(Number);
+    const utc = new Date(Date.UTC(y, m - 1, d, 6, 0, 0));
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      day: "numeric",
+      month: "short",
+      ...(withYear ? { year: "numeric" as const } : {}),
+    }).format(utc);
+  };
+  const sameMonth = start.slice(0, 7) === end.slice(0, 7);
+  if (sameMonth) {
+    const [y, m, d] = start.split("-").map(Number);
+    const utc = new Date(Date.UTC(y, m - 1, d, 6, 0, 0));
+    const day = new Intl.DateTimeFormat("en-GB", { timeZone, day: "numeric" }).format(utc);
+    return `${day}–${fmt(end, true)}`;
+  }
+  return `${fmt(start, false)} – ${fmt(end, true)}`;
+}
+
 export function formatMonthTitle(yearMonth: string, timeZone = FAMILY_TIMEZONE): string {
   const [y, m] = yearMonth.split("-").map(Number);
   const utc = new Date(Date.UTC(y, m - 1, 1, 6, 0, 0));
