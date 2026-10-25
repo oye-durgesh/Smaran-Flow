@@ -2,7 +2,46 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## Family identity colors (this pass)
+## Medicines section (this pass)
+
+The reminder-only “Today's Medicines” screen is a family medication workspace.
+
+- Nav and page title: **Medicines**. Subtitle: “Every medicine, every schedule, every family member — organized in one place.”
+- Grouped by real `care_recipients` / `state.family` ids. Mummy / Papa / Dadi colours come from `familySwatch()`; extra people get a stable fallback. Dadi is not shown unless that person exists.
+- Tabs: Current medicines (default), Dose reminders, Refill reminders, Medicine history. Family filter is Everyone + actual members.
+- Add medicine is a validated form with review/confirm. Device-local save uses `createMedicine`. Signed-in UUID recipients POST `/api/medicines`. Success only after persist.
+- Dose reminders stay `kind: medicine`. Refills are `medicine_refills` + `reminderRole: refill`. Pickup remains `kind: pickup` on Today.
+- Missing dose/strength/quantity stay “Not recorded”. Supply days are calculated only when quantity and units-per-dose are both recorded.
+- Schedule edit reconciles future dose reminders and keeps completed confirmation history. Pause stops new active doses. Completing a course is not the same as marking one dose taken. History is not deleted.
+- Health Card “Current medicines” and Today agenda read `state.medicines` / linked dose reminders.
+
+### New migration
+
+`supabase/migrations/0004_medicines.sql` — `medicines`, `medicine_changes`, `medicine_refills`, reminder `medicine_id` / `reminder_role`, RLS via `is_family_member`. Needed because 0001–0003 only stored `medicine_name` on reminders.
+
+Vault load treats a missing medicines table as empty so older projects still boot.
+
+### Commands this pass
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **98 passed**, **4 skipped** (live Supabase) |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | Routes include `/medicines`, `/api/medicines`, `/api/refills` |
+
+### Flows that work in unit tests / device-local code
+
+Add/validate medicine, failed save without success, no invented dosage, schedule edit preserves history, no duplicate reminders on retry, pause, complete vs mark taken, history vs current, refill vs dose, no fabricated supply, family isolation helper, Health Card + Today same ids, archived not current, Asia/Kolkata stamp, nav label.
+
+### Not verified live
+
+Applying 0004 on a real project, RLS with two accounts, phone notification delivery, cross-device vault after refresh, browser click-test of desktop/tablet/mobile overflow. Do not treat unit tests as live RLS proof.
+
+---
+
+## Family identity colors (prior pass)
 
 Today Upcoming/Schedule cards and the Health Card shortcut use `familySwatch()`: Mummy coral, Papa amber, Dadi terracotta-rose. Legend lists only people in `state.family`. Status badges stay independent of identity.
 

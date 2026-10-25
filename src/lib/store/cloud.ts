@@ -23,13 +23,27 @@ export async function fetchSession(): Promise<SessionPayload> {
 }
 
 export async function fetchVault(): Promise<
-  | { ok: true; family: unknown[]; appointments: unknown[]; reminders: unknown[]; measurements: unknown[]; documents: unknown[]; memory: unknown[] }
+  | { ok: true; family: unknown[]; appointments: unknown[]; reminders: unknown[]; measurements: unknown[]; documents: unknown[]; memory: unknown[]; medicines?: unknown[]; refills?: unknown[] }
   | { ok: false; status: number; error: string; persistence?: string }
 > {
   const res = await fetch("/api/vault", { cache: "no-store" });
   const data = (await res.json()) as { error?: string; persistence?: string; family?: unknown[] };
   if (!res.ok) return { ok: false, status: res.status, error: data.error || "Vault load failed.", persistence: data.persistence };
-  return { ok: true, ...(data as { family: unknown[]; appointments: unknown[]; reminders: unknown[]; measurements: unknown[]; documents: unknown[]; memory: unknown[] }) };
+  return { ok: true, ...(data as { family: unknown[]; appointments: unknown[]; reminders: unknown[]; measurements: unknown[]; documents: unknown[]; memory: unknown[]; medicines?: unknown[]; refills?: unknown[] }) };
+}
+
+export async function saveCloudMedicine(input: Record<string, unknown>) {
+  const res = await fetch("/api/medicines", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+  const data = (await res.json()) as { error?: string; id?: string; ok?: boolean };
+  if (!res.ok) throw new Error(data.error || "Medicine save failed.");
+  return data;
+}
+
+export async function patchCloudMedicine(input: Record<string, unknown>) {
+  const res = await fetch("/api/medicines", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+  const data = (await res.json()) as { error?: string; ok?: boolean };
+  if (!res.ok) throw new Error(data.error || "Medicine update failed.");
+  return data;
 }
 
 export async function authAction(body: { action: "signup" | "login" | "logout"; email?: string; password?: string; displayName?: string }) {

@@ -26,8 +26,17 @@ export function todayOf(state?: AppState): DateKey {
 export const memberById = (state: AppState, id?: string): FamilyMember | undefined =>
   state.family.find((m) => m.id === id);
 
-export function reminderOccursOn(reminder: Reminder, date: DateKey): boolean {
+export function reminderOccursOn(reminder: Reminder, date: DateKey, state?: AppState): boolean {
+  if (reminder.reminderRole === "refill") return reminder.date === date;
   if (date < dateOf(reminder.createdAt)) return false;
+  if (state && reminder.medicineId) {
+    const med = state.medicines.find((m) => m.id === reminder.medicineId);
+    if (med) {
+      if (date < med.startDate) return false;
+      if (med.endDate && !med.ongoing && date > med.endDate) return false;
+      if (med.status === "completed" || med.status === "stopped" || med.status === "archived") return false;
+    }
+  }
   if (reminder.frequency === "daily") return true;
   if (reminder.frequency === "weekly") return weekday(date) === (reminder.weekday ?? weekday(dateOf(reminder.createdAt)));
   return reminder.date === date;
@@ -63,7 +72,7 @@ export function nextOccurrence(reminder: Reminder, state: AppState): DateKey | n
   const nowMinutes = minutesOf(zonedNow().time);
   for (let i = 0; i < 14; i++) {
     const date = addDays(today, i);
-    if (!reminderOccursOn(reminder, date)) continue;
+    if (!reminderOccursOn(reminder, date, state)) continue;
     if (i === 0 && (confirmationOn(reminder, date) || minutesOf(reminder.time) + 120 < nowMinutes)) continue;
     return date;
   }
@@ -77,8 +86,9 @@ export type AgendaItem =
 export function agendaFor(state: AppState, date: DateKey, memberId?: string): AgendaItem[] {
   const items: AgendaItem[] = [];
   for (const r of state.reminders) {
+    if (r.reminderRole === "refill") continue;
     if (memberId && r.familyMemberId !== memberId) continue;
-    if (!reminderOccursOn(r, date)) continue;
+    if (!reminderOccursOn(r, date, state)) continue;
     items.push({
       kind: "reminder",
       id: r.id,
@@ -138,7 +148,8 @@ export function upcomingAfter(state: AppState, selected: DateKey): UpcomingItem[
     if (r.status === "paused") continue;
     for (let i = 1; i <= 21; i++) {
       const date = addDays(selected, i);
-      if (!reminderOccursOn(r, date) || confirmationOn(r, date)) continue;
+      if (r.reminderRole === "refill") continue;
+      if (!reminderOccursOn(r, date, state) || confirmationOn(r, date)) continue;
       items.push({
         kind: "reminder",
         id: `${r.id}:${date}`,
@@ -172,7 +183,7 @@ export function cancelledAppointments(state: AppState, memberId?: string): Appoi
 }
 
 export function medicineReminders(state: AppState, memberId?: string): Reminder[] {
-  return state.reminders.filter((r) => r.kind === "medicine" && (!memberId || r.familyMemberId === memberId));
+  return state.reminders.filter((r) => r.kind === "medicine" && r.reminderRole !== "refill" && (!memberId || r.familyMemberId === memberId));
 }
 
 export function documentsFor(state: AppState, memberId?: string): HealthDocument[] {

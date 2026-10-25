@@ -1,6 +1,7 @@
 import type { AppState, FamilyMember } from "../types";
 import { formatDayLong, formatLong, formatShort, formatTime, relativeDay, timeOf, dateOf } from "../dates";
 import { documentsFor, latestConfirmation, latestMeasurement, memberDaySummary, memberById, todayOf, upcomingAppointments } from "../selectors";
+import { currentMedicines } from "../medicine-model";
 import { findDoctor, findPerson, normalize } from "./common";
 
 export type AnswerRef =
@@ -119,8 +120,13 @@ export function answerQuestion(question: string, state: AppState): Answer {
   }
 
   if (/\b(medicine|medicines|dawai|dawaiyan|goli|tablets)\b/.test(t)) {
+    const recorded = currentMedicines(state, person?.id);
+    if (recorded.length) {
+      const list = recorded.map((m) => `${m.name}${person ? "" : ` (${memberById(state, m.familyMemberId)?.name})`}`).join(", ");
+      return { found: true, refs: recorded.map((m) => ({ kind: "reminder" as const, id: m.id })), text: `${possessive(person)} current medicines: ${list}.` };
+    }
     const reminders = state.reminders.filter((r) => r.kind === "medicine" && (!person || r.familyMemberId === person.id));
-    if (!reminders.length) return { found: false, refs: [], text: `There are no medicine reminders${person ? ` for ${person.name}` : ""} yet.` };
+    if (!reminders.length) return { found: false, refs: [], text: `There are no current medicines${person ? ` for ${person.name}` : ""} yet.` };
     const list = reminders.map((r) => `${r.title} at ${formatTime(r.time)}${person ? "" : ` (${memberById(state, r.familyMemberId)?.name})`}`).join(", ");
     return { found: true, refs: reminders.map((r) => ({ kind: "reminder" as const, id: r.id })), text: `${possessive(person)} medicine reminders: ${list}.` };
   }

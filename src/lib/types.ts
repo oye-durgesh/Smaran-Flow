@@ -62,6 +62,65 @@ export interface Reminder {
   createdAt: LocalTimestamp;
   source: "wispr" | "manual" | "sample";
   confirmationHistory: Confirmation[];
+  /** Authoritative medicine record this dose or refill reminder belongs to. */
+  medicineId?: ID;
+  reminderRole?: "dose" | "refill";
+}
+
+export type MedicineCourseStatus = "active" | "paused" | "completed" | "stopped" | "archived";
+export type MedicineFrequency = "daily" | "twice_daily" | "weekly" | "as_needed" | "custom";
+export type MedicineSource = "prescription" | "document" | "manual" | "other";
+export type MedicineReminderSetup = "scheduled" | "paused" | "needs_setup";
+
+export interface MedicineChange {
+  id: ID;
+  at: LocalTimestamp;
+  actor?: string;
+  summary: string;
+  previous?: Record<string, string | undefined>;
+}
+
+export interface Medicine {
+  id: ID;
+  familyMemberId: ID;
+  name: string;
+  strength?: string;
+  dosage?: string;
+  route?: string;
+  frequency: MedicineFrequency;
+  times: TimeKey[];
+  startDate: DateKey;
+  endDate?: DateKey;
+  ongoing: boolean;
+  status: MedicineCourseStatus;
+  prescriber?: string;
+  instructions?: string;
+  source: MedicineSource;
+  documentId?: ID;
+  notes?: string;
+  reminderSetup: MedicineReminderSetup;
+  createdAt: LocalTimestamp;
+  updatedAt: LocalTimestamp;
+  recordedBy?: string;
+  changeHistory: MedicineChange[];
+}
+
+export type RefillStatus = "upcoming" | "due" | "completed" | "snoozed" | "cancelled";
+
+export interface MedicineRefill {
+  id: ID;
+  medicineId: ID;
+  familyMemberId: ID;
+  remainingQuantity?: number;
+  unit?: string;
+  unitsPerDose?: number;
+  plannedDate?: DateKey;
+  reminderDate?: DateKey;
+  reminderTime?: TimeKey;
+  status: RefillStatus;
+  notes?: string;
+  createdAt: LocalTimestamp;
+  updatedAt: LocalTimestamp;
 }
 
 export interface AppointmentReminder {
@@ -148,7 +207,16 @@ export type MemoryEventType =
   | "member_added"
   | "measurement_recorded"
   | "measurement_updated"
-  | "measurement_deleted";
+  | "measurement_deleted"
+  | "medicine_created"
+  | "medicine_updated"
+  | "medicine_paused"
+  | "medicine_resumed"
+  | "medicine_completed"
+  | "medicine_stopped"
+  | "medicine_archived"
+  | "refill_created"
+  | "refill_updated";
 
 export interface MemoryEvent {
   id: ID;
@@ -198,6 +266,8 @@ export interface AppState {
   user: { name: string };
   family: FamilyMember[];
   reminders: Reminder[];
+  medicines: Medicine[];
+  refills: MedicineRefill[];
   appointments: Appointment[];
   documents: HealthDocument[];
   measurements: HealthMeasurement[];

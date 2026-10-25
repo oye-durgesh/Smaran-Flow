@@ -4,7 +4,8 @@ import Link from "next/link";
 import { Check, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import type { AppState, FamilyMember, HealthMeasurement } from "@/lib/types";
 import { compareTs, dateOf, formatShort, formatTime, relativeDay, timeOf, addMinutes } from "@/lib/dates";
-import { describeReminder, documentsFor, lastUpdatedFor, latestMeasurement, measurementsFor, recentConfirmations, todayOf, upcomingAppointments } from "@/lib/selectors";
+import { documentsFor, lastUpdatedFor, latestMeasurement, measurementsFor, recentConfirmations, todayOf, upcomingAppointments } from "@/lib/selectors";
+import { blank, currentMedicines, frequencyLabel } from "@/lib/medicine-model";
 import type { MeasurementKind } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { SmaranLogo } from "./brand";
@@ -98,7 +99,6 @@ function Wrap({ linked, href, children, className }: { linked: boolean; href: st
 export function HealthCard({ state, member, linked = true, className, wide = false, onRemoveMeasurement, onAddMeasurement }: { state: AppState; member: FamilyMember; linked?: boolean; className?: string; wide?: boolean; onRemoveMeasurement?: (m: HealthMeasurement) => void; onAddMeasurement?: () => void }) {
   const today = todayOf(state);
   const upcoming = upcomingAppointments(state, member.id).slice(0, 3);
-  const reminders = state.reminders.filter((r) => r.familyMemberId === member.id);
   const confirmations = recentConfirmations(state, member.id, 4);
   const docs = documentsFor(state, member.id).slice(0, 4);
   return (
@@ -141,16 +141,20 @@ export function HealthCard({ state, member, linked = true, className, wide = fal
           ) : null}
         </Block>
 
-        <Block title="Medicine reminders" empty="No medicine reminders recorded.">
-          {reminders.filter((r) => r.kind === "medicine").length > 0 ? (
+        <Block title="Current medicines" empty="No current medicines recorded.">
+          {currentMedicines(state, member.id).length > 0 ? (
             <ul className="space-y-1">
-              {reminders.filter((r) => r.kind === "medicine").map((r) => (
-                <li key={r.id}>
-                  <Wrap linked={linked} href={`/reminders/${r.id}`} className="-mx-2 px-2 py-1.5">
+              {currentMedicines(state, member.id).map((med) => (
+                <li key={med.id}>
+                  <Wrap linked={linked} href="/medicines" className="-mx-2 px-2 py-1.5">
                     <div className="text-[16px] font-bold text-ink-strong">
-                      {r.title} {r.status === "paused" && <span className="text-[12px] font-bold text-paused">· Paused</span>}
+                      {med.name} {med.status === "paused" && <span className="text-[12px] font-bold text-paused">· Paused</span>}
                     </div>
-                    <div className="text-[13.5px] text-ink-muted">{describeReminder(r)}</div>
+                    <div className="text-[13.5px] text-ink-muted">
+                      {blank(med.dosage)}
+                      {med.strength ? ` · ${med.strength}` : ""} · {frequencyLabel(med.frequency, med.times)}
+                      {med.times.length ? ` · ${med.times.join(", ")}` : ""}
+                    </div>
                   </Wrap>
                 </li>
               ))}

@@ -25,6 +25,15 @@ const ICONS: Record<MemoryEvent["type"], { icon: typeof Check; cls: string }> = 
   measurement_recorded: { icon: Check, cls: "bg-confirmed text-white" },
   measurement_updated: { icon: PencilLine, cls: "bg-ivory-deep text-brown" },
   measurement_deleted: { icon: Trash2, cls: "bg-paused-bg text-paused" },
+  medicine_created: { icon: BellPlus, cls: "bg-peach-soft text-peach-deep" },
+  medicine_updated: { icon: PencilLine, cls: "bg-ivory-deep text-brown" },
+  medicine_paused: { icon: PauseCircle, cls: "bg-paused-bg text-paused" },
+  medicine_resumed: { icon: PlayCircle, cls: "bg-ivory-deep text-brown" },
+  medicine_completed: { icon: Check, cls: "bg-confirmed text-white" },
+  medicine_stopped: { icon: Flag, cls: "bg-missed-bg text-missed" },
+  medicine_archived: { icon: Trash2, cls: "bg-paused-bg text-paused" },
+  refill_created: { icon: BellPlus, cls: "bg-sand text-brown" },
+  refill_updated: { icon: PencilLine, cls: "bg-ivory-deep text-brown" },
 };
 
 function hrefFor(e: MemoryEvent): string | undefined {
@@ -34,6 +43,7 @@ function hrefFor(e: MemoryEvent): string | undefined {
   if (e.type.startsWith("document")) return `/documents/${e.refId}`;
   if (e.type.startsWith("measurement")) return `/health-card/${e.familyMemberId}`;
   if (e.type === "member_added") return `/family/${e.refId}`;
+  if (e.type.startsWith("medicine") || e.type.startsWith("refill")) return "/medicines";
   return undefined;
 }
 

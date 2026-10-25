@@ -13,6 +13,7 @@ export interface AuthorizedSnapshot {
   reminders: AppState["reminders"];
   measurements: AppState["measurements"];
   documents: AppState["documents"];
+  medicines: AppState["medicines"];
 }
 
 const EMPTY: AuthorizedSnapshot = {
@@ -23,6 +24,7 @@ const EMPTY: AuthorizedSnapshot = {
   reminders: [],
   measurements: [],
   documents: [],
+  medicines: [],
 };
 
 export async function loadAuthorizedFamily(session: DeviceSession): Promise<AuthorizedSnapshot> {
@@ -45,6 +47,7 @@ export async function loadAuthorizedFamily(session: DeviceSession): Promise<Auth
       reminders: vault.reminders,
       measurements: vault.measurements,
       documents: vault.documents,
+      medicines: vault.medicines,
     };
   } catch (e) {
     if (e instanceof VaultError) throw e;

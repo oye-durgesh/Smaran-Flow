@@ -5,6 +5,7 @@ import type {
   FamilyMember,
   HealthDocument,
   HealthMeasurement,
+  Medicine,
   MemoryEvent,
   Reminder,
 } from "./types";
@@ -16,7 +17,7 @@ import { formatTime } from "./dates";
  */
 export const DEMO_TODAY = "2026-10-23";
 export const DEMO_NOW = `${DEMO_TODAY}T10:30`;
-export const STATE_VERSION = 4;
+export const STATE_VERSION = 5;
 
 const family: FamilyMember[] = [
   {
@@ -60,6 +61,8 @@ const reminders: Reminder[] = [
     status: "active",
     createdAt: "2026-10-18T09:20",
     source: "sample",
+    medicineId: "med-mummy-morning",
+    reminderRole: "dose",
     confirmationHistory: history("r-mummy-morning", [
       ["2026-10-23", "08:05"],
       ["2026-10-22", "08:03"],
@@ -98,6 +101,8 @@ const reminders: Reminder[] = [
     status: "active",
     createdAt: "2026-10-20T18:40",
     source: "wispr",
+    medicineId: "med-mummy-bp",
+    reminderRole: "dose",
     confirmationHistory: history("r-mummy-bp", [
       ["2026-10-22", "21:02"],
       ["2026-10-21", "21:00"],
@@ -114,6 +119,8 @@ const reminders: Reminder[] = [
     status: "active",
     createdAt: "2026-10-18T09:30",
     source: "sample",
+    medicineId: "med-papa-morning",
+    reminderRole: "dose",
     confirmationHistory: history("r-papa-morning", [
       ["2026-10-23", "08:40"],
       ["2026-10-22", "08:35"],
@@ -122,6 +129,38 @@ const reminders: Reminder[] = [
       ["2026-10-18", "08:33"],
     ]),
   },
+];
+
+function sampleMedicine(
+  id: string,
+  familyMemberId: string,
+  name: string,
+  time: string,
+  createdAt: string,
+  extra: Partial<Medicine> = {},
+): Medicine {
+  return {
+    id,
+    familyMemberId,
+    name,
+    frequency: "daily",
+    times: [time],
+    startDate: "2026-10-18",
+    ongoing: true,
+    status: "active",
+    source: "manual",
+    reminderSetup: "scheduled",
+    createdAt,
+    updatedAt: createdAt,
+    changeHistory: [{ id: `${id}-c0`, at: createdAt, summary: "Sample family record" }],
+    ...extra,
+  };
+}
+
+const medicines: Medicine[] = [
+  sampleMedicine("med-mummy-morning", "mummy", "Morning Medicine", "08:00", "2026-10-18T09:20"),
+  sampleMedicine("med-mummy-bp", "mummy", "BP Medicine", "21:00", "2026-10-20T18:40", { source: "manual", startDate: "2026-10-20" }),
+  sampleMedicine("med-papa-morning", "papa", "Morning Medicine", "08:30", "2026-10-18T09:30"),
 ];
 
 const standardReminders = (prefix: string) => [
@@ -337,6 +376,8 @@ export function createDemoState(): AppState {
     user: { name: "Rahul" },
     family,
     reminders,
+    medicines,
+    refills: [],
     appointments,
     documents,
     measurements,
@@ -361,6 +402,8 @@ export function createEmptyState(): AppState {
     onboarded: true,
     family: base.family,
     reminders: [],
+    medicines: [],
+    refills: [],
     appointments: [],
     documents: [],
     measurements: [],

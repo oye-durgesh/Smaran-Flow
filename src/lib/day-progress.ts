@@ -45,7 +45,8 @@ export function dayCareProgress(state: AppState, date: DateKey, now?: Date): Day
       continue;
     }
     if ((EXCLUDED_REMINDER_STATUSES as readonly string[]).includes(reminder.status)) continue;
-    if (!reminderOccursOn(reminder, date)) continue;
+    if (reminder.reminderRole === "refill") continue;
+    if (!reminderOccursOn(reminder, date, state)) continue;
     const key = `reminder:${reminder.id}:${date}`;
     if (seen.has(key)) continue;
     seen.add(key);

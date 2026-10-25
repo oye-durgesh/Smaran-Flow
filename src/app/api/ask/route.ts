@@ -64,6 +64,8 @@ function snapshotState(evidence: NonNullable<ReturnType<typeof askBodySchema.par
       recordedAt: m.recordedAt,
       source: "manual",
     })),
+    medicines: [],
+    refills: [],
     memory: [],
     conversations: [],
     settings: { language: "en", reminderSound: "Gentle", wisprEnabled: true, notifications: false, familyUpdates: false },

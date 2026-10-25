@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertFamilyAccess, canAccessFamily, matchStoredAppointments, requireUniqueAppointment, type Membership } from "./access";
+import { assertFamilyAccess, assertMedicineFamily, canAccessFamily, matchStoredAppointments, requireUniqueAppointment, type Membership } from "./access";
 import type { Appointment } from "@/lib/types";
 
 const memberships: Membership[] = [
@@ -65,5 +65,33 @@ describe("appointment matching", () => {
     const rows = [appt("sample-1", { familyMemberId: "mummy", source: "sample" })];
     const resolved = requireUniqueAppointment(matchStoredAppointments(rows, { memberId: "papa", status: "upcoming" }));
     expect(resolved).toEqual({ ok: false, reason: "none", ids: [] });
+  });
+});
+
+describe("medicine family isolation", () => {
+  it("forbids reading another family's medicine id", () => {
+    expect(() =>
+      assertMedicineFamily(
+        [
+          {
+            id: "med-1",
+            familyMemberId: "rec-fam-1",
+            name: "Recorded tablet",
+            frequency: "daily",
+            times: ["08:00"],
+            startDate: "2026-10-01",
+            ongoing: true,
+            status: "active",
+            source: "manual",
+            reminderSetup: "scheduled",
+            createdAt: "2026-10-01T09:00",
+            updatedAt: "2026-10-01T09:00",
+            changeHistory: [],
+          },
+        ],
+        "med-1",
+        ["rec-fam-2"],
+      ),
+    ).toThrow("FORBIDDEN");
   });
 });
