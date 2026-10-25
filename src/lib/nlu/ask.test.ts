@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { answerQuestion } from "./ask";
 import { createEmptyState } from "../seed";
 import { recordMeasurement } from "../store/health-record-actions";
-import { ASK_SUGGESTIONS, askLayoutContract, greetingText, handleComposerKey, sameAskRoute } from "../ask-ui";
+import { ASK_PLACEHOLDER, ASK_SUGGESTIONS, WISPR_FOCUS_HINT, WISPR_HEADING, WISPR_SUPPORT, askLayoutContract, greetingText, handleComposerKey, sameAskRoute } from "../ask-ui";
+import { BRAND_ASSETS } from "../../components/smaran/brand";
 import { canAccessFamily } from "../server/access";
 
 describe("grounded ask", () => {
@@ -65,5 +66,15 @@ describe("ask ui contract", () => {
     expect(handleComposerKey({ key: "Enter", shiftKey: false })).toBe("submit");
     expect(handleComposerKey({ key: "Enter", shiftKey: true })).toBe("newline");
     expect(handleComposerKey({ key: "Enter", shiftKey: false, isComposing: true })).toBe("ignore");
+  });
+
+  it("keeps the Wispr Flow helper copy and official brand asset path", () => {
+    expect(ASK_PLACEHOLDER).toBe("Ask anything about your family's health…");
+    expect(WISPR_HEADING).toBe("Use Wispr Flow for better speech-to-text");
+    expect(WISPR_SUPPORT).toBe(
+      "Speak naturally in Wispr Flow. Your words will appear in this box — review and send them to Ask SMARAN.",
+    );
+    expect(WISPR_FOCUS_HINT.toLowerCase()).toMatch(/does not record/);
+    expect(BRAND_ASSETS.wisprFlow).toBe("/brand/wispr-flow.png");
   });
 });

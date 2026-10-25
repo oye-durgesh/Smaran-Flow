@@ -3,7 +3,11 @@ import { CalendarDays, ClipboardList, Droplet, FileImage, FileText, HeartPulse, 
 
 export const ASK_SUBTITLE = "Ask anything about your family's health, appointments, medicines, reports and more.";
 export const ASK_PLACEHOLDER = "Ask anything about your family's health…";
-export const WISPR_FOCUS_HINT = "Use Wispr Flow for voice typing. It types into this box. SMARAN does not record the microphone in the browser.";
+export const WISPR_HEADING = "Use Wispr Flow for better speech-to-text";
+export const WISPR_SUPPORT =
+  "Speak naturally in Wispr Flow. Your words will appear in this box — review and send them to Ask SMARAN.";
+export const WISPR_FOCUS_HINT =
+  "Focus this box, then dictate with Wispr Flow on your device. SMARAN does not record audio here.";
 export const MISSING_RECORD = "I couldn't find that information in your family's saved records.";
 
 export interface AskSuggestion {

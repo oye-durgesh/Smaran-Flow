@@ -2,7 +2,30 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## Documents dashboard (this pass)
+## Ask SMARAN composer — Wispr Flow logo (this pass)
+
+Focused Ask composer update only. The overlapping brown circular microphone-style button is gone.
+
+- Logo is the existing `public/brand/wispr-flow.png` via `WisprFlowMark` (`/brand/wispr-flow.png`), in a compact light-peach rounded control. No invert, no large brown circle.
+- Always-visible heading **Use Wispr Flow for better speech-to-text** and support: “Speak naturally in Wispr Flow. Your words will appear in this box — review and send them to Ask SMARAN.”
+- Clicking the logo focuses the textarea and shows an honest hint: dictate with Wispr Flow on the device; SMARAN does not record audio. No listening state, no fake transcript, no auto-submit.
+- Flex row: attach · textarea · send. Enter submits, Shift+Enter newline. Placeholder unchanged. Draft starts empty.
+- Chat column, Try asking rail, bubbles, APIs, and other pages unchanged.
+
+### Commands this pass
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **142 passed**, **4 skipped** |
+| `npm run build` | **0** | `/ask` |
+
+HTTP: `GET /ask` **200**, `GET /brand/wispr-flow.png` **200** on the local preview server.
+
+---
+
+## Documents dashboard (prior pass)
 
 Documents & Reports is a person-centered health-vault dashboard: identity header, four summary cards, separate BP and glucose charts, medical history, category document rows, vaccination schedule, library, and a right Wispr Flow / recent / upcoming rail.
 

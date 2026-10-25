@@ -21,7 +21,7 @@ import { WisprFlowMark } from "@/components/smaran/brand";
 import { TrendChart } from "@/components/smaran/trend-chart";
 import { familySwatch } from "@/lib/family-color";
 import { bpSeries, glucoseSeries } from "@/lib/health-record-model";
-import { ASK_PLACEHOLDER, ASK_SUBTITLE, ASK_SUGGESTIONS, WISPR_FOCUS_HINT, askLayoutContract, greetingText, handleComposerKey, sameAskRoute } from "@/lib/ask-ui";
+import { ASK_PLACEHOLDER, ASK_SUBTITLE, ASK_SUGGESTIONS, WISPR_FOCUS_HINT, WISPR_HEADING, WISPR_SUPPORT, askLayoutContract, greetingText, handleComposerKey, sameAskRoute } from "@/lib/ask-ui";
 import { todayOf } from "@/lib/selectors";
 
 interface Turn {
@@ -166,46 +166,70 @@ export function AskScreen() {
     </div>
   );
 
+  function focusForWispr() {
+    setWisprHint(true);
+    inputRef.current?.focus();
+    toast.message(WISPR_FOCUS_HINT);
+  }
+
   const composer = (
-    <div className="border-t border-line bg-ivory/95 px-3 py-2.5 sm:px-4">
-      {wisprHint && <p className="mb-2 text-[12.5px] text-ink-muted" role="status">{WISPR_FOCUS_HINT}</p>}
-      <div className="mx-auto flex max-w-[720px] items-end gap-2 rounded-[28px] border border-line-strong bg-surface-raised px-2 py-1.5">
-        <Link href={filter === "all" ? "/documents/upload" : `/documents/upload?member=${filter}`} aria-label="Attach a document" className="mb-0.5 inline-flex size-10 items-center justify-center rounded-full text-ink-muted hover:bg-ivory-deep">
-          <Paperclip className="size-5" />
-        </Link>
-        <textarea
-          ref={inputRef}
-          value={draft}
-          rows={1}
-          disabled={busy}
-          placeholder={ASK_PLACEHOLDER}
-          aria-label={ASK_PLACEHOLDER}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            const action = handleComposerKey({ key: e.key, shiftKey: e.shiftKey, isComposing: e.nativeEvent.isComposing });
-            if (action === "submit") {
-              e.preventDefault();
-              void submit(draft);
-            }
-          }}
-          className="field-sizing-content max-h-28 min-h-[40px] min-w-0 flex-1 resize-none bg-transparent py-2 text-[16px] text-ink-strong outline-none"
-        />
-        <button
-          type="button"
-          onClick={() => {
-            setWisprHint(true);
-            inputRef.current?.focus();
-            toast.message("Focus the box, then dictate with Wispr Flow. SMARAN does not record audio here.");
-          }}
-          aria-label="Use Wispr Flow for voice typing"
-          title={WISPR_FOCUS_HINT}
-          className="mb-0.5 inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-[#C45C48] text-white shadow-[var(--shadow-soft)]"
-        >
-          <WisprFlowMark size={28} className="brightness-0 invert" />
-        </button>
-        <button type="button" disabled={busy || !draft.trim()} onClick={() => void submit(draft)} aria-label="Send message" className="mb-0.5 inline-flex size-11 items-center justify-center rounded-full bg-peach text-ink-strong disabled:bg-ivory-deep">
-          {busy ? <Loader2 className="size-5 animate-spin" /> : <ArrowUp className="size-5" strokeWidth={2.6} />}
-        </button>
+    <div className="mx-auto w-full max-w-[720px] pb-[env(safe-area-inset-bottom)]">
+      <div className="overflow-hidden rounded-[22px] border border-line-strong bg-surface-raised px-2.5 py-2 shadow-[var(--shadow-soft)] sm:px-3">
+        <div className="mb-2 flex items-start gap-2.5">
+          <button
+            type="button"
+            onClick={focusForWispr}
+            aria-label={WISPR_HEADING}
+            title={WISPR_FOCUS_HINT}
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-[14px] bg-[#F8E8DC] px-2.5 hover:bg-[#F3D9C8]"
+          >
+            <WisprFlowMark size={22} />
+          </button>
+          <div className="min-w-0 flex-1 pt-0.5">
+            <p className="text-[13px] font-bold leading-snug text-ink-strong">{WISPR_HEADING}</p>
+            <p className="mt-0.5 text-[12px] leading-snug text-ink-muted">{WISPR_SUPPORT}</p>
+          </div>
+        </div>
+        {wisprHint && (
+          <p className="mb-2 text-[12px] leading-snug text-ink-muted" role="status">
+            {WISPR_FOCUS_HINT}
+          </p>
+        )}
+        <div className="flex min-w-0 items-end gap-1.5 sm:gap-2">
+          <Link
+            href={filter === "all" ? "/documents/upload" : `/documents/upload?member=${filter}`}
+            aria-label="Attach a document"
+            className="mb-0.5 inline-flex size-11 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-ivory-deep"
+          >
+            <Paperclip className="size-5" />
+          </Link>
+          <textarea
+            ref={inputRef}
+            value={draft}
+            rows={1}
+            disabled={busy}
+            placeholder={ASK_PLACEHOLDER}
+            aria-label={ASK_PLACEHOLDER}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              const action = handleComposerKey({ key: e.key, shiftKey: e.shiftKey, isComposing: e.nativeEvent.isComposing });
+              if (action === "submit") {
+                e.preventDefault();
+                void submit(draft);
+              }
+            }}
+            className="field-sizing-content max-h-28 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent py-2.5 text-[16px] text-ink-strong outline-none"
+          />
+          <button
+            type="button"
+            disabled={busy || !draft.trim()}
+            onClick={() => void submit(draft)}
+            aria-label="Send message"
+            className="mb-0.5 inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-peach text-ink-strong disabled:bg-ivory-deep"
+          >
+            {busy ? <Loader2 className="size-5 animate-spin" /> : <ArrowUp className="size-5" strokeWidth={2.6} />}
+          </button>
+        </div>
       </div>
     </div>
   );
