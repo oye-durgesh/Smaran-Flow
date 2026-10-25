@@ -131,20 +131,56 @@ export interface AppointmentReminder {
 }
 
 export type AppointmentStatus = "upcoming" | "completed" | "cancelled";
+export type DoctorCategory = "primary" | "specialist";
+
+export interface FamilyDoctor {
+  id: ID;
+  name: string;
+  specialty?: string;
+  category: DoctorCategory;
+  clinic?: string;
+  address?: string;
+  phone?: string;
+  notes?: string;
+  documentIds: ID[];
+  recipientIds: ID[];
+  archived: boolean;
+  createdAt: LocalTimestamp;
+  source: "manual" | "sample";
+}
+
+export interface VisitRecord {
+  actualDate?: DateKey;
+  familyNotes?: string;
+  instructions?: string;
+  followUpRecommended?: boolean;
+  followUpDate?: DateKey;
+  recordedAt: LocalTimestamp;
+}
 
 export interface Appointment {
   id: ID;
   familyMemberId: ID;
   doctor: string;
+  doctorId?: ID;
+  doctorCategory?: DoctorCategory;
+  specialty?: string;
+  clinic?: string;
   date: DateKey;
   time: TimeKey;
   location?: string;
+  purpose?: string;
   notes?: string;
   documentIds: ID[];
   reminders: AppointmentReminder[];
   status: AppointmentStatus;
   createdAt: LocalTimestamp;
+  createdBy?: string;
   source: "wispr" | "manual" | "sample";
+  followUpOfId?: ID;
+  followUpDate?: DateKey;
+  followUpPurpose?: string;
+  visit?: VisitRecord;
 }
 
 export type DocumentType = "report" | "prescription" | "scan" | "note" | "other";
@@ -216,7 +252,10 @@ export type MemoryEventType =
   | "medicine_stopped"
   | "medicine_archived"
   | "refill_created"
-  | "refill_updated";
+  | "refill_updated"
+  | "doctor_created"
+  | "doctor_updated"
+  | "followup_created";
 
 export interface MemoryEvent {
   id: ID;
@@ -269,6 +308,7 @@ export interface AppState {
   medicines: Medicine[];
   refills: MedicineRefill[];
   appointments: Appointment[];
+  doctors: FamilyDoctor[];
   documents: HealthDocument[];
   measurements: HealthMeasurement[];
   memory: MemoryEvent[];

@@ -2,7 +2,41 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## Medicines section (this pass)
+## Family Appointments (this pass)
+
+Appointments is a dedicated family visits workspace. Today’s weekly progress calendar was not changed.
+
+- Title **Family Appointments**, subtitle “Every visit, every doctor, every follow-up.” Primary action **+ New appointment**.
+- Summary counts (upcoming / awaiting follow-up / past) come from saved records.
+- Tabs: Calendar (default), Upcoming, Past visits, Follow-ups, Doctors. Calendar uses `monthGrid` / `Asia/Kolkata` live dates, not `demoNow` or hardcoded 23/25 Oct.
+- Selected-day agenda only shows saved visits. Empty days stay empty.
+- Family identity colours come from recipient IDs. Status chips stay separate. Recipients come from `state.family`.
+- Doctor directory (`family_doctors` + `state.doctors`): primary vs specialist, reuse by name, archive. Names are never invented (`dr` stays `dr`).
+- New appointment form validates recipient/doctor/date/time. Device-local `saveAppointment` is idempotent on member+doctor+date+time. Cloud POST returns the existing row on retry. Success only after persist.
+- Overdue upcoming visits are **Needs review**, not auto-completed. Past visits require an explicit completed/attended record.
+- Follow-ups need a confirmed date and appear on the calendar / upcoming list without duplicating on retry.
+- Reminder offsets are stored on the appointment. Copy states they are schedules, not delivered notifications.
+- Duplicate-card audit: merge key now includes time; list rendering keys by id; sample source is labelled.
+
+### New migration
+
+`supabase/migrations/0005_doctors_and_followups.sql` — `family_doctors` + appointment follow-up/clinic/reminder columns + unique upcoming index. Reuses the existing `appointments` table.
+
+### Commands this pass
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **112 passed**, **4 skipped** |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | Routes include `/appointments`, `/api/doctors` |
+
+Not verified live: applying 0005, two-account RLS, phone notification delivery, browser calendar click-test.
+
+---
+
+## Medicines section (prior pass)
 
 The reminder-only “Today's Medicines” screen is a family medication workspace.
 

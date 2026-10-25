@@ -1,6 +1,7 @@
 import type {
   Appointment,
   AppState,
+  FamilyDoctor,
   Confirmation,
   FamilyMember,
   HealthDocument,
@@ -17,7 +18,7 @@ import { formatTime } from "./dates";
  */
 export const DEMO_TODAY = "2026-10-23";
 export const DEMO_NOW = `${DEMO_TODAY}T10:30`;
-export const STATE_VERSION = 5;
+export const STATE_VERSION = 6;
 
 const family: FamilyMember[] = [
   {
@@ -176,6 +177,8 @@ const appointments: Appointment[] = [
     date: "2026-10-23",
     time: "11:00",
     location: "City Hospital, Room 204",
+    doctorId: "doc-sharma",
+    clinic: "City Hospital",
     notes: "Follow-up visit. Carry the X-Ray report.",
     documentIds: ["d-papa-xray"],
     reminders: standardReminders("a-papa-sharma"),
@@ -190,6 +193,8 @@ const appointments: Appointment[] = [
     date: "2026-10-30",
     time: "11:00",
     location: "City Hospital, Room 204",
+    doctorId: "doc-sharma",
+    clinic: "City Hospital",
     notes: "Regular checkup. Bring previous reports.",
     documentIds: ["d-mummy-blood", "d-mummy-rx", "d-mummy-lab"],
     reminders: standardReminders("a-mummy-sharma"),
@@ -204,6 +209,10 @@ const appointments: Appointment[] = [
     date: "2026-11-02",
     time: "15:00",
     location: "Sunrise Heart Clinic, 2nd floor",
+    doctorId: "doc-patel",
+    doctorCategory: "specialist",
+    specialty: "Cardiology",
+    clinic: "Sunrise Heart Clinic",
     notes: "Review visit. Bring the ECG report.",
     documentIds: ["d-papa-ecg"],
     reminders: standardReminders("a-papa-patel"),
@@ -218,13 +227,22 @@ const appointments: Appointment[] = [
     date: "2026-10-15",
     time: "10:00",
     location: "Green Park Clinic",
+    doctorId: "doc-gupta",
+    clinic: "Green Park Clinic",
     notes: "Routine visit.",
     documentIds: [],
+    visit: { actualDate: "2026-10-15", familyNotes: "Routine visit recorded by family.", recordedAt: "2026-10-15T11:05" },
     reminders: standardReminders("a-mummy-gupta").map((r) => ({ ...r, enabled: false })),
     status: "completed",
     createdAt: "2026-10-08T12:00",
     source: "manual",
   },
+];
+
+const doctors: FamilyDoctor[] = [
+  { id: "doc-sharma", name: "Dr Sharma", category: "primary", clinic: "City Hospital", address: "City Hospital, Room 204", recipientIds: ["mummy", "papa"], documentIds: [], archived: false, createdAt: "2026-10-16T19:10", source: "sample" },
+  { id: "doc-patel", name: "Dr Patel", category: "specialist", specialty: "Cardiology", clinic: "Sunrise Heart Clinic", address: "Sunrise Heart Clinic, 2nd floor", recipientIds: ["papa"], documentIds: [], archived: false, createdAt: "2026-10-18T20:15", source: "sample" },
+  { id: "doc-gupta", name: "Dr Gupta", category: "specialist", clinic: "Green Park Clinic", recipientIds: ["mummy"], documentIds: [], archived: false, createdAt: "2026-10-08T12:00", source: "sample" },
 ];
 
 function sampleDoc(
@@ -379,6 +397,7 @@ export function createDemoState(): AppState {
     medicines,
     refills: [],
     appointments,
+    doctors,
     documents,
     measurements,
     memory: seedMemory(),
@@ -405,6 +424,7 @@ export function createEmptyState(): AppState {
     medicines: [],
     refills: [],
     appointments: [],
+    doctors: [],
     documents: [],
     measurements: [],
     memory: [],

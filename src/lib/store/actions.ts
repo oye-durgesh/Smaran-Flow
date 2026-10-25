@@ -254,7 +254,7 @@ export function replyInConversation(state: AppState, conversationId: string, tex
 
 export function createAppointment(state: AppState, draft: Required<Pick<AppointmentDraft, "memberId" | "doctor" | "date" | "time">> & AppointmentDraft, documentIds: string[] = []): { state: AppState; id: string; merged: boolean } {
   const reminders = draft.reminderOffsets.map((offset) => ({ id: uid("ar"), label: formatOffset(offset), offsetMinutes: offset, enabled: true }));
-  const existing = state.appointments.find((a) => a.familyMemberId === draft.memberId && a.doctor === draft.doctor && a.date === draft.date && a.status === "upcoming");
+  const existing = state.appointments.find((a) => a.familyMemberId === draft.memberId && a.doctor.trim().toLowerCase() === draft.doctor.trim().toLowerCase() && a.date === draft.date && a.time === draft.time && a.status === "upcoming");
   const member = memberById(state, draft.memberId);
   if (existing) {
     const mergedReminders = [...existing.reminders];

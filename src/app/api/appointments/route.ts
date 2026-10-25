@@ -9,6 +9,12 @@ const createSchema = z.object({
   time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   location: z.string().max(120).optional(),
   notes: z.string().max(400).optional(),
+  doctorId: z.string().uuid().optional(),
+  clinic: z.string().max(120).optional(),
+  purpose: z.string().max(200).optional(),
+  reminderOffsets: z.array(z.number().int()).optional(),
+  followUpDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  followUpOfId: z.string().uuid().optional(),
 });
 
 const actionSchema = z.object({
@@ -56,12 +62,28 @@ export async function POST(req: Request) {
     }
     const parsed = createSchema.safeParse(raw);
     if (!parsed.success) return NextResponse.json({ error: "Invalid appointment." }, { status: 400 });
+    const { data: recipient } = await supabase.from("care_recipients").select("id").eq("id", parsed.data.recipientId).eq("family_id", familyId).maybeSingle();
+    if (!recipient) return NextResponse.json({ error: "That person is not in this family." }, { status: 403 });
+    const { data: existing } = await supabase
+      .from("appointments")
+      .select("id, created_at")
+      .eq("family_id", familyId)
+      .eq("recipient_id", parsed.data.recipientId)
+      .eq("local_date", parsed.data.date)
+      .eq("local_time", parsed.data.time)
+      .eq("status", "upcoming")
+      .ilike("doctor", parsed.data.doctor.trim())
+      .maybeSingle();
+    if (existing) return NextResponse.json({ ok: true, id: existing.id, created_at: existing.created_at, merged: true });
     const { data, error } = await supabase
       .from("appointments")
       .insert({
         family_id: familyId,
         recipient_id: parsed.data.recipientId,
         doctor: parsed.data.doctor,
+        doctor_id: parsed.data.doctorId,
+        clinic: parsed.data.clinic,
+        purpose: parsed.data.purpose,
         local_date: parsed.data.date,
         local_time: parsed.data.time,
         starts_at: `${parsed.data.date}T${parsed.data.time}:00+05:30`,
@@ -69,13 +91,16 @@ export async function POST(req: Request) {
         status: "upcoming",
         location: parsed.data.location,
         notes: parsed.data.notes,
+        reminder_offsets: parsed.data.reminderOffsets ?? [1440, 180],
+        follow_up_date: parsed.data.followUpDate,
+        follow_up_of_id: parsed.data.followUpOfId,
         created_by: userId,
         is_sample: false,
       })
       .select("*")
       .single();
     if (error || !data) return NextResponse.json({ error: error?.message || "Create failed." }, { status: 500 });
-    return NextResponse.json({ ok: true, id: data.id, created_at: data.created_at });
+    return NextResponse.json({ ok: true, id: data.id, created_at: data.created_at, merged: false });
   } catch (e) {
     if (e instanceof VaultError) return NextResponse.json({ error: e.message }, { status: e.status });
     return NextResponse.json({ error: "Appointment write failed." }, { status: 500 });

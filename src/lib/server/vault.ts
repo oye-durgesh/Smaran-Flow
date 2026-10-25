@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AppState, Appointment, FamilyMember, HealthDocument, HealthMeasurement, Medicine, MedicineRefill, MemoryEvent, Reminder } from "@/lib/types";
+import type { AppState, Appointment, FamilyDoctor, FamilyMember, HealthDocument, HealthMeasurement, Medicine, MedicineRefill, MemoryEvent, Reminder } from "@/lib/types";
 import { readSession, type DeviceSession } from "./session";
 import { createUserClient } from "./supabase";
 import { matchStoredAppointments, requireUniqueAppointment } from "./access";
@@ -45,6 +45,33 @@ function mapAppointment(row: Record<string, unknown>): Appointment {
     documentIds: [],
     reminders: [],
     status: row.status === "completed" || row.status === "cancelled" ? row.status : "upcoming",
+    createdAt: String(row.created_at).slice(0, 16),
+    source: row.is_sample ? "sample" : "manual",
+    doctorId: row.doctor_id ? String(row.doctor_id) : undefined,
+    doctorCategory: row.doctor_category === "primary" || row.doctor_category === "specialist" ? row.doctor_category : undefined,
+    specialty: row.specialty ? String(row.specialty) : undefined,
+    clinic: row.clinic ? String(row.clinic) : undefined,
+    purpose: row.purpose ? String(row.purpose) : undefined,
+    createdBy: row.created_by ? String(row.created_by) : undefined,
+    followUpOfId: row.follow_up_of_id ? String(row.follow_up_of_id) : undefined,
+    followUpDate: row.follow_up_date ? String(row.follow_up_date) : undefined,
+    followUpPurpose: row.follow_up_purpose ? String(row.follow_up_purpose) : undefined,
+  };
+}
+
+function mapDoctor(row: Record<string, unknown>): FamilyDoctor {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    specialty: row.specialty ? String(row.specialty) : undefined,
+    category: row.category === "primary" ? "primary" : "specialist",
+    clinic: row.clinic ? String(row.clinic) : undefined,
+    address: row.address ? String(row.address) : undefined,
+    phone: row.phone ? String(row.phone) : undefined,
+    notes: row.notes ? String(row.notes) : undefined,
+    documentIds: [],
+    recipientIds: Array.isArray(row.recipient_ids) ? row.recipient_ids.map(String) : [],
+    archived: Boolean(row.archived),
     createdAt: String(row.created_at).slice(0, 16),
     source: row.is_sample ? "sample" : "manual",
   };
@@ -130,8 +157,8 @@ function mapMeasurement(row: Record<string, unknown>): HealthMeasurement {
   };
 }
 
-export async function loadVault(supabase: SupabaseClient, familyId: string): Promise<Pick<AppState, "family" | "appointments" | "reminders" | "measurements" | "documents" | "memory" | "medicines" | "refills">> {
-  const [recipients, appointments, reminders, measurements, documents, memory, medicines, refills] = await Promise.all([
+export async function loadVault(supabase: SupabaseClient, familyId: string): Promise<Pick<AppState, "family" | "appointments" | "reminders" | "measurements" | "documents" | "memory" | "medicines" | "refills" | "doctors">> {
+  const [recipients, appointments, reminders, measurements, documents, memory, medicines, refills, doctors] = await Promise.all([
     supabase.from("care_recipients").select("*").eq("family_id", familyId),
     supabase.from("appointments").select("*").eq("family_id", familyId),
     supabase.from("reminders").select("*").eq("family_id", familyId),
@@ -140,11 +167,13 @@ export async function loadVault(supabase: SupabaseClient, familyId: string): Pro
     supabase.from("memory_events").select("*").eq("family_id", familyId).order("created_at", { ascending: false }),
     supabase.from("medicines").select("*").eq("family_id", familyId),
     supabase.from("medicine_refills").select("*").eq("family_id", familyId),
+    supabase.from("family_doctors").select("*").eq("family_id", familyId),
   ]);
   const err = recipients.error || appointments.error || reminders.error || measurements.error || documents.error || memory.error;
   if (err) throw new VaultError(err.message, 500);
   if (medicines.error && !missingTable(medicines.error)) throw new VaultError(medicines.error.message, 500);
   if (refills.error && !missingTable(refills.error)) throw new VaultError(refills.error.message, 500);
+  if (doctors.error && !missingTable(doctors.error)) throw new VaultError(doctors.error.message, 500);
 
   return {
     family: (recipients.data ?? []).map(mapRecipient),
@@ -177,6 +206,7 @@ export async function loadVault(supabase: SupabaseClient, familyId: string): Pro
     ),
     medicines: missingTable(medicines.error) ? [] : (medicines.data ?? []).map((r) => mapMedicine(r as Record<string, unknown>)),
     refills: missingTable(refills.error) ? [] : (refills.data ?? []).map((r) => mapRefill(r as Record<string, unknown>)),
+    doctors: missingTable(doctors.error) ? [] : (doctors.data ?? []).map((r) => mapDoctor(r as Record<string, unknown>)),
   };
 }
 

@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import type { Appointment, FamilyMember, HealthDocument } from "@/lib/types";
 import type { AgendaItem } from "@/lib/selectors";
 import { formatShort, formatTime, relativeDay, timeOf } from "@/lib/dates";
+import { familySwatch } from "@/lib/family-color";
+import { doctorDisplayName } from "@/lib/appointment-model";
 import { describeReminder } from "@/lib/selectors";
 import { MemberAvatar, StatusBadge, statusBarClass, Surface } from "./primitives";
 
@@ -83,16 +85,17 @@ function TimeColumn({ time }: { time: string }) {
 
 export function AppointmentCard({ appointment, member, today }: { appointment: Appointment; member?: FamilyMember; today: string }) {
   const done = appointment.status === "completed" || appointment.status === "cancelled";
+  const swatch = familySwatch(member);
   return (
     <Link href={`/appointments/${appointment.id}`} className="group block">
       <Surface className="@container relative flex items-center gap-4 overflow-hidden p-4 pl-5 transition-colors group-hover:border-line-strong">
-        <span aria-hidden className={cn("absolute inset-y-3 left-0 w-1 rounded-r-full", statusBarClass(done ? "completed" : "upcoming"))} />
+        <span aria-hidden className="absolute inset-y-3 left-0 w-1 rounded-r-full" style={{ backgroundColor: swatch.primary }} />
         <div className={cn("flex size-12 shrink-0 flex-col items-center justify-center rounded-[14px]", done ? "bg-paused-bg text-brown" : "bg-sand/70 text-ink-strong")}>
           <span className="text-[10px] font-extrabold tracking-wider uppercase">{formatShort(appointment.date).split(" ")[0]}</span>
           <span className="text-[17px] leading-none font-extrabold">{formatShort(appointment.date).split(" ")[1]}</span>
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-[16px] font-bold text-ink-strong">{appointment.doctor}</div>
+          <div className="text-[16px] font-bold text-ink-strong">{doctorDisplayName(appointment.doctor)}</div>
           <div className="mt-0.5 truncate text-[14px] text-ink-muted">
             {member?.name} · {relativeDay(appointment.date, today)} · {formatTime(appointment.time)}
           </div>

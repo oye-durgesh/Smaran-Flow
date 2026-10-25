@@ -23,13 +23,13 @@ export async function fetchSession(): Promise<SessionPayload> {
 }
 
 export async function fetchVault(): Promise<
-  | { ok: true; family: unknown[]; appointments: unknown[]; reminders: unknown[]; measurements: unknown[]; documents: unknown[]; memory: unknown[]; medicines?: unknown[]; refills?: unknown[] }
+  | { ok: true; family: unknown[]; appointments: unknown[]; reminders: unknown[]; measurements: unknown[]; documents: unknown[]; memory: unknown[]; medicines?: unknown[]; refills?: unknown[]; doctors?: unknown[] }
   | { ok: false; status: number; error: string; persistence?: string }
 > {
   const res = await fetch("/api/vault", { cache: "no-store" });
   const data = (await res.json()) as { error?: string; persistence?: string; family?: unknown[] };
   if (!res.ok) return { ok: false, status: res.status, error: data.error || "Vault load failed.", persistence: data.persistence };
-  return { ok: true, ...(data as { family: unknown[]; appointments: unknown[]; reminders: unknown[]; measurements: unknown[]; documents: unknown[]; memory: unknown[]; medicines?: unknown[]; refills?: unknown[] }) };
+  return { ok: true, ...(data as { family: unknown[]; appointments: unknown[]; reminders: unknown[]; measurements: unknown[]; documents: unknown[]; memory: unknown[]; medicines?: unknown[]; refills?: unknown[]; doctors?: unknown[] }) };
 }
 
 export async function saveCloudMedicine(input: Record<string, unknown>) {
@@ -64,7 +64,14 @@ export async function patchAppointment(id: string, action: "complete" | "cancel"
   return data;
 }
 
-export async function createCloudAppointment(input: { recipientId: string; doctor: string; date: string; time: string; location?: string; notes?: string }) {
+export async function saveCloudDoctor(input: Record<string, unknown>) {
+  const res = await fetch("/api/doctors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+  const data = (await res.json()) as { error?: string; id?: string };
+  if (!res.ok) throw new Error(data.error || "Doctor save failed.");
+  return data;
+}
+
+export async function createCloudAppointment(input: { recipientId: string; doctor: string; date: string; time: string; location?: string; notes?: string; doctorId?: string; clinic?: string; purpose?: string; reminderOffsets?: number[]; followUpDate?: string }) {
   const res = await fetch("/api/appointments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
   const data = (await res.json()) as { error?: string; id?: string };
   if (!res.ok) throw new Error(data.error || "Appointment create failed.");

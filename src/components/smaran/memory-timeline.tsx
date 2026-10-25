@@ -34,6 +34,9 @@ const ICONS: Record<MemoryEvent["type"], { icon: typeof Check; cls: string }> = 
   medicine_archived: { icon: Trash2, cls: "bg-paused-bg text-paused" },
   refill_created: { icon: BellPlus, cls: "bg-sand text-brown" },
   refill_updated: { icon: PencilLine, cls: "bg-ivory-deep text-brown" },
+  doctor_created: { icon: UserPlus, cls: "bg-sand text-brown" },
+  doctor_updated: { icon: PencilLine, cls: "bg-ivory-deep text-brown" },
+  followup_created: { icon: CalendarPlus, cls: "bg-sand text-brown" },
 };
 
 function hrefFor(e: MemoryEvent): string | undefined {

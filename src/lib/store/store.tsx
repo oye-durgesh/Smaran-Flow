@@ -16,11 +16,13 @@ function emit() {
 function migrate(parsed: AppState): AppState {
   const medicines = Array.isArray(parsed.medicines) ? parsed.medicines : [];
   const refills = Array.isArray(parsed.refills) ? parsed.refills : [];
+  const doctors = Array.isArray(parsed.doctors) ? parsed.doctors : [];
   if (parsed.version === STATE_VERSION && Array.isArray(parsed.measurements)) {
     return {
       ...parsed,
       medicines,
       refills,
+      doctors,
       reminders: parsed.reminders.map((r) => ({ ...r, kind: r.kind === "pickup" || r.kind === "check" || r.kind === "medicine" ? r.kind : r.kind === "other" ? "other" : "other" })),
       appointments: parsed.appointments.map((a) => ({ ...a, status: a.status === "completed" || a.status === "cancelled" ? a.status : "upcoming" })),
     };
@@ -32,6 +34,7 @@ function migrate(parsed: AppState): AppState {
     measurements: Array.isArray(parsed.measurements) ? parsed.measurements : seed.measurements,
     medicines,
     refills,
+    doctors,
   };
 }
 
@@ -171,6 +174,7 @@ export function StoreProvider({ children }: { children: ReactNode; fallback?: Re
       memory: vault.memory as AppState["memory"],
       medicines: (vault.medicines as AppState["medicines"] | undefined) ?? [],
       refills: (vault.refills as AppState["refills"] | undefined) ?? [],
+      doctors: (vault.doctors as AppState["doctors"] | undefined) ?? [],
     };
     emit();
     return true;

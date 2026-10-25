@@ -50,7 +50,7 @@ CRON_SECRET=
 
 Without Anthropic, `/api/interpret` uses the deterministic parser and sets `claudeUsed: false`. Without `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, the app stays in **device-local mode** (`localStorage` + IndexedDB) and labels that clearly. It does not pretend browser data is cloud-synced.
 
-Apply `supabase/migrations/0001_smaran_family.sql`, `0002_rls_history_and_auth.sql`, `0003_reminder_delivery.sql`, and `0004_medicines.sql` in a Supabase project, then sign in under Settings. Care recipients (Mummy/Papa) are not login accounts. Use **Copy this browser's records into my family** to migrate local rows; local copies are never deleted automatically.
+Apply `supabase/migrations/0001_smaran_family.sql` through `0005_doctors_and_followups.sql` in a Supabase project, then sign in under Settings. Care recipients (Mummy/Papa) are not login accounts. Use **Copy this browser's records into my family** to migrate local rows; local copies are never deleted automatically.
 
 **Medicines** is a first-class section: current courses, dose reminders, refill reminders, and history, grouped by the actual care recipients in the family. Dose reminders and pharmacy pickups stay separate. The Health Card and Today read the same saved medicine records.
 
