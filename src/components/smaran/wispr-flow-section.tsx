@@ -35,14 +35,14 @@ export function WisprFlowSection({
     setBusy(true);
     try {
       const localIntent = classifySmaranIntent(text);
-      const gate = evaluateSectionPolicy(context, localIntent);
+      const gate = evaluateSectionPolicy(context, localIntent, text);
       if (!gate.allowed) {
         setNotice({ message: gate.message, href: gate.href, hrefLabel: gate.hrefLabel });
         return;
       }
       const result = await requestInterpretation(text, state, context === "appointments" ? "appointment" : context === "medicines" ? "medicine_reminder" : context === "documents" ? "document" : context === "ask" ? "ask" : context === "health-card" ? "health_update" : "general_reminder");
       const action = primaryAction(result);
-      const parsedGate = evaluateSectionPolicy(context, action.intent);
+      const parsedGate = evaluateSectionPolicy(context, action.intent, text);
       if (!parsedGate.allowed) {
         setNotice({ message: parsedGate.message, href: parsedGate.href, hrefLabel: parsedGate.hrefLabel });
         return;
@@ -95,10 +95,7 @@ export function WisprFlowSection({
                 }
                 const out = await onCapture(pending.transcript, pending);
                 if (typeof out === "string") toast.error(out);
-                else {
-                  toast.success("Saved.");
-                  setPending(null);
-                }
+                else setPending(null);
               }}
             >
               Confirm

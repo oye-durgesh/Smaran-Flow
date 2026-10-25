@@ -69,6 +69,13 @@ export interface WisprSectionConfig {
   attachmentHref?: string;
 }
 
+/** Prescription/course language — not a one-off care reminder. */
+export function looksLikeMedicineScheduleChange(text: string): boolean {
+  const t = text.toLowerCase();
+  if (/\b(yaad dila|remind|reminder|dikhao|kya hain|show|open)\b/.test(t)) return false;
+  return /\b(prescribed|prescription|nuskha|dose schedule|medicine schedule|course|start (taking|the medicine)|stop (the )?medicine|pause (the )?medicine|twice daily|thrice|frequency|mg\b)\b/.test(t);
+}
+
 export function intentCategory(intent: SmaranIntent): WisprIntentCategory {
   if (intent === "medicine_reminder") return "medicine_write";
   if (intent === "health_check_reminder" || intent === "pickup_reminder") return "reminder_create";
@@ -96,7 +103,7 @@ export const WISPR_SECTIONS: Record<WisprSectionId, WisprSectionConfig> = {
       { icon: Pill, text: "Mummy ki dawa ka reminder set karo." },
       { icon: Activity, text: "Papa ka BP check yaad dilana." },
     ],
-    allowed: ["reminder_create", "medicine_write", "today_query", "ask_query"],
+    allowed: ["reminder_create", "today_query", "ask_query"],
     emptyMessage: "Dictate or type a family-care reminder. Nothing is saved until you send and confirm.",
     loadingMessage: "Reading what you wrote…",
     errorMessage: "That was not saved. Your text is still here.",
@@ -235,16 +242,36 @@ export function isMedicalFamilyExample(text: string): boolean {
 export function evaluateSectionPolicy(
   section: WisprSectionId,
   intent: SmaranIntent,
+  text?: string,
 ): { allowed: true } | { allowed: false; message: string; href?: string; hrefLabel?: string } {
   const category = intentCategory(intent);
   const config = WISPR_SECTIONS[section];
+  if (section === "today" && text && looksLikeMedicineScheduleChange(text)) {
+    return {
+      allowed: false,
+      message: "Medicine schedules are managed in Medicines.",
+      href: "/medicines",
+      hrefLabel: "Open Medicines",
+    };
+  }
   if (intent === "unknown") {
     return { allowed: false, message: "I need a clearer family-care request before I change anything." };
+  }
+  if (section === "today" && intent === "medicine_reminder" && text && looksLikeMedicineScheduleChange(text)) {
+    return {
+      allowed: false,
+      message: "Medicine schedules are managed in Medicines.",
+      href: "/medicines",
+      hrefLabel: "Open Medicines",
+    };
+  }
+  if (section === "today" && intent === "medicine_reminder") {
+    return { allowed: true };
   }
   if (section === "today" && category === "appointment_write") {
     return {
       allowed: false,
-      message: "Appointment scheduling is handled in Family Appointments.",
+      message: "Appointment scheduling is managed in Family Appointments.",
       href: "/appointments",
       hrefLabel: "Open Family Appointments",
     };
@@ -260,7 +287,7 @@ export function evaluateSectionPolicy(
   if (section === "medicines" && category === "appointment_write") {
     return {
       allowed: false,
-      message: "Appointment scheduling is handled in Family Appointments.",
+      message: "Appointment scheduling is managed in Family Appointments.",
       href: "/appointments",
       hrefLabel: "Open Family Appointments",
     };
@@ -278,7 +305,7 @@ export function evaluateSectionPolicy(
       allowed: false,
       message:
         category === "appointment_write"
-          ? "Appointment scheduling is handled in Family Appointments."
+          ? "Appointment scheduling is managed in Family Appointments."
           : category === "medicine_write"
             ? "Medicine schedules are managed in Medicines."
             : "Confirm measurements on the Health Card after you review a report.",
@@ -289,7 +316,7 @@ export function evaluateSectionPolicy(
   if (section === "health-card" && (category === "appointment_write" || category === "medicine_write")) {
     return {
       allowed: false,
-      message: category === "appointment_write" ? "Appointment scheduling is handled in Family Appointments." : "Medicine schedules are managed in Medicines.",
+      message: category === "appointment_write" ? "Appointment scheduling is managed in Family Appointments." : "Medicine schedules are managed in Medicines.",
       href: category === "appointment_write" ? "/appointments" : "/medicines",
       hrefLabel: category === "appointment_write" ? "Open Family Appointments" : "Open Medicines",
     };
@@ -298,14 +325,21 @@ export function evaluateSectionPolicy(
     return {
       allowed: false,
       message: "Ask SMARAN searches saved records. Open the matching section to create or change a record.",
-      href: category === "appointment_write" ? "/appointments" : category === "medicine_write" || category === "reminder_create" ? "/medicines" : "/family",
+      href:
+        category === "appointment_write"
+          ? "/appointments"
+          : category === "reminder_create"
+            ? "/today"
+            : category === "medicine_write"
+              ? "/medicines"
+              : "/family",
       hrefLabel: "Open the right section",
     };
   }
   if (section === "settings" && category !== "settings_pref") {
-    return { allowed: false, message: "Settings cannot create medical reminders or appointments." };
+    return { allowed: false, message: "Settings cannot create medical records, medicines, or appointments." };
   }
-  if ((config.allowed as readonly string[]).includes(category) || (section === "today" && category === "medicine_write")) {
+  if ((config.allowed as readonly string[]).includes(category)) {
     return { allowed: true };
   }
   if (section === "today" && category === "ask_query") {

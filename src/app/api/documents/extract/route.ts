@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { extractionProposalSchema } from "@/lib/interpret/zod";
-import { AnthropicConfigError, completeJson } from "@/lib/server/anthropic";
 import { detectFileKind, extractPdfText, MAX_EXTRACT_BYTES } from "@/lib/server/files";
 import { parseLabText, SCAN_UNAVAILABLE } from "@/lib/document-extract";
 import { rateLimit } from "@/lib/server/rate-limit";
@@ -39,50 +37,23 @@ export async function POST(req: Request) {
         confirmed: false,
       });
     }
-    try {
-      const raw = await completeJson(
-        "Extract only facts printed in the text. Missing fields stay null. JSON only. Never invent doses. confirmed must be false.",
-        extractedText,
-      );
-      const parsed = extractionProposalSchema.safeParse(JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)));
-      if (!parsed.success) {
-        return NextResponse.json({ status: "needs_review", extractedText, proposal: null, confirmed: false, provider: "claude", error: "Model output failed validation. Review the raw text." });
-      }
-      return NextResponse.json({ status: "needs_review", extractedText, proposal: parsed.data, confirmed: false, provider: "claude" });
-    } catch (error) {
-      if (error instanceof AnthropicConfigError) {
-        const local = parseLabText(extractedText);
-        return NextResponse.json({
-          status: "needs_review",
-          extractedText,
-          proposal: null,
-          fields: local.fields,
-          confirmed: false,
-          provider: "local_text",
-          error: "Claude is not configured. Selectable PDF text was extracted locally and needs human review.",
-        });
-      }
-      return NextResponse.json({ status: "failed", error: "Interpretation failed. The original file is unchanged.", extractedText, confirmed: false });
-    }
+    const local = parseLabText(extractedText);
+    return NextResponse.json({
+      status: "needs_review",
+      extractedText,
+      proposal: null,
+      fields: local.fields,
+      confirmed: false,
+      provider: "local_text",
+      error: "Claude is not used in this phase. Selectable PDF text was extracted locally and needs human review.",
+    });
   }
 
-  try {
-    await completeJson("unused", "unused");
-  } catch (error) {
-    if (error instanceof AnthropicConfigError) {
-      return NextResponse.json({
-        status: "not_extracted",
-        error: SCAN_UNAVAILABLE,
-        extractedText: "",
-        confirmed: false,
-        provider: "none",
-      });
-    }
-  }
   return NextResponse.json({
-    status: "failed",
-    error: "Image vision extract is not completed in this environment. File was not marked successful.",
+    status: "not_extracted",
+    error: SCAN_UNAVAILABLE,
     extractedText: "",
     confirmed: false,
+    provider: "none",
   });
 }

@@ -11,7 +11,7 @@ import { agendaFor, memberById, todayOf, upcomingAfter } from "@/lib/selectors";
 import { formatTime, greetingFor } from "@/lib/dates";
 import { formatFullDate, mondayWeekOf, zonedNow } from "@/lib/timezone";
 import { TODAY_EXAMPLES, TODAY_SECTIONS, TODAY_SHORTCUTS, captureOnToday } from "@/lib/store/today-capture";
-import { createCloudAppointment, createCloudReminder, isUuid } from "@/lib/store/cloud";
+import { createCloudReminder, isUuid } from "@/lib/store/cloud";
 import { WeekProgressCalendar } from "@/components/smaran/week-progress-calendar";
 import { EmptyState, MemberAvatar, SectionLabel, StatusBadge } from "@/components/smaran/primitives";
 import { WisprFlowSection } from "@/components/smaran/wispr-flow-section";
@@ -237,15 +237,16 @@ export function TodayScreen() {
             return out.error;
           }
           if (session.authenticated) {
-            const reminder = state.reminders.find((r) => r.id === out.id);
-            const appointment = state.appointments.find((a) => a.id === out.id);
             try {
-              if (out.kind === "reminder" && reminder && isUuid(reminder.familyMemberId)) {
-                await createCloudReminder({ recipientId: reminder.familyMemberId, title: reminder.title, kind: reminder.kind, time: reminder.time, date: reminder.date, recurrence: reminder.frequency });
-                await refreshVault();
-              }
-              if (out.kind === "appointment" && appointment && isUuid(appointment.familyMemberId)) {
-                await createCloudAppointment({ recipientId: appointment.familyMemberId, doctor: appointment.doctor, date: appointment.date, time: appointment.time, location: appointment.location, notes: appointment.notes });
+              if (out.kind === "reminder" && out.recipientId && isUuid(out.recipientId) && out.time && out.recurrence) {
+                await createCloudReminder({
+                  recipientId: out.recipientId,
+                  title: out.title,
+                  kind: out.reminderKind ?? "other",
+                  time: out.time,
+                  date: out.date,
+                  recurrence: out.recurrence,
+                });
                 await refreshVault();
               }
             } catch (e) {

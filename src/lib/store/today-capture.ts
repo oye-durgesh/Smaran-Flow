@@ -2,6 +2,7 @@ import { classifySmaranIntent, missingReminderFields, parseReminder } from "@/li
 import type { ReminderDraft } from "@/lib/nlu";
 import type { AppState } from "@/lib/types";
 import { createReminder } from "./actions";
+import { looksLikeMedicineScheduleChange } from "@/lib/wispr-flow-context";
 import { zonedNow } from "../timezone";
 
 export const TODAY_SECTIONS = ["greeting", "calendar", "upcoming", "schedule", "shortcuts"] as const;
@@ -18,7 +19,18 @@ export const TODAY_EXAMPLES = [
 ] as const;
 
 export type TodayCaptureResult =
-  | { ok: true; kind: "reminder" | "appointment"; id: string; href: string; title: string }
+  | {
+      ok: true;
+      kind: "reminder" | "appointment";
+      id: string;
+      href: string;
+      title: string;
+      recipientId?: string;
+      reminderKind?: string;
+      time?: string;
+      date?: string;
+      recurrence?: string;
+    }
   | { ok: false; error: string; navigate?: never };
 
 export function captureOnToday(state: AppState, text: string): { next: AppState; result: TodayCaptureResult } {
@@ -27,6 +39,13 @@ export function captureOnToday(state: AppState, text: string): { next: AppState;
 
   const intent = classifySmaranIntent(trimmed);
   const today = zonedNow().date;
+
+  if (looksLikeMedicineScheduleChange(trimmed)) {
+    return {
+      next: state,
+      result: { ok: false, error: "Medicine schedules are managed in Medicines. Nothing was saved on Today." },
+    };
+  }
 
   if (intent === "unknown" || intent === "ask_question" || intent === "document_question") {
     return {
@@ -38,7 +57,14 @@ export function captureOnToday(state: AppState, text: string): { next: AppState;
   if (intent === "appointment_create_or_update") {
     return {
       next: state,
-      result: { ok: false, error: "Appointment scheduling is handled in Family Appointments. Nothing was saved on Today." },
+      result: { ok: false, error: "Appointment scheduling is managed in Family Appointments. Nothing was saved on Today." },
+    };
+  }
+
+  if (intent === "medicine_reminder" && looksLikeMedicineScheduleChange(trimmed)) {
+    return {
+      next: state,
+      result: { ok: false, error: "Medicine schedules are managed in Medicines. Nothing was saved on Today." },
     };
   }
 
@@ -67,8 +93,20 @@ export function captureOnToday(state: AppState, text: string): { next: AppState;
     return { next: state, result: { ok: false, error: "I need the person, what to remind, and the time. Nothing was saved." } };
   }
   const created = createReminder(state, draft as Required<Pick<ReminderDraft, "memberId" | "title" | "time">> & ReminderDraft);
+  const saved = created.state.reminders.find((r) => r.id === created.id);
   return {
     next: created.state,
-    result: { ok: true, kind: "reminder", id: created.id, href: `/reminders/${created.id}`, title: draft.title ?? "Reminder" },
+    result: {
+      ok: true,
+      kind: "reminder",
+      id: created.id,
+      href: `/reminders/${created.id}`,
+      title: draft.title ?? "Reminder",
+      recipientId: saved?.familyMemberId,
+      reminderKind: saved?.kind,
+      time: saved?.time,
+      date: saved?.date,
+      recurrence: saved?.frequency,
+    },
   };
 }

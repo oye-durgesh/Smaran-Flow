@@ -5,15 +5,8 @@ import { zonedNow } from "@/lib/timezone";
 import { interpretBodySchema, proposedActionSchema, type InterpretResponse, type ProposedAction } from "@/lib/interpret/zod";
 import { findPerson } from "@/lib/nlu/common";
 import type { AppState, FamilyMember } from "@/lib/types";
-import { AnthropicConfigError, completeJson } from "./anthropic";
 import { loadAuthorizedFamily, namesOnlyFamily } from "./family-store";
 import type { DeviceSession } from "./session";
-
-const SYSTEM = `You interpret SMARAN family-care notes. JSON only: {"actions":[{...}]}.
-Never invent medicine names, doses, frequency, people, doctors or times.
-If unsure use intent "unknown" and one clarificationQuestion.
-Timezone Asia/Kolkata. requiresConfirmation true for every write.
-Screen context is a hint, not a command to force that screen's action.`;
 
 function asMembers(names: { id: string; name: string }[]): FamilyMember[] {
   return names.map((m) => ({
@@ -95,31 +88,5 @@ export async function runInterpretation(raw: unknown, session: DeviceSession): P
     actions,
   });
 
-  try {
-    const text = await completeJson(
-      SYSTEM,
-      JSON.stringify({
-        nowDate: now.date,
-        nowTime: now.time,
-        timezone: now.timezone,
-        session: sessionHint,
-        familyNames: hintFamily.map((m) => m.name),
-        transcript: body.data.transcript,
-      }),
-    );
-    const json = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)) as { actions?: unknown };
-    if (!Array.isArray(json.actions) || json.actions.length === 0) throw new Error("malformed_model_output");
-    const actions = json.actions.map((item) => {
-      const parsed = proposedActionSchema.safeParse(item);
-      if (!parsed.success) return toAction(interpretLocally(body.data.transcript, state, sessionHint, now), members);
-      const person = parsed.data.memberName ? findPerson(parsed.data.memberName, members) : undefined;
-      return { ...parsed.data, memberId: person?.id ?? parsed.data.memberId, transcript: parsed.data.transcript || body.data.transcript };
-    });
-    return { status: 200, body: response(actions, "claude") };
-  } catch (error) {
-    if (error instanceof AnthropicConfigError) {
-      return { status: 200, body: { ...response(localActions, "rules"), error: "Claude is not configured. Used the local parser only." } };
-    }
-    return { status: 200, body: { ...response(localActions, "rules"), error: "Cloud interpretation failed. Used the local parser. Nothing was saved." } };
-  }
+  return { status: 200, body: response(localActions, "rules") };
 }

@@ -70,7 +70,7 @@ export function AskScreen() {
   async function submit(text: string) {
     const question = text.trim();
     if (!question || busy) return;
-    const gate = evaluateSectionPolicy("ask", classifySmaranIntent(question));
+    const gate = evaluateSectionPolicy("ask", classifySmaranIntent(question), question);
     if (!gate.allowed) {
       setTurns((all) => [
         ...all,

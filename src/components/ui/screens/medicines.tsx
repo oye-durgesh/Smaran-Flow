@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useStore } from "@/lib/store/store";
 import { confirmManually, setReminderPaused, skipReminderOccurrence, snoozeReminder } from "@/lib/store/actions";
 import { createMedicine, createRefill, endMedicineCourse, setMedicineRemindersPaused, setRefillStatus, updateMedicine } from "@/lib/store/medicine-actions";
-import { isUuid, patchCloudMedicine, saveCloudMedicine } from "@/lib/store/cloud";
+import { createCloudReminder, isUuid, patchCloudMedicine, saveCloudMedicine } from "@/lib/store/cloud";
 import { memberById, reminderStatusOn, todayOf } from "@/lib/selectors";
 import {
   blank,
@@ -31,6 +31,7 @@ import type { FamilyMember, Medicine, MedicineFrequency, MedicineRefill, Reminde
 import { Screen } from "@/components/shell/screen";
 import { EmptyState, MemberAvatar, PageHeader, StatusBadge, Surface } from "@/components/smaran/primitives";
 import { WisprFlowSection } from "@/components/smaran/wispr-flow-section";
+import { captureOnMedicines } from "@/lib/store/medicines-capture";
 import { Modal } from "@/components/smaran/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,7 +53,7 @@ const emptyDraft = (memberId = ""): MedicineDraft => ({
 });
 
 export function MedicinesScreen() {
-  const { state, session, update, refreshVault } = useStore();
+  const { state, session, update, commit, refreshVault } = useStore();
   const [tab, setTab] = useState<Tab>("current");
   const [memberFilter, setMemberFilter] = useState<string>("everyone");
   const [doseFilter, setDoseFilter] = useState<DoseFilter>("today");
@@ -195,7 +196,43 @@ export function MedicinesScreen() {
     <Screen
       aside={
         <>
-          <WisprFlowSection context="medicines" />
+          <WisprFlowSection
+            context="medicines"
+            onCapture={async (text) => {
+              const out = commit((s) => {
+                const captured = captureOnMedicines(s, text);
+                return [captured.next, captured.result];
+              });
+              if (!out.ok) {
+                toast.error(out.error);
+                return out.error;
+              }
+              if (out.kind === "query") {
+                toast.message(out.message ?? out.title);
+                return out.message;
+              }
+              if (session.authenticated) {
+                try {
+                  if (out.recipientId && isUuid(out.recipientId) && out.time && out.recurrence) {
+                    await createCloudReminder({
+                      recipientId: out.recipientId,
+                      title: out.title,
+                      kind: out.reminderKind ?? "medicine",
+                      time: out.time,
+                      date: out.date,
+                      recurrence: out.recurrence,
+                    });
+                    await refreshVault();
+                  }
+                } catch (e) {
+                  const message = e instanceof Error ? e.message : "Save failed.";
+                  toast.error(message);
+                  return message;
+                }
+              }
+              toast.success(`Saved ${out.title}`);
+            }}
+          />
           <p className="text-[13px] leading-relaxed text-ink-muted">
             {persistence}. Marking a dose taken is a family-entered event, not proof the medicine was swallowed. Pharmacy pickups stay on Today.
           </p>

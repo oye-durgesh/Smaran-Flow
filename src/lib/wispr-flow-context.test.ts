@@ -106,5 +106,7 @@ describe("shared Wispr Flow composer contract", () => {
   it("does not treat settings dictation as a medical write", () => {
     expect(detectSettingsPreference("Reminder language Hindi set karo.")?.field).toBe("reminderLanguage");
     expect(evaluateSectionPolicy("settings", "medicine_reminder").allowed).toBe(false);
+    const blocked = evaluateSectionPolicy("settings", "medicine_reminder");
+    if (!blocked.allowed) expect(blocked.message).toMatch(/medical records/);
   });
 });

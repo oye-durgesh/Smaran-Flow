@@ -1,6 +1,103 @@
 # SMARAN verification report
 
-Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
+Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed. No Claude API. No demo reseed. No family data wipe.**
+
+## Existing flow hardening (this pass — before Claude)
+
+### Audit table
+
+| Capability | Existing implementation | Verified status | Required change |
+|---|---|---|---|
+| Wispr Flow text insertion | Shared `WisprFlowComposer` + `Use Wispr Flow` (no mic). Examples prefill only. | Working in unit tests and existing UI | None |
+| Rule-based intent parsing | `classifySmaranIntent` / `interpretLocally` / `parseReminder` | Supported phrases pass; ambiguous text asks for details | Client now uses rules only (`claudeUsed: false`) |
+| Section-context enforcement | `evaluateSectionPolicy` + `WISPR_SECTIONS` | Today previously allowed `medicine_write` | Removed; schedule-change language routes to Medicines |
+| Supabase persistence | Authenticated APIs + vault refresh | Live two-account RLS **not** run here (`supabase.integration.test.ts` skipped) | Cloud reminder save uses captured IDs, not stale state |
+| Appointment persistence | Appointments review modal + APIs | Today no longer has a dead appointment write branch | Policy + capture already blocked appointment writes |
+| Medicine scheduling | `createMedicine` form + dose reminders | Medicines composer had **no** `onCapture` | Wired `captureOnMedicines` → `createReminder` after confirm |
+| In-app notification delivery | `vercel.json` cron `* * * * *` → `/api/cron/reminders`; `/api/reminders/status` | Unit processor tests pass. **`hostingCronVerified: false`** | Reported honestly; not claimed live |
+| Document extraction | Local selectable PDF text + `parseLabText`; scans `SCAN_UNAVAILABLE` | Extract route no longer calls Claude | Scanned OCR still unsupported |
+| Ask retrieval | `answerQuestion` + `/api/ask` (`claudeUsed: false`) | Missing records stay honest; mutations blocked | Ask mutation href: Today for general reminders |
+
+### Existing behavior preserved
+
+- SMARAN branding, Wispr Flow logo, composer copy, global nav, empty workspace default (`createEmptyState`, STATE_VERSION 9).
+- No auto-seed of demo family. No rewrite of applied SQL migrations. No duplicate stores.
+
+### Bugs found and fixed
+
+1. Today allowlist included `medicine_write` and a catch-all that allowed medicine schedule intents on Today.
+2. Medicines Wispr composer understood requests but did not persist after confirm.
+3. Today cloud path still tried `createCloudAppointment` after capture no longer returned appointments; reminder cloud save looked up the **pre-commit** store.
+4. `/api/ai/interpret` and document extract could call Claude when a key existed. This phase now stays on the rules / local-text path.
+
+### Section-context rules
+
+- Today: general care reminders and queries only. Medicine **schedule** language → `Medicine schedules are managed in Medicines.` Appointment writes → Family Appointments. Measurements → Health Card.
+- Medicines: dose/refill/check reminders and queries. No appointments.
+- Appointments: appointment writes/queries only.
+- Documents: search/upload; no silent appointment, medicine, or measurement writes.
+- Health Card: person-scoped reads; medicine/appointment writes blocked.
+- Ask: read-only; navigate to the owning module.
+- Settings: preferences only.
+
+### Real Supabase paths
+
+- Code paths: `createCloudReminder` after Today/Medicines confirm when the recipient ID is a UUID and the session is authenticated; vault refresh on success; toast error on failure (no false success).
+- Live RLS / two-account / hosted cron: **not verified**. Integration file remains skipped (no test credentials in this environment). Remote project was emptied in a prior user-requested wipe; this pass did not write or reseed it.
+
+### Reminder scheduler
+
+- Model: `reminders` → occurrences → `in_app_notifications`. Processor unit tests cover due time, idempotency, snooze, unauthorized access, failed writes.
+- Hosting: `vercel.json` cron exists. `/api/reminders/status` reports `hostingCronVerified: false`. Service-role / cron secret depend on env. **Scheduler is not claimed fully functional in production.**
+- In-app only. No SMS, call, WhatsApp, email, or browser push.
+
+### Document extraction
+
+| Source | Today |
+|---|---|
+| Selectable / text PDF | Local text extract + `parseLabText`; status `needs_review`; no auto-confirm |
+| Typed notes | Same local parser |
+| Scanned PDF / images | `not_extracted` / `SCAN_UNAVAILABLE` — Claude/OCR still required later |
+| Confirmed measurements | Still require explicit review; source document relationship unchanged |
+
+### Confirmation / errors
+
+- Consequential appointment / medicine / measurement intents still show the review card.
+- Failed parse, policy block, or cloud write surfaces an error and does not toast success.
+- Confirm in the shared composer no longer toasts a generic “Saved.” without the section handler succeeding.
+
+### Commands actually run
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **244 passed**, **4 skipped** (live Supabase) |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | Rules-only interpret + local extract |
+
+### Claude-later categories
+
+- **Rules handle now:** supported reminder phrases, section allowlists, clarification for missing person/time, Ask retrieval from saved records, empty-state honesty, local reminder merge, in-app processor logic, selectable-PDF text + regex labs.
+- **Needs more rules/validation:** mixed Hindi/Hinglish that classifies as `unknown`; multi-appointment disambiguation UX; live RLS proof.
+- **Genuinely benefits from Claude later:** messy mixed-language multi-intent utterances; narrative document text beyond regex; concise grounded summaries of retrieved rows.
+- **Needs OCR/vision:** scanned PDFs and images.
+- **Ordinary backend, not an LLM:** auth, RLS, cron, duplicate prevention, charts, persistence.
+
+Claude must not be required for a basic reminder save, appointment write, table query, due-time check, or in-app notification.
+
+### Completion answers
+
+1. **Worked before:** shared Wispr UI, rule parser for supported phrases, appointment review on Appointments, Ask read-only, Settings prefs, empty default workspace, local reminder processor tests, document status honesty for scans.
+2. **Repaired:** Today medicine-schedule leak; Medicines NL persist; stale cloud reminder payload; accidental Claude calls on interpret/extract.
+3. **Verified vs real Supabase:** **not** in this environment. Authenticated write **code** is present; live writes were not executed.
+4. **Section boundaries:** **enforced** in `evaluateSectionPolicy` + capture helpers + tests.
+5. **Scheduler:** configured in repo (`vercel.json`); **hosting execution not verified**.
+6. **Document extract today:** local selectable text + lab regex. No visual OCR.
+7. **Claude later:** messy language, multi-action utterances, complex document text, scan vision, grounded summaries.
+8. **Incomplete:** live RLS, hosted cron fire, two-account auth tests, OCR, Claude (intentionally deferred).
+
+---
 
 ## Isolated Supabase demo family (this pass)
 

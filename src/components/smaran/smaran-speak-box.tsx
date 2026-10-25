@@ -69,7 +69,7 @@ export function SmaranSpeakBox({
     try {
       const section: WisprSectionId =
         context === "appointments" ? "appointments" : context === "documents" ? "documents" : context === "ask" ? "ask" : typeof context === "object" ? "health-card" : "today";
-      const early = evaluateSectionPolicy(section, classifySmaranIntent(text));
+      const early = evaluateSectionPolicy(section, classifySmaranIntent(text), text);
       if (!early.allowed) {
         setClarify(early.message + (early.href ? ` ${early.hrefLabel ?? ""}` : ""));
         return;
@@ -77,7 +77,7 @@ export function SmaranSpeakBox({
       const result = await requestInterpretation(text, state, sessionOf(context));
       const action = primaryAction(result);
       const intent = action.intent;
-      const gated = evaluateSectionPolicy(section, intent);
+      const gated = evaluateSectionPolicy(section, intent, text);
       if (!gated.allowed) {
         setClarify(gated.message);
         return;
