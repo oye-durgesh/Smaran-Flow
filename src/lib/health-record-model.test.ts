@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyState } from "./seed";
+import { withTestRecipients } from "./seed";
 import { addMember } from "./store/actions";
 import { recordMeasurement, saveDiary, saveHistory, saveVaccination } from "./store/health-record-actions";
 import { saveAppointment } from "./store/appointment-actions";
@@ -22,7 +22,7 @@ import { zonedNow } from "./timezone";
 
 describe("health record navigation", () => {
   it("gives a new care recipient every section with empty states", () => {
-    const [state, id] = addMember(createEmptyState(), { name: "Riya", relationship: "Other" });
+    const [state, id] = addMember(withTestRecipients(), { name: "Riya", relationship: "Other" });
     const empty = emptyHealthSections(state, id);
     expect(healthTabs().map((t) => t.key)).toEqual(["overview", "history", "measurements", "documents", "appointments", "vaccinations", "diary"]);
     expect(empty.history && empty.measurements && empty.documents && empty.vaccinations && empty.diary).toBe(true);
@@ -33,7 +33,7 @@ describe("health record navigation", () => {
 
 describe("measurements", () => {
   it("links a reading to the selected person and keeps BP parts separate", () => {
-    const result = recordMeasurement(createEmptyState(), {
+    const result = recordMeasurement(withTestRecipients(), {
       familyMemberId: "mummy",
       kind: "blood_pressure",
       systolic: "128",
@@ -51,7 +51,7 @@ describe("measurements", () => {
   });
 
   it("keeps glucose value, unit and context, including 38", () => {
-    const result = recordMeasurement(createEmptyState(), {
+    const result = recordMeasurement(withTestRecipients(), {
       familyMemberId: "papa",
       kind: "blood_sugar",
       value: "38",
@@ -69,14 +69,14 @@ describe("measurements", () => {
   });
 
   it("stamps Asia/Kolkata time", () => {
-    const result = recordMeasurement(createEmptyState(), { familyMemberId: "mummy", kind: "weight", value: "64", unit: "kg" });
+    const result = recordMeasurement(withTestRecipients(), { familyMemberId: "mummy", kind: "weight", value: "64", unit: "kg" });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.state.measurements[0].recordedAt.slice(0, 10)).toBe(zonedNow().date);
   });
 
   it("does not report success when required fields are missing", () => {
-    const fail = recordMeasurement(createEmptyState(), { familyMemberId: "mummy", kind: "blood_pressure", unit: "mmHg" });
+    const fail = recordMeasurement(withTestRecipients(), { familyMemberId: "mummy", kind: "blood_pressure", unit: "mmHg" });
     expect(fail.ok).toBe(false);
     expect(validateMeasurementInput({ familyMemberId: "", kind: "blood_sugar", unit: "", value: "" }).length).toBeGreaterThan(0);
   });
@@ -84,7 +84,7 @@ describe("measurements", () => {
 
 describe("charts", () => {
   it("plots only actual in-range records and leaves missing weeks empty", () => {
-    let state = createEmptyState();
+    let state = withTestRecipients();
     const a = recordMeasurement(state, { familyMemberId: "mummy", kind: "blood_pressure", systolic: "120", diastolic: "80", unit: "mmHg", recordedAt: "2026-10-20T08:00" });
     expect(a.ok).toBe(true);
     if (!a.ok) return;
@@ -104,7 +104,7 @@ describe("charts", () => {
   });
 
   it("does not mix glucose units or include sample rows", () => {
-    const state = createEmptyState();
+    const state = withTestRecipients();
     const mg = recordMeasurement(state, { familyMemberId: "mummy", kind: "blood_sugar", value: "108", unit: "mg/dL" });
     expect(mg.ok).toBe(true);
     if (!mg.ok) return;
@@ -113,14 +113,14 @@ describe("charts", () => {
     if (!mmol.ok) return;
     expect(glucoseSeries(mmol.state, "mummy", "all", false, "mg/dL").every((p) => p.unit === "mg/dL")).toBe(true);
     expect(glucoseSeries(mmol.state, "mummy", "all", false, "mmol/L")).toHaveLength(1);
-    const sampleOnly = createEmptyState();
+    const sampleOnly = withTestRecipients();
     expect(bpSeries(sampleOnly, "mummy", "all")).toHaveLength(0);
   });
 });
 
 describe("history, documents, vaccinations, appointments", () => {
   it("preserves history source, author and timestamps", () => {
-    const saved = saveHistory(createEmptyState(), { familyMemberId: "mummy", category: "chronic", name: "Hypertension", recordedBy: "Rahul" });
+    const saved = saveHistory(withTestRecipients(), { familyMemberId: "mummy", category: "chronic", name: "Hypertension", recordedBy: "Rahul" });
     expect(saved.ok).toBe(true);
     if (!saved.ok) return;
     const row = historyFor(saved.state, "mummy")[0];
@@ -134,13 +134,13 @@ describe("history, documents, vaccinations, appointments", () => {
   });
 
   it("keeps documents on the correct person", () => {
-    const state = createEmptyState();
+    const state = withTestRecipients();
     expect(personDocuments(state, "mummy").every((d) => d.familyMemberId === "mummy")).toBe(true);
     expect(personDocuments(state, "papa").every((d) => d.familyMemberId === "papa")).toBe(true);
   });
 
   it("retains vaccination dates only when supplied", () => {
-    const saved = saveVaccination(createEmptyState(), { familyMemberId: "papa", name: "Influenza" });
+    const saved = saveVaccination(withTestRecipients(), { familyMemberId: "papa", name: "Influenza" });
     expect(saved.ok).toBe(true);
     if (!saved.ok) return;
     expect(saved.state.vaccinations[0].receivedDate).toBeUndefined();
@@ -149,14 +149,14 @@ describe("history, documents, vaccinations, appointments", () => {
   });
 
   it("uses the same appointment records as the Appointments page", () => {
-    const created = saveAppointment(createEmptyState(), { familyMemberId: "mummy", doctor: "Dr Mehta", date: "2026-11-20", time: "10:00" });
+    const created = saveAppointment(withTestRecipients(), { familyMemberId: "mummy", doctor: "Dr Mehta", date: "2026-11-20", time: "10:00" });
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     expect(upcomingVisits(created.state, "mummy").some((a) => a.id === created.id)).toBe(true);
   });
 
   it("isolates family members and unauthorized families", () => {
-    const note = saveDiary(createEmptyState(), { familyMemberId: "mummy", title: "Observed tiredness", body: "Family note", recordedAt: "2026-10-25T09:00" });
+    const note = saveDiary(withTestRecipients(), { familyMemberId: "mummy", title: "Observed tiredness", body: "Family note", recordedAt: "2026-10-25T09:00" });
     expect(note.ok).toBe(true);
     if (!note.ok) return;
     expect(note.state.diary.every((d) => d.familyMemberId === "mummy")).toBe(true);

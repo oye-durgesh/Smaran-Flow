@@ -36,6 +36,17 @@ export async function fetchSession(): Promise<SessionPayload> {
   return data;
 }
 
+export async function wipeCloudVault() {
+  const res = await fetch("/api/vault", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirm: "delete-all-my-smaran-records" }),
+  });
+  const data = (await res.json()) as { error?: string; ok?: boolean; families?: number };
+  if (!res.ok) throw new Error(data.error || "Vault wipe failed.");
+  return data;
+}
+
 export async function fetchVault(): Promise<
   | { ok: true; family: unknown[]; appointments: unknown[]; reminders: unknown[]; measurements: unknown[]; documents: unknown[]; memory: unknown[]; medicines?: unknown[]; refills?: unknown[]; doctors?: unknown[]; medicalHistory?: unknown[]; vaccinations?: unknown[]; diary?: unknown[] }
   | { ok: false; status: number; error: string; persistence?: string }

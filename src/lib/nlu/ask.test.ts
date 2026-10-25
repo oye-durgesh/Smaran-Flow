@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { answerQuestion } from "./ask";
-import { createEmptyState } from "../seed";
+import { createEmptyState, withTestRecipients } from "../seed";
 import { recordMeasurement } from "../store/health-record-actions";
 import { ASK_PLACEHOLDER, ASK_SUGGESTIONS, WISPR_FOCUS_HINT, WISPR_HEADING, WISPR_SUPPORT, askLayoutContract, greetingText, handleComposerKey, sameAskRoute } from "../ask-ui";
 import { BRAND_ASSETS } from "../../components/smaran/brand";
@@ -21,7 +21,7 @@ describe("grounded ask", () => {
   });
 
   it("does not silently return Mummy's reading for a Papa question", () => {
-    const saved = recordMeasurement(createEmptyState(), { familyMemberId: "mummy", kind: "blood_pressure", systolic: "118", diastolic: "76", unit: "mmHg" });
+    const saved = recordMeasurement(withTestRecipients(), { familyMemberId: "mummy", kind: "blood_pressure", systolic: "118", diastolic: "76", unit: "mmHg" });
     expect(saved.ok).toBe(true);
     if (!saved.ok) return;
     const mismatch = answerQuestion("Papa ka BP kya tha?", saved.state, "mummy");
@@ -34,13 +34,13 @@ describe("grounded ask", () => {
   });
 
   it("uses actual systolic/diastolic and glucose context from saved records", () => {
-    const bp = recordMeasurement(createEmptyState(), { familyMemberId: "mummy", kind: "blood_pressure", systolic: "121", diastolic: "79", unit: "mmHg" });
+    const bp = recordMeasurement(withTestRecipients(), { familyMemberId: "mummy", kind: "blood_pressure", systolic: "121", diastolic: "79", unit: "mmHg" });
     expect(bp.ok).toBe(true);
     if (!bp.ok) return;
     const answered = answerQuestion("Mummy ka latest BP kitna tha?", bp.state);
     expect(answered.found).toBe(true);
     expect(answered.text).toMatch(/121\/79/);
-    const glu = recordMeasurement(createEmptyState(), { familyMemberId: "papa", kind: "blood_sugar", value: "38", unit: "mg/dL", glucoseContext: "fasting" });
+    const glu = recordMeasurement(withTestRecipients(), { familyMemberId: "papa", kind: "blood_sugar", value: "38", unit: "mg/dL", glucoseContext: "fasting" });
     expect(glu.ok).toBe(true);
     if (!glu.ok) return;
     const sugar = answerQuestion("Papa ka sugar kitna tha?", glu.state);

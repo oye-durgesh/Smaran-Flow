@@ -266,7 +266,7 @@ export function TodayScreen() {
         <div className="min-w-0">
           <header className="mb-6" data-section={TODAY_SECTIONS[0]}>
             <h1 className="text-[28px] leading-tight font-extrabold tracking-tight text-ink-strong sm:text-[34px]">
-              {greeting}, {state.user.name}.
+              {greeting}{state.user.name.trim() ? `, ${state.user.name}` : ""}.
             </h1>
             <p className="mt-1 text-[16px] font-semibold text-ink" data-testid="today-full-date">
               {formatFullDate(today)}

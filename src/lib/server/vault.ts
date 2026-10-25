@@ -346,3 +346,38 @@ export function resolveAppointmentAction(
   });
   return requireUniqueAppointment(matches);
 }
+
+const WIPE_TABLES = [
+  "in_app_notifications",
+  "reminder_delivery_attempts",
+  "reminder_occurrences",
+  "health_diary",
+  "memory_events",
+  "vaccinations",
+  "medical_history",
+  "medicine_refills",
+  "medicine_changes",
+  "reminders",
+  "medicines",
+  "appointment_status_history",
+  "appointments",
+  "health_measurements",
+  "documents",
+  "family_doctors",
+  "care_notes",
+  "care_recipients",
+] as const;
+
+export async function wipeOwnedFamilyRecords(supabase: SupabaseClient, userId: string): Promise<{ families: number; errors: string[] }> {
+  const { data: memberships, error } = await supabase.from("family_memberships").select("family_id, role").eq("user_id", userId);
+  if (error) throw new VaultError(error.message, 500);
+  const errors: string[] = [];
+  const ids = [...new Set((memberships ?? []).filter((m) => m.role === "owner" || m.role === "caregiver").map((m) => String(m.family_id)))];
+  for (const familyId of ids) {
+    for (const table of WIPE_TABLES) {
+      const { error: delErr } = await supabase.from(table).delete().eq("family_id", familyId);
+      if (delErr && !/does not exist|schema cache/i.test(delErr.message)) errors.push(`${table}: ${delErr.message}`);
+    }
+  }
+  return { families: ids.length, errors };
+}

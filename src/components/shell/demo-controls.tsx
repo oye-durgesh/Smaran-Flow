@@ -8,8 +8,8 @@ export function ResetDemoDialog({ open, onOpenChange, onConfirm }: { open: boole
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title="Reset sample family?"
-      description="This restores Mummy and Papa, their reminders, appointments, documents and memory. Anything you added will be cleared."
+      title="Start with an empty family?"
+      description="This removes every person, reminder, appointment, document and measurement stored in this browser. You can add your family again from Settings."
       footer={
         <>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Keep my changes</Button>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyState } from "./seed";
+import { createEmptyState, withTestRecipients } from "./seed";
 import { addMember } from "./store/actions";
 import { persistUploadedDocument, confirmDocumentMeasurement, findDuplicateDocument } from "./store/document-actions";
 import { parseLabText, scanUnavailableResult, SCAN_UNAVAILABLE, isHba1c, validateBpField, validateGlucoseField } from "./document-extract";
@@ -9,7 +9,7 @@ import { WISPR_DOC_EXAMPLES } from "./document-library";
 import { bpSeries, glucoseSeries } from "./health-record-model";
 import { recordMeasurement } from "./store/health-record-actions";
 
-function upload(state = createEmptyState(), extras: { name?: string; member?: string; size?: number } = {}) {
+function upload(state = withTestRecipients(), extras: { name?: string; member?: string; size?: number } = {}) {
   return persistUploadedDocument(state, {
     familyMemberId: extras.member ?? "mummy",
     name: extras.name ?? "Clinic lab report",
@@ -53,7 +53,7 @@ describe("document persistence and authorization", () => {
 
 describe("extraction", () => {
   it("keeps source excerpts and does not invent values", () => {
-    const parsed = parseLabText("Patient: Sunita\nBlood pressure 128/82 mmHg\nFasting blood glucose 38 mg/dL\nHbA1c 6.4%", createEmptyState().family[0]);
+    const parsed = parseLabText("Patient: Sunita\nBlood pressure 128/82 mmHg\nFasting blood glucose 38 mg/dL\nHbA1c 6.4%", { id: "mummy", name: "Mummy", relationship: "Mother", avatar: { initials: "M", tone: "peach" }, createdAt: "" });
     expect(parsed.provider).toBe("local_text");
     expect(parsed.fields.find((f) => f.kind === "blood_pressure")?.excerpt).toMatch(/128\/82/);
     expect(parsed.fields.find((f) => f.kind === "blood_sugar")?.value).toBe("38");
@@ -75,7 +75,7 @@ describe("extraction", () => {
   });
 
   it("pauses when the printed name does not match the selected person", () => {
-    const mummy = createEmptyState().family.find((m) => m.id === "mummy")!;
+    const mummy = { id: "mummy", name: "Mummy", relationship: "Mother" as const, avatar: { initials: "M" as const, tone: "peach" as const }, createdAt: "" };
     expect(parseLabText("Patient: Unknown Visitor\nBlood pressure 120/80 mmHg", mummy).identity).toBe("mismatch");
   });
 });
@@ -133,7 +133,7 @@ describe("confirmed measurements and charts", () => {
   });
 
   it("failed extraction stays not ready and isolate new members", () => {
-    const [empty, id] = addMember(createEmptyState(), { name: "Riya", relationship: "Other" });
+    const [empty, id] = addMember(withTestRecipients(), { name: "Riya", relationship: "Other" });
     expect(filterLibrary(empty, { person: id, category: "all", status: "all", query: "", sort: "newest" })).toHaveLength(0);
     expect(scanUnavailableResult().status).not.toBe("confirmed");
     const real = recordMeasurement(empty, { familyMemberId: "mummy", kind: "blood_pressure", systolic: "118", diastolic: "76", unit: "mmHg" });

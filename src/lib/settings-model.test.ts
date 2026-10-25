@@ -71,7 +71,9 @@ describe("settings dashboard", () => {
   it("keeps sample preview isolated and counts real saved rows", () => {
     expect(sampleSettingsIsolation()).toEqual({ writesAppointments: false, writesReminders: false, writesSupabase: false, silentVaultInsert: false });
     const empty = settingsRecordCounts(createEmptyState());
-    expect(empty.recipients).toBeGreaterThan(0);
+    expect(empty.recipients).toBe(0);
+    expect(empty.documents).toBe(0);
+    expect(empty.medicines).toBe(0);
     expect(empty.appointments).toBe(0);
   });
 });

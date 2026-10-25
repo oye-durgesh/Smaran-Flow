@@ -7,7 +7,7 @@ import { Bell, ChevronRight, Download, Eraser, IdCard, Languages, Lock, RotateCc
 import { cn } from "@/lib/utils";
 import { readDeviceState, useStore } from "@/lib/store/store";
 import { addMember, updateMember, updateSettings } from "@/lib/store/actions";
-import { authAction, demoWorkspaceAction, fetchSchedulerStatus, migrateDeviceRecords } from "@/lib/store/cloud";
+import { authAction, demoWorkspaceAction, fetchSchedulerStatus, migrateDeviceRecords, wipeCloudVault } from "@/lib/store/cloud";
 import { DEMO_LOAD_CONFIRM, DEMO_RESET_CONFIRM } from "@/lib/demo/workspace";
 import type { FamilyMember, Relationship, ReminderLanguage, Settings } from "@/lib/types";
 import { FAMILY_TIMEZONE } from "@/lib/timezone";
@@ -391,7 +391,7 @@ export function SettingsScreen() {
               ) : (
                 <Button size="sm" variant="outline" onClick={() => setSamplePreview(true)}>Preview sample data</Button>
               )}
-              <Button size="sm" variant="outline" onClick={() => setLoadSample(true)}><RotateCcw className="size-3.5" /> Load sample demo data</Button>
+              <Button size="sm" variant="outline" onClick={() => setLoadSample(true)}><RotateCcw className="size-3.5" /> Start with an empty family</Button>
               <Button size="sm" variant="outline" onClick={exportData}><Download className="size-3.5" /> Export</Button>
               <Button size="sm" variant="outline" onClick={() => void refreshVault()}>Refresh vault</Button>
             </div>
@@ -436,7 +436,7 @@ export function SettingsScreen() {
               </Button>
             )}
             <button type="button" className="mt-3 flex items-center gap-1 text-[13px] font-bold text-missed" onClick={() => setClearing(true)}>
-              <Eraser className="size-3.5" /> Clear this browser&apos;s local data
+              <Eraser className="size-3.5" /> Delete all SMARAN data and start empty
             </button>
           </Card>
 
@@ -456,20 +456,40 @@ export function SettingsScreen() {
         onOpenChange={(o) => { setResetting(o); setLoadSample(o); }}
         onConfirm={() => {
           resetDemo();
-          setName("Rahul");
-          setSamplePreview(true);
-          toast.success("Local sample family restored on this device. Nothing was uploaded.");
+          setName("");
+          setSamplePreview(false);
+          toast.success("This browser is empty. Add family members when you are ready.");
         }}
       />
       <Modal
         open={clearing}
         onOpenChange={setClearing}
-        title="Clear this browser's local data?"
-        description="Removes reminders, appointments, documents and memory stored in this browser. It does not delete another family's Supabase vault. Mummy and Papa remain so you can start again."
+        title="Delete all SMARAN data?"
+        description="Removes every person and record in this browser. If you are signed in, it also deletes records in your Supabase families (real and demo). Memberships stay so you can add people again. This cannot be undone."
         footer={
           <>
             <Button variant="outline" onClick={() => setClearing(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => { clearAll(); setClearing(false); toast("Local browser data cleared"); }}>Clear local data</Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                try {
+                  if (session.authenticated) await wipeCloudVault();
+                  clearAll();
+                  setName("");
+                  setSamplePreview(false);
+                  await refreshVault();
+                  toast.success("SMARAN is empty. Add your family when you are ready.");
+                } catch (e) {
+                  clearAll();
+                  setName("");
+                  toast.error(e instanceof Error ? `${e.message} Local data was still cleared.` : "Local data cleared. Cloud wipe failed.");
+                } finally {
+                  setClearing(false);
+                }
+              }}
+            >
+              Delete everything
+            </Button>
           </>
         }
       />

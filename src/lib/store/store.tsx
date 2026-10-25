@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { AppState } from "../types";
-import { createDemoState, createEmptyState, STATE_VERSION } from "../seed";
+import { createEmptyState, STATE_VERSION } from "../seed";
 import { clearFiles } from "../files";
 import { fetchSession, fetchVault, type SessionPayload } from "./cloud";
 
@@ -14,11 +14,11 @@ function emit() {
 }
 
 function withSettingsDefaults(parsed: AppState): AppState["settings"] {
-  const seed = createDemoState().settings;
+  const seed = createEmptyState().settings;
   return {
     ...seed,
     ...parsed.settings,
-    memberColors: { ...seed.memberColors, ...parsed.settings?.memberColors },
+    memberColors: { ...parsed.settings?.memberColors },
   };
 }
 
@@ -51,36 +51,22 @@ function migrate(parsed: AppState): AppState {
       appointments: parsed.appointments.map((a) => ({ ...a, status: a.status === "completed" || a.status === "cancelled" ? a.status : "upcoming" })),
     };
   }
-  const seed = createDemoState();
-  return {
-    ...parsed,
-    version: STATE_VERSION,
-    measurements: Array.isArray(parsed.measurements) ? parsed.measurements : seed.measurements,
-    medicines,
-    refills,
-    doctors,
-    medicalHistory,
-    vaccinations,
-    diary,
-    inAppNotifications,
-    settings,
-    family: applyMemberColors(Array.isArray(parsed.family) ? parsed.family : [], settings.memberColors),
-  };
+  return createEmptyState();
 }
 
 function readStorage(): AppState {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return createDemoState();
+    if (!raw) return createEmptyState();
     return migrate(JSON.parse(raw) as AppState);
   } catch {
-    return createDemoState();
+    return createEmptyState();
   }
 }
 
 let snapshot: AppState | null = null;
 let cloudView = false;
-const serverSnapshot = createDemoState();
+const serverSnapshot = createEmptyState();
 
 function getSnapshot(): AppState {
   if (typeof window === "undefined") return serverSnapshot;
@@ -177,7 +163,7 @@ export function StoreProvider({ children }: { children: ReactNode; fallback?: Re
 
   const resetDemo = useCallback(() => {
     const current = getSnapshot();
-    persist({ ...createDemoState(), onboarded: current.onboarded, settings: current.settings });
+    persist({ ...createEmptyState(), onboarded: current.onboarded, settings: { ...createEmptyState().settings, ...current.settings, memberColors: {} } });
     void clearFiles();
   }, []);
 
@@ -259,6 +245,6 @@ export function useAppState(): AppState {
 
 /** Browser copy that is never auto-deleted when the vault hydrates. */
 export function readDeviceState(): AppState {
-  if (typeof window === "undefined") return createDemoState();
+  if (typeof window === "undefined") return createEmptyState();
   return readStorage();
 }

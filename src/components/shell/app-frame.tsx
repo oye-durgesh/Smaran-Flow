@@ -43,7 +43,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-0.5">
             <NotificationBell />
             <Link href="/settings" aria-label="About Me" className="flex size-11 items-center justify-center rounded-full bg-sand text-[14px] font-extrabold text-brown">
-              {state.user.name.charAt(0)}
+              {state.user.name.trim().charAt(0) || "•"}
             </Link>
           </div>
         </header>

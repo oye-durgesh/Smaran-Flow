@@ -18,7 +18,7 @@ import { formatTime } from "./dates";
  */
 export const DEMO_TODAY = "2026-10-23";
 export const DEMO_NOW = `${DEMO_TODAY}T10:30`;
-export const STATE_VERSION = 8;
+export const STATE_VERSION = 9;
 
 const family: FamilyMember[] = [
   {
@@ -423,11 +423,11 @@ export function createDemoState(): AppState {
 }
 
 export function createEmptyState(): AppState {
-  const base = createDemoState();
   return {
-    ...base,
+    version: STATE_VERSION,
     onboarded: true,
-    family: base.family,
+    user: { name: "" },
+    family: [],
     reminders: [],
     medicines: [],
     refills: [],
@@ -441,5 +441,30 @@ export function createEmptyState(): AppState {
     memory: [],
     conversations: [],
     inAppNotifications: [],
+    settings: {
+      language: "en",
+      reminderLanguage: "hinglish",
+      reminderSound: "Gentle",
+      wisprEnabled: true,
+      notifications: false,
+      familyUpdates: false,
+      reducedMotion: false,
+      compactDensity: true,
+      memberColors: {},
+    },
+    demoNow: DEMO_NOW,
+    selectedDate: DEMO_TODAY,
+  };
+}
+
+/** Test-only recipients with no medical rows. The app default is createEmptyState(). */
+export function withTestRecipients(state = createEmptyState()): AppState {
+  return {
+    ...state,
+    family: [
+      { id: "mummy", name: "Mummy", relationship: "Mother", avatar: { initials: "M", tone: "peach" }, createdAt: "2026-01-01T09:00" },
+      { id: "papa", name: "Papa", relationship: "Father", avatar: { initials: "P", tone: "terracotta" }, createdAt: "2026-01-01T09:00" },
+      { id: "dadi", name: "Dadi", relationship: "Grandmother", avatar: { initials: "D", tone: "sand" }, createdAt: "2026-01-01T09:00" },
+    ],
   };
 }

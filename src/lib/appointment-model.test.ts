@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyState } from "./seed";
+import { withTestRecipients } from "./seed";
 import { addCalendarMonths, monthGrid, monthGridMonday, yearMonthOf, zonedNow } from "./timezone";
 import { calendarToday } from "./selectors";
 import {
@@ -44,7 +44,7 @@ describe("appointment calendar and timezone", () => {
   });
 
   it("lists only appointments on the selected date", () => {
-    const created = saveAppointment(createEmptyState(), {
+    const created = saveAppointment(withTestRecipients(), {
       familyMemberId: "mummy",
       doctor: "Dr Mehta",
       date: "2026-11-04",
@@ -64,14 +64,14 @@ describe("appointment calendar and timezone", () => {
 
 describe("appointment lifecycle", () => {
   it("creates, reschedules, cancels and completes without false success", () => {
-    const created = saveAppointment(createEmptyState(), { familyMemberId: "papa", doctor: "Dr Rao", date: "2026-11-10", time: "15:00" });
+    const created = saveAppointment(withTestRecipients(), { familyMemberId: "papa", doctor: "Dr Rao", date: "2026-11-10", time: "15:00" });
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const moved = updateAppointment(created.state, created.id, { date: "2026-11-11", time: "16:00" });
     expect(moved.appointments.find((a) => a.id === created.id)?.date).toBe("2026-11-11");
     const cancelled = setAppointmentStatus(moved, created.id, "cancelled");
     expect(upcomingVisits(cancelled).some((a) => a.id === created.id)).toBe(false);
-    const again = saveAppointment(createEmptyState(), { familyMemberId: "papa", doctor: "Dr Rao", date: "2026-11-12", time: "09:00" });
+    const again = saveAppointment(withTestRecipients(), { familyMemberId: "papa", doctor: "Dr Rao", date: "2026-11-12", time: "09:00" });
     expect(again.ok).toBe(true);
     if (!again.ok) return;
     const done = recordVisit(again.state, again.id, { actualDate: "2026-11-12", familyNotes: "Family summary" });
@@ -80,7 +80,7 @@ describe("appointment lifecycle", () => {
   });
 
   it("does not treat an overdue upcoming visit as completed", () => {
-    const created = saveAppointment(createEmptyState(), { familyMemberId: "mummy", doctor: "Dr Rao", date: "2020-01-01", time: "09:00" });
+    const created = saveAppointment(withTestRecipients(), { familyMemberId: "mummy", doctor: "Dr Rao", date: "2020-01-01", time: "09:00" });
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const row = created.state.appointments[0];
@@ -90,14 +90,14 @@ describe("appointment lifecycle", () => {
   });
 
   it("requires a recipient, doctor, date and time", () => {
-    const errors = validateAppointmentInput({ familyMemberId: "", doctor: "", date: "", time: "" }, createEmptyState());
+    const errors = validateAppointmentInput({ familyMemberId: "", doctor: "", date: "", time: "" }, withTestRecipients());
     expect(errors.length).toBeGreaterThan(2);
-    const fail = saveAppointment(createEmptyState(), { familyMemberId: "", doctor: "", date: "", time: "" });
+    const fail = saveAppointment(withTestRecipients(), { familyMemberId: "", doctor: "", date: "", time: "" });
     expect(fail.ok).toBe(false);
   });
 
   it("is idempotent on double submit", () => {
-    const first = saveAppointment(createEmptyState(), { familyMemberId: "mummy", doctor: "Dr Mehta", date: "2026-11-04", time: "10:00" });
+    const first = saveAppointment(withTestRecipients(), { familyMemberId: "mummy", doctor: "Dr Mehta", date: "2026-11-04", time: "10:00" });
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     const second = saveAppointment(first.state, { familyMemberId: "mummy", doctor: "Dr Mehta", date: "2026-11-04", time: "10:00" });
@@ -109,7 +109,7 @@ describe("appointment lifecycle", () => {
   });
 
   it("deduplicates repeated rows by id", () => {
-    const a = createEmptyState().appointments;
+    const a = withTestRecipients().appointments;
     const row = { id: "dup", familyMemberId: "mummy", doctor: "dr", date: "2026-11-01", time: "10:00", documentIds: [], reminders: [], status: "upcoming" as const, createdAt: "2026-10-01T09:00", source: "manual" as const };
     expect(uniqueAppointments([row, row])).toHaveLength(1);
     expect(doctorDisplayName("dr")).toBe("dr");
@@ -120,7 +120,7 @@ describe("appointment lifecycle", () => {
 
 describe("doctors and follow-ups", () => {
   it("classifies primary vs specialist and reuses a doctor profile", () => {
-    const first = upsertDoctor(createEmptyState(), { name: "Dr Mehta", category: "primary", recipientIds: ["mummy"] });
+    const first = upsertDoctor(withTestRecipients(), { name: "Dr Mehta", category: "primary", recipientIds: ["mummy"] });
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     const second = upsertDoctor(first.state, { name: "Dr Mehta", category: "specialist", recipientIds: ["papa"] });
@@ -133,7 +133,7 @@ describe("doctors and follow-ups", () => {
   });
 
   it("schedules a follow-up on a confirmed date and avoids duplicates", () => {
-    const visit = saveAppointment(createEmptyState(), { familyMemberId: "papa", doctor: "Dr Patel", date: "2026-10-01", time: "11:00" });
+    const visit = saveAppointment(withTestRecipients(), { familyMemberId: "papa", doctor: "Dr Patel", date: "2026-10-01", time: "11:00" });
     expect(visit.ok).toBe(true);
     if (!visit.ok) return;
     const completed = recordVisit(visit.state, visit.id, { actualDate: "2026-10-01", followUpRecommended: true, followUpDate: "2026-11-01" });
@@ -151,7 +151,7 @@ describe("doctors and follow-ups", () => {
   });
 
   it("keeps reminder offsets linked and does not invent a second set on retry", () => {
-    const created = saveAppointment(createEmptyState(), { familyMemberId: "mummy", doctor: "Dr Rao", date: "2026-12-01", time: "09:00", reminderOffsets: [1440, 0] });
+    const created = saveAppointment(withTestRecipients(), { familyMemberId: "mummy", doctor: "Dr Rao", date: "2026-12-01", time: "09:00", reminderOffsets: [1440, 0] });
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const retry = saveAppointment(created.state, { familyMemberId: "mummy", doctor: "Dr Rao", date: "2026-12-01", time: "09:00", reminderOffsets: [1440, 0] });
@@ -187,11 +187,11 @@ describe("authorization and layout", () => {
   });
 
   it("does not mark cancelled-only days on the calendar", () => {
-    const created = saveAppointment(createEmptyState(), { familyMemberId: "mummy", doctor: "Dr Rao", date: "2026-12-02", time: "09:00" });
+    const created = saveAppointment(withTestRecipients(), { familyMemberId: "mummy", doctor: "Dr Rao", date: "2026-12-02", time: "09:00" });
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const cancelled = setAppointmentStatus(created.state, created.id, "cancelled");
     expect(calendarActiveDates(cancelled).has("2026-12-02")).toBe(false);
-    expect(awaitingFollowUpCount(createEmptyState())).toBe(0);
+    expect(awaitingFollowUpCount(withTestRecipients())).toBe(0);
   });
 });

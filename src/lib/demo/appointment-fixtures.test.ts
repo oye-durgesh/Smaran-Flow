@@ -3,7 +3,7 @@ import { addCalendarMonths, formatFullDate, monthGridMonday } from "../timezone"
 import { fillExample } from "../../components/smaran/wispr-flow-input.test";
 import { APPOINTMENT_WISPR_EXAMPLES } from "../appointment-model";
 import { FAMILY_SWATCHES } from "../family-color";
-import { createEmptyState } from "../seed";
+import { createEmptyState, withTestRecipients } from "../seed";
 import { saveAppointment } from "../store/appointment-actions";
 import {
   SAMPLE_APPOINTMENTS,
@@ -64,7 +64,7 @@ describe("appointment sample fixtures", () => {
     expect(fixturesNeverWriteVault()).toEqual({ writesAppointments: false, writesReminders: false, writesSupabase: false });
     expect(hasLiveAppointments(createEmptyState().appointments)).toBe(false);
     expect(hasLiveAppointments(SAMPLE_APPOINTMENTS)).toBe(false);
-    const created = saveAppointment(createEmptyState(), { familyMemberId: "mummy", doctor: "Dr Live", date: "2026-12-01", time: "09:00" });
+    const created = saveAppointment(withTestRecipients(), { familyMemberId: "mummy", doctor: "Dr Live", date: "2026-12-01", time: "09:00" });
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     expect(hasLiveAppointments(created.state.appointments)).toBe(true);

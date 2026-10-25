@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDemoState, createEmptyState } from "./seed";
+import { createDemoState, withTestRecipients } from "./seed";
 import { FAMILY_SWATCHES, familySwatch } from "./family-color";
 import { currentMedicines, estimatedSupplyDays, historyMedicines, validateMedicineDraft } from "./medicine-model";
 import { createMedicine, createRefill, endMedicineCourse, reconcileDoseReminders, setMedicineRemindersPaused, updateMedicine } from "./store/medicine-actions";
@@ -59,7 +59,7 @@ describe("Medicines navigation and family identity", () => {
 
 describe("medicine persistence and validation", () => {
   it("saves a medicine on the family state and keeps it after a reconstruct", () => {
-    const first = createMedicine(createEmptyState(), draft());
+    const first = createMedicine(withTestRecipients(), draft());
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     const roundtrip = JSON.parse(JSON.stringify(first.state));
@@ -67,26 +67,26 @@ describe("medicine persistence and validation", () => {
   });
 
   it("never reports success when required fields are missing", () => {
-    const result = createMedicine(createEmptyState(), draft({ name: "", familyMemberId: "" }));
+    const result = createMedicine(withTestRecipients(), draft({ name: "", familyMemberId: "" }));
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.errors.join(" ")).toMatch(/name|recipient/i);
   });
 
   it("does not fabricate dosage or strength when they are missing", () => {
-    const result = createMedicine(createEmptyState(), draft({ strength: "", dosage: "" }));
+    const result = createMedicine(withTestRecipients(), draft({ strength: "", dosage: "" }));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const med = result.state.medicines.find((m) => m.id === result.id);
     expect(med?.strength).toBeUndefined();
     expect(med?.dosage).toBeUndefined();
-    expect(validateMedicineDraft(draft({ name: "" }), createEmptyState()).length).toBeGreaterThan(0);
+    expect(validateMedicineDraft(draft({ name: "" }), withTestRecipients()).length).toBeGreaterThan(0);
   });
 });
 
 describe("schedules and reminders", () => {
   it("updates future dose reminders without rewriting completed history", () => {
-    const created = createMedicine(createEmptyState(), draft({ times: ["08:00"] }));
+    const created = createMedicine(withTestRecipients(), draft({ times: ["08:00"] }));
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const dose = created.state.reminders.find((r) => r.medicineId === created.id);
@@ -103,7 +103,7 @@ describe("schedules and reminders", () => {
   });
 
   it("does not create duplicate reminders on retry", () => {
-    const created = createMedicine(createEmptyState(), draft());
+    const created = createMedicine(withTestRecipients(), draft());
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const med = created.state.medicines.find((m) => m.id === created.id)!;
@@ -113,7 +113,7 @@ describe("schedules and reminders", () => {
   });
 
   it("pausing prevents new active dose reminders", () => {
-    const created = createMedicine(createEmptyState(), draft());
+    const created = createMedicine(withTestRecipients(), draft());
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const paused = setMedicineRemindersPaused(created.state, created.id, true);
@@ -122,7 +122,7 @@ describe("schedules and reminders", () => {
   });
 
   it("ending a course is distinct from marking one dose taken", () => {
-    const created = createMedicine(createEmptyState(), draft());
+    const created = createMedicine(withTestRecipients(), draft());
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const dose = created.state.reminders.find((r) => r.medicineId === created.id)!;
@@ -137,7 +137,7 @@ describe("schedules and reminders", () => {
 
 describe("refills vs doses", () => {
   it("keeps refill reminders separate from dose reminders", () => {
-    const created = createMedicine(createEmptyState(), draft());
+    const created = createMedicine(withTestRecipients(), draft());
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const refill = createRefill(created.state, { medicineId: created.id, plannedDate: "2026-11-01" });
@@ -149,7 +149,7 @@ describe("refills vs doses", () => {
   });
 
   it("does not invent supply days without quantity and units per dose", () => {
-    const created = createMedicine(createEmptyState(), draft());
+    const created = createMedicine(withTestRecipients(), draft());
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const refill = createRefill(created.state, { medicineId: created.id, plannedDate: "2026-11-01" });
@@ -169,8 +169,8 @@ describe("authorization and shared records", () => {
     ];
     expect(canAccessFamily(memberships, "b", "fam-1")).toBe(false);
     expect(() => assertFamilyAccess(memberships, "b", "fam-1")).toThrow("FORBIDDEN");
-    const meds = createEmptyState().medicines;
-    const created = createMedicine(createEmptyState(), draft());
+    const meds = withTestRecipients().medicines;
+    const created = createMedicine(withTestRecipients(), draft());
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     expect(() => assertMedicineFamily(created.state.medicines, created.id, ["someone-else"])).toThrow("FORBIDDEN");
@@ -179,7 +179,7 @@ describe("authorization and shared records", () => {
   });
 
   it("Health Card and Today use the same saved medicine records", () => {
-    const created = createMedicine(createEmptyState(), draft({ times: ["08:00"] }));
+    const created = createMedicine(withTestRecipients(), draft({ times: ["08:00"] }));
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const card = currentMedicines(created.state, "mummy").map((m) => m.id);
@@ -192,7 +192,7 @@ describe("authorization and shared records", () => {
   });
 
   it("cancelled or archived medicines are not current", () => {
-    const created = createMedicine(createEmptyState(), draft());
+    const created = createMedicine(withTestRecipients(), draft());
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const archived = endMedicineCourse(created.state, created.id, "archived");
@@ -201,7 +201,7 @@ describe("authorization and shared records", () => {
   });
 
   it("uses Asia/Kolkata dates for new records", () => {
-    const created = createMedicine(createEmptyState(), draft());
+    const created = createMedicine(withTestRecipients(), draft());
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const med = created.state.medicines[0];

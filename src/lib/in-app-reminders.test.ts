@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Reminder } from "./types";
 import { createReminder } from "./store/actions";
-import { createDemoState, createEmptyState } from "./seed";
+import { createDemoState, withTestRecipients } from "./seed";
 import {
   acknowledgeNotification,
   applyLocalProcessor,
@@ -51,7 +51,7 @@ const kolkataMorning = (isoLocal: string) => new Date(localStampToUtcMs(isoLocal
 describe("in-app reminder scheduling", () => {
   it("creates a one-time reminder", () => {
     const draft = createOneTimeReminderInput("mummy", "Thyronorm", "2026-10-26", "09:00");
-    const result = createReminder(createEmptyState(), { memberId: draft.familyMemberId, title: draft.title, time: draft.time, date: draft.date, frequency: "once", kind: "other", transcript: "", assumptions: [] });
+    const result = createReminder(withTestRecipients(), { memberId: draft.familyMemberId, title: draft.title, time: draft.time, date: draft.date, frequency: "once", kind: "other", transcript: "", assumptions: [] });
     expect(result.merged).toBe(false);
     const saved = result.state.reminders.find((r) => r.id === result.id);
     expect(saved?.frequency).toBe("once");
@@ -61,7 +61,7 @@ describe("in-app reminder scheduling", () => {
 
   it("creates a recurring daily reminder", () => {
     const draft = createRecurringReminderInput("papa", "BP check", "20:00", "daily");
-    const result = createReminder(createEmptyState(), { memberId: draft.familyMemberId, title: draft.title, time: draft.time, frequency: "daily", kind: "check", transcript: "", assumptions: [] });
+    const result = createReminder(withTestRecipients(), { memberId: draft.familyMemberId, title: draft.title, time: draft.time, frequency: "daily", kind: "check", transcript: "", assumptions: [] });
     expect(result.state.reminders.find((r) => r.id === result.id)?.frequency).toBe("daily");
     const stamps = plannedDueStamps(result.state.reminders.find((r) => r.id === result.id)!, kolkataMorning("2026-10-26T20:00"));
     expect(stamps.some((s) => s.endsWith("T20:00"))).toBe(true);
@@ -204,7 +204,7 @@ describe("in-app reminder scheduling", () => {
   });
 
   it("surfaces a due reminder after the app reopens from persisted rows", () => {
-    const state = createEmptyState();
+    const state = withTestRecipients();
     const created = createReminder(state, {
       memberId: "mummy",
       title: "Night dose",
