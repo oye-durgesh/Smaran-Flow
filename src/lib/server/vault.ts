@@ -200,7 +200,12 @@ export async function loadVault(supabase: SupabaseClient, familyId: string): Pro
         type: "other",
         date: String(r.created_at).slice(0, 10),
         file: { name: String(r.name || "file"), size: Number(r.byte_size || 0), mime: String(r.mime || "application/octet-stream"), storage: "local" },
-        metadata: { source: r.is_sample ? "sample" : "upload", detectedFrom: r.extracted_text ? "description" : "manual", description: r.extracted_text ? String(r.extracted_text) : undefined },
+        metadata: {
+          source: r.is_sample ? "sample" : "upload",
+          detectedFrom: r.extracted_text ? "description" : "manual",
+          description: r.extracted_text ? String(r.extracted_text) : undefined,
+          extractStatus: r.extract_status === "confirmed" || r.extract_status === "needs_review" || r.extract_status === "failed" || r.extract_status === "processing" || r.extract_status === "queued" ? r.extract_status : r.extracted_text ? "needs_review" : "not_extracted",
+        },
         addedAt: String(r.created_at).slice(0, 16),
       }),
     ),

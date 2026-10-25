@@ -2,7 +2,34 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## Family Health Record (this pass)
+## Documents & Reports scanner (this pass)
+
+The Documents page is a person-centered library. Filters and counts come from stored documents. Sample family notes stay labelled.
+
+- Header: **Documents & Reports** — “Prescriptions, reports, scans and medical records — organized by person.” Primary **+ Add document**.
+- Person chips from `state.family` with identity colours. Category and extraction-status filters with stored counts. Sort: newest / oldest / title.
+- Cards show title, person, category, dates, extract status, linked readings/visits.
+- Scanner panel: upload (existing flow), honest “scan extraction is not configured yet” for images, local selectable-PDF text extract via `/api/documents/extract` + `extractPdfText` / `parseLabText`.
+- Review on document detail: accept BP (systolic/diastolic) or glucose; HbA1c stays separate; identity must be confirmed when the printed name mismatches.
+- Confirmed readings call `confirmDocumentMeasurement` → one linked `health_measurements` row → Health Record charts via `bpSeries` / `glucoseSeries`.
+- **Try BP report demo** / **Try glucose report demo** use isolated fixtures (`document-demo.ts`). Badge: “Sample demo — not a real patient record.” They do not write family measurements.
+- No new migration. Existing `documents.extract_status` / `extracted_text` reused. Claude was not integrated.
+
+### Commands this pass
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **136 passed**, **4 skipped** |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | `/documents`, `/documents/upload`, `/api/documents/extract` |
+
+Not verified live: OCR/vision, Claude extract, two-account Storage RLS, uploading a real multi-page PDF in the browser.
+
+---
+
+## Family Health Record (prior pass)
 
 The per-person Health Card opens a Family Health Record for the selected care recipient. Navigation is driven by that person’s saved id — a new family member gets the same sections with empty states, not a copy of someone else’s readings.
 

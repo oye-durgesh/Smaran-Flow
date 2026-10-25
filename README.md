@@ -56,6 +56,8 @@ Apply `supabase/migrations/0001_smaran_family.sql` through `0006_health_record.s
 
 **Family Health Record** (open a person from Family / Health Card) is a person-specific file: Overview, Medical History, Measurements, Documents & Reports, Appointments & Visits, Vaccinations, and Health Diary. Charts use only confirmed saved readings for that person. Sample notes stay labelled and are excluded from BP/glucose trends. Blood pressure stores systolic and diastolic separately. A reported glucose of `38` is kept exactly and marked for review. `+ Add record` stays on the selected person. The standalone Documents page uses the same document rows.
 
+**Documents & Reports** is a person-centered library with category and extraction-status filters. Text PDFs can be extracted locally for review. Scanned-image OCR is not configured. Sample BP/glucose demos stay labelled and never write to the family Health Card. Confirmed BP/glucose from a real report become one linked measurement and refresh that person's charts.
+
 `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never put it in a `NEXT_PUBLIC_` variable.
 
 ## Consent / privacy
@@ -95,4 +97,5 @@ Apply `supabase/migrations/0001_smaran_family.sql` only after you create a Supab
 | OCR on scans | blocked | Extract route fails honestly without key/worker | Anthropic vision or OCR worker |
 | Cross-family RLS live | blocked | policy SQL + unit rules; no live two-account run | two Supabase users |
 | Family Health Record (per person) | verified (local persist + unit) | Health Record tabs, charts from saved measurements, `/api/health-record` | Apply 0006; signed-in UUID recipients for cloud writes |
+| Documents library + extract review | verified (local persist + unit) | Documents workspace, local PDF text extract, sample demos isolated | Claude/vision OCR still unconfigured |
 | Health Card share across devices | blocked | Same-browser store | Print to PDF |

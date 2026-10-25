@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { extractionProposalSchema } from "@/lib/interpret/zod";
 import { AnthropicConfigError, completeJson } from "@/lib/server/anthropic";
 import { detectFileKind, extractPdfText, MAX_EXTRACT_BYTES } from "@/lib/server/files";
+import { parseLabText, SCAN_UNAVAILABLE } from "@/lib/document-extract";
 import { rateLimit } from "@/lib/server/rate-limit";
 import { readSession } from "@/lib/server/session";
 import { backendConfigured } from "@/lib/server/env";
@@ -50,13 +51,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: "needs_review", extractedText, proposal: parsed.data, confirmed: false, provider: "claude" });
     } catch (error) {
       if (error instanceof AnthropicConfigError) {
+        const local = parseLabText(extractedText);
         return NextResponse.json({
           status: "needs_review",
           extractedText,
           proposal: null,
+          fields: local.fields,
           confirmed: false,
           provider: "local_text",
-          error: "Claude is not configured. Text was extracted locally and needs human review.",
+          error: "Claude is not configured. Selectable PDF text was extracted locally and needs human review.",
         });
       }
       return NextResponse.json({ status: "failed", error: "Interpretation failed. The original file is unchanged.", extractedText, confirmed: false });
@@ -68,10 +71,11 @@ export async function POST(req: Request) {
   } catch (error) {
     if (error instanceof AnthropicConfigError) {
       return NextResponse.json({
-        status: "failed",
-        error: "Image OCR needs ANTHROPIC_API_KEY (vision) or a dedicated OCR worker. Nothing was invented.",
+        status: "not_extracted",
+        error: SCAN_UNAVAILABLE,
         extractedText: "",
         confirmed: false,
+        provider: "none",
       });
     }
   }

@@ -29,6 +29,8 @@ export function recordMeasurement(
     customLabel?: string;
     note?: string;
     source?: HealthMeasurement["source"];
+    documentId?: string;
+    confirmation?: HealthMeasurement["confirmation"];
     recordedBy?: string;
   },
 ): { ok: true; state: AppState; id: string; warning?: string } | { ok: false; errors: string[] } {
@@ -58,8 +60,9 @@ export function recordMeasurement(
     glucoseContext: input.kind === "blood_sugar" ? input.glucoseContext : undefined,
     recordedAt: input.recordedAt || now(),
     source: input.source ?? "manual",
+    documentId: input.documentId,
     recordedBy: input.recordedBy,
-    confirmation: warning ? "needs_review" : "family_reported",
+    confirmation: input.confirmation === "confirmed" ? "confirmed" : warning ? "needs_review" : input.confirmation ?? "family_reported",
     note: input.note?.trim() || undefined,
   };
   const member = memberById(state, input.familyMemberId);

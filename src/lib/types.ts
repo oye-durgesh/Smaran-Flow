@@ -184,6 +184,7 @@ export interface Appointment {
 }
 
 export type DocumentType = "report" | "prescription" | "scan" | "note" | "other";
+export type ExtractStatus = "queued" | "processing" | "needs_review" | "confirmed" | "failed" | "not_extracted";
 
 export interface DocumentFile {
   name: string;
@@ -206,6 +207,11 @@ export interface HealthDocument {
     /** How SMARAN decided the details. Never OCR in this prototype. */
     detectedFrom: "sample" | "filename" | "description" | "manual";
     description?: string;
+    extractStatus?: ExtractStatus;
+    extractProvider?: "none" | "local_text" | "demo";
+    extractError?: string;
+    checksum?: string;
+    reportedPatient?: string;
   };
   linkedAppointmentId?: ID;
   addedAt: LocalTimestamp;

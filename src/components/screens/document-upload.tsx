@@ -8,7 +8,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
-import { addDocument, upsertMeasurement } from "@/lib/store/actions";
+import { persistUploadedDocument } from "@/lib/store/document-actions";
+import { fileChecksum } from "@/lib/document-library";
 import { extractHealthValues, guessFromFileName, parseDocumentDescription } from "@/lib/nlu";
 import { memberById, todayOf } from "@/lib/selectors";
 import { formatShort, formatTime } from "@/lib/dates";
@@ -73,7 +74,6 @@ export function DocumentUploadScreen() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [linkHealth, setLinkHealth] = useState(true);
 
   const begin = useCallback(
     (file: Picked) => {
@@ -92,9 +92,7 @@ export function DocumentUploadScreen() {
       }
       const guess = file.sample ? { memberId: "mummy", name: "Blood Report", type: "report" as const, doctor: "Dr Sharma", date: "2026-10-21" } : guessFromFileName(file.name, state.family);
       const memberId = presetAppointment?.familyMemberId ?? (presetMember && state.family.some((m) => m.id === presetMember) ? presetMember : undefined) ?? guess.memberId;
-      const extracted = extractHealthValues(`${file.name} `, state.family)
-        .filter((h) => h.kind && h.value)
-        .map((h) => ({ kind: h.kind!, value: h.value!, unit: h.unit ?? "" }));
+      const extracted: { kind: string; value: string; unit: string }[] = [];
       setPicked(file);
       setDraft({
         memberId,
@@ -170,25 +168,20 @@ export function DocumentUploadScreen() {
     let id = "";
     try {
       id = commit((s) => {
-        const [withDoc, docId] = addDocument(s, {
+        const result = persistUploadedDocument(s, {
           familyMemberId: draft.memberId!,
           name: draft.name.trim(),
           type: draft.type,
           date: draft.date,
           doctor: draft.doctor.trim() || undefined,
           file: { name: picked.name, size: picked.size, mime: picked.mime, storage: picked.sample ? "sample" : "local" },
-          metadata: { source: picked.sample ? "sample" : "upload", detectedFrom: draft.detectedFrom, description: draft.description },
+          checksum: fileChecksum({ name: picked.name, size: picked.size, familyMemberId: draft.memberId! }),
+          extractStatus: picked.mime.startsWith("image/") ? "not_extracted" : draft.description ? "needs_review" : "not_extracted",
+          description: draft.description,
           linkedAppointmentId: draft.appointmentId,
         });
-        let next = withDoc;
-        if (linkHealth) {
-          for (const item of draft.extracted) {
-            const kind = item.kind as "blood_pressure" | "blood_sugar" | "heart_rate" | "weight";
-            const [after] = upsertMeasurement(next, { familyMemberId: draft.memberId!, kind, value: item.value, unit: item.unit, source: "document", documentId: docId });
-            next = after;
-          }
-        }
-        return [next, docId];
+        if (!result.ok) throw new Error(result.errors.join(" "));
+        return [result.state, result.id];
       });
       if (!picked.sample && picked.blob) await saveFile(id, picked.blob);
       setSavedId(id);
@@ -207,7 +200,6 @@ export function DocumentUploadScreen() {
     setPicked(null);
     setDraft(null);
     setError(null);
-    setLinkHealth(true);
   };
 
   const member = memberById(state, draft?.memberId);
@@ -334,11 +326,7 @@ export function DocumentUploadScreen() {
                   <li key={`${e.kind}-${e.value}`}>{e.kind.replace("_", " ")} · <b>{e.value} {e.unit}</b></li>
                 ))}
               </ul>
-              <p className="mt-2 text-[12px] text-ink-muted">Only values mentioned in the file name or your description. SMARAN does not read the file itself.</p>
-              <label className="mt-3 flex items-center gap-2 text-[13.5px] font-semibold text-ink">
-                <input type="checkbox" checked={linkHealth} onChange={(e) => setLinkHealth(e.target.checked)} className="size-4 accent-[#c9805f]" />
-                Add to health card
-              </label>
+              <p className="mt-2 text-[12px] text-ink-muted">Candidates from your description only. Confirm them after review — they are not saved as measurements yet. File names are not used as readings.</p>
             </div>
           )}
           <p className="flex items-start gap-2 text-[12.5px] leading-snug text-ink-muted">
