@@ -87,9 +87,28 @@ export const askBodySchema = z.object({
     .object({
       family: z.array(z.object({ id: z.string(), name: z.string(), relationship: z.string().optional() })).max(20),
       appointments: z.array(z.object({ id: z.string(), familyMemberId: z.string(), doctor: z.string(), date: z.string(), time: z.string(), status: z.string() })).max(50),
-      reminders: z.array(z.object({ id: z.string(), familyMemberId: z.string(), title: z.string(), kind: z.string(), time: z.string(), frequency: z.string() })).max(50),
+      reminders: z
+        .array(
+          z.object({
+            id: z.string(),
+            familyMemberId: z.string(),
+            title: z.string(),
+            kind: z.string(),
+            time: z.string(),
+            frequency: z.string(),
+            date: z.string().optional(),
+            reminderRole: z.string().optional(),
+          }),
+        )
+        .max(50),
       measurements: z.array(z.object({ id: z.string(), familyMemberId: z.string(), kind: z.string(), value: z.string(), unit: z.string(), recordedAt: z.string(), systolic: z.number().optional(), diastolic: z.number().optional(), glucoseContext: z.string().optional() })).max(80),
-      documents: z.array(z.object({ id: z.string(), familyMemberId: z.string(), name: z.string(), type: z.string(), date: z.string() })).max(50),
+      documents: z.array(z.object({ id: z.string(), familyMemberId: z.string(), name: z.string(), type: z.string(), date: z.string(), extractStatus: z.string().optional() })).max(50),
+      medicines: z.array(z.any()).max(50).optional(),
+      medicalHistory: z.array(z.any()).max(50).optional(),
+      vaccinations: z.array(z.any()).max(50).optional(),
+      diary: z.array(z.any()).max(50).optional(),
+      memory: z.array(z.any()).max(50).optional(),
+      refills: z.array(z.any()).max(50).optional(),
     })
     .optional(),
 });
@@ -100,7 +119,18 @@ export const extractionProposalSchema = z.object({
   documentDate: z.string().nullable(),
   provider: z.string().nullable(),
   extractedText: z.string(),
-  measurements: z.array(z.object({ kind: z.string(), value: z.string(), unit: z.string().nullable(), page: z.number().nullable(), excerpt: z.string().nullable() })),
+  measurements: z.array(
+    z.object({
+      kind: z.string(),
+      value: z.string(),
+      unit: z.string().nullable(),
+      systolic: z.number().optional().nullable(),
+      diastolic: z.number().optional().nullable(),
+      glucoseContext: z.string().optional().nullable(),
+      page: z.number().nullable(),
+      excerpt: z.string().nullable(),
+    }),
+  ),
   medications: z.array(z.object({ name: z.string(), strength: z.string().nullable(), directions: z.string().nullable(), page: z.number().nullable(), excerpt: z.string().nullable() })),
   missingFields: z.array(z.string()),
   uncertainty: z.string().nullable(),

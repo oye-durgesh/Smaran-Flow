@@ -93,7 +93,7 @@ export function AskScreen() {
           evidence: {
             family: state.family.map((m) => ({ id: m.id, name: m.name, relationship: m.relationship })),
             appointments: state.appointments.map((a) => ({ id: a.id, familyMemberId: a.familyMemberId, doctor: a.doctor, date: a.date, time: a.time, status: a.status })),
-            reminders: state.reminders.map((r) => ({ id: r.id, familyMemberId: r.familyMemberId, title: r.title, kind: r.kind, time: r.time, frequency: r.frequency })),
+            reminders: state.reminders.map((r) => ({ id: r.id, familyMemberId: r.familyMemberId, title: r.title, kind: r.kind, time: r.time, frequency: r.frequency, date: r.date, reminderRole: r.reminderRole })),
             measurements: state.measurements.map((m) => ({
               id: m.id,
               familyMemberId: m.familyMemberId,
@@ -105,7 +105,7 @@ export function AskScreen() {
               diastolic: m.diastolic,
               glucoseContext: m.glucoseContext,
             })),
-            documents: state.documents.map((d) => ({ id: d.id, familyMemberId: d.familyMemberId, name: d.name, type: d.type, date: d.date })),
+            documents: state.documents.map((d) => ({ id: d.id, familyMemberId: d.familyMemberId, name: d.name, type: d.type, date: d.date, extractStatus: d.metadata.extractStatus })),
           },
         }),
       });

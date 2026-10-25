@@ -7,16 +7,9 @@ import { findPerson } from "@/lib/nlu/common";
 import type { AppState, FamilyMember } from "@/lib/types";
 import { loadAuthorizedFamily, namesOnlyFamily } from "./family-store";
 import type { DeviceSession } from "./session";
-
-function asMembers(names: { id: string; name: string }[]): FamilyMember[] {
-  return names.map((m) => ({
-    id: m.id,
-    name: m.name,
-    relationship: "Other",
-    avatar: { initials: m.name.charAt(0), tone: "peach" },
-    createdAt: "",
-  }));
-}
+import { AnthropicConfigError, completeJson } from "./anthropic";
+import { claudeConfigured } from "./env";
+import { needsClaudeFallback } from "@/lib/interpret/fallback";
 
 function toAction(draft: IntentDraft, family: FamilyMember[]): ProposedAction {
   const person = draft.memberName ? findPerson(draft.memberName, family) : draft.memberId ? family.find((m) => m.id === draft.memberId) : findPerson(draft.transcript, family);
@@ -54,7 +47,7 @@ export async function runInterpretation(raw: unknown, session: DeviceSession): P
     return { status: 500, body: { error: message } };
   }
   const hintFamily = snapshot.family.length ? snapshot.family : namesOnlyFamily(body.data.deviceFamilyNames ?? []);
-  const members = asMembers(hintFamily);
+  const members = hintFamily;
   const deviceAppointments =
     !session.authenticated && body.data.deviceAppointments
       ? body.data.deviceAppointments.map((a) => ({
@@ -88,5 +81,51 @@ export async function runInterpretation(raw: unknown, session: DeviceSession): P
     actions,
   });
 
-  return { status: 200, body: response(localActions, "rules") };
+  if (!needsClaudeFallback(localActions, body.data.transcript) || !claudeConfigured()) {
+    return {
+      status: 200,
+      body: {
+        ...response(localActions, "rules"),
+        error: needsClaudeFallback(localActions, body.data.transcript) && !claudeConfigured()
+          ? "Complex-language fallback is unavailable because ANTHROPIC_API_KEY is not configured. Used the local parser."
+          : undefined,
+      },
+    };
+  }
+
+  try {
+    const text = await completeJson(
+      `You interpret SMARAN family-care notes. JSON only: {"actions":[{intent,transcript,timezone,memberName,title,date,time,frequency,missingFields,clarificationQuestion,requiresConfirmation,confidence}]}.
+Never invent medicine names, doses, people, doctors or times.
+If unsure use intent "unknown" and one clarificationQuestion.
+Timezone Asia/Kolkata. requiresConfirmation true for every write.`,
+      JSON.stringify({
+        nowDate: now.date,
+        nowTime: now.time,
+        timezone: now.timezone,
+        session: sessionHint,
+        familyNames: hintFamily.map((m) => m.name),
+        transcript: body.data.transcript,
+      }),
+    );
+    const json = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)) as { actions?: unknown };
+    if (!Array.isArray(json.actions) || json.actions.length === 0) throw new Error("malformed_model_output");
+    const actions = json.actions.map((item) => {
+      const parsed = proposedActionSchema.safeParse(item);
+      if (!parsed.success) return toAction(interpretLocally(body.data.transcript, state, sessionHint, now), members);
+      const person = parsed.data.memberName ? findPerson(parsed.data.memberName, members) : undefined;
+      return {
+        ...parsed.data,
+        memberId: person?.id ?? parsed.data.memberId,
+        transcript: parsed.data.transcript || body.data.transcript,
+        requiresConfirmation: parsed.data.intent === "ask_question" || parsed.data.intent === "document_question" ? false : true,
+      };
+    });
+    return { status: 200, body: response(actions, "claude") };
+  } catch (error) {
+    if (error instanceof AnthropicConfigError) {
+      return { status: 200, body: { ...response(localActions, "rules"), error: "Claude is not configured. Used the local parser only." } };
+    }
+    return { status: 200, body: { ...response(localActions, "rules"), error: "Cloud interpretation failed. Used the local parser. Nothing was saved." } };
+  }
 }

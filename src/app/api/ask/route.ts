@@ -1,26 +1,26 @@
 import { NextResponse } from "next/server";
 import { answerQuestion } from "@/lib/nlu/ask";
 import { askBodySchema } from "@/lib/interpret/zod";
+import { snapshotFromVault } from "@/lib/ask-state";
 import { rateLimit } from "@/lib/server/rate-limit";
 import { readSession } from "@/lib/server/session";
 import { loadAuthorizedFamily } from "@/lib/server/family-store";
 import { VaultError } from "@/lib/server/vault";
-import type { AppState } from "@/lib/types";
+import type { AppState, FamilyMember } from "@/lib/types";
 
 export const maxDuration = 30;
 
-function snapshotState(evidence: NonNullable<ReturnType<typeof askBodySchema.parse>["evidence"]> & { medicines?: AppState["medicines"]; medicalHistory?: AppState["medicalHistory"] }): AppState {
-  return {
-    version: 5,
-    onboarded: true,
-    user: { name: "Family" },
-    family: evidence.family.map((m) => ({
-      id: m.id,
-      name: m.name,
-      relationship: (m.relationship as AppState["family"][number]["relationship"]) || "Other",
-      avatar: { initials: m.name.charAt(0), tone: "peach" },
-      createdAt: "",
-    })),
+function evidenceToState(evidence: NonNullable<ReturnType<typeof askBodySchema.parse>["evidence"]>): AppState {
+  return snapshotFromVault({
+    family: evidence.family.map(
+      (m): FamilyMember => ({
+        id: m.id,
+        name: m.name,
+        relationship: (m.relationship as FamilyMember["relationship"]) || "Other",
+        avatar: { initials: m.name.charAt(0), tone: "peach" },
+        createdAt: "",
+      }),
+    ),
     reminders: evidence.reminders.map((r) => ({
       id: r.id,
       familyMemberId: r.familyMemberId,
@@ -28,10 +28,12 @@ function snapshotState(evidence: NonNullable<ReturnType<typeof askBodySchema.par
       kind: r.kind === "medicine" || r.kind === "check" || r.kind === "pickup" ? r.kind : "other",
       time: r.time,
       frequency: r.frequency === "weekly" || r.frequency === "once" ? r.frequency : "daily",
+      date: r.date,
       status: "active",
       createdAt: "",
       source: "manual",
       confirmationHistory: [],
+      reminderRole: r.reminderRole === "refill" || r.reminderRole === "dose" ? r.reminderRole : undefined,
     })),
     appointments: evidence.appointments.map((a) => ({
       id: a.id,
@@ -52,7 +54,11 @@ function snapshotState(evidence: NonNullable<ReturnType<typeof askBodySchema.par
       type: d.type === "report" || d.type === "prescription" || d.type === "scan" || d.type === "note" ? d.type : "other",
       date: d.date,
       file: { name: d.name, size: 0, mime: "application/pdf", storage: "local" },
-      metadata: { source: "upload", detectedFrom: "manual" },
+      metadata: {
+        source: "upload",
+        detectedFrom: "manual",
+        extractStatus: d.extractStatus === "confirmed" || d.extractStatus === "needs_review" || d.extractStatus === "failed" || d.extractStatus === "not_extracted" ? d.extractStatus : "not_extracted",
+      },
       addedAt: "",
     })),
     measurements: evidence.measurements.map((m) => ({
@@ -62,24 +68,18 @@ function snapshotState(evidence: NonNullable<ReturnType<typeof askBodySchema.par
       value: m.value,
       unit: m.unit,
       recordedAt: m.recordedAt,
-      systolic: "systolic" in m ? (m as { systolic?: number }).systolic : undefined,
-      diastolic: "diastolic" in m ? (m as { diastolic?: number }).diastolic : undefined,
-      glucoseContext: (m as { glucoseContext?: "fasting" | "post_meal" | "random" }).glucoseContext,
+      systolic: m.systolic,
+      diastolic: m.diastolic,
+      glucoseContext: m.glucoseContext === "fasting" || m.glucoseContext === "post_meal" || m.glucoseContext === "random" ? m.glucoseContext : undefined,
       source: "manual" as const,
     })),
     medicines: evidence.medicines ?? [],
-    refills: [],
-    doctors: [],
     medicalHistory: evidence.medicalHistory ?? [],
-    vaccinations: [],
-    diary: [],
-    memory: [],
-    conversations: [],
-    inAppNotifications: [],
-    settings: { language: "en", reminderLanguage: "hinglish", reminderSound: "Gentle", wisprEnabled: true, notifications: false, familyUpdates: false, reducedMotion: false, compactDensity: true, memberColors: {} },
-    demoNow: evidence.measurements[0]?.recordedAt ?? "2026-01-01T00:00",
-    selectedDate: "2026-01-01",
-  };
+    vaccinations: evidence.vaccinations ?? [],
+    diary: evidence.diary ?? [],
+    memory: evidence.memory ?? [],
+    refills: evidence.refills ?? [],
+  });
 }
 
 export async function POST(req: Request) {
@@ -104,21 +104,14 @@ export async function POST(req: Request) {
     if (e instanceof VaultError) return NextResponse.json({ error: e.message, persistence: "supabase" }, { status: e.status });
     return NextResponse.json({ error: "Family vault read failed." }, { status: 500 });
   }
-  const evidence = session.authenticated
-    ? {
-        family: authorized.family,
-        appointments: authorized.appointments,
-        reminders: authorized.reminders,
-        measurements: authorized.measurements,
-        documents: authorized.documents,
-        medicines: authorized.medicines,
-        medicalHistory: authorized.medicalHistory,
-      }
-    : session.mode === "device-local"
-      ? parsed.data.evidence
-      : undefined;
 
-  if (!evidence) {
+  const state = session.authenticated
+    ? snapshotFromVault(authorized)
+    : session.mode === "device-local" && parsed.data.evidence
+      ? evidenceToState(parsed.data.evidence)
+      : null;
+
+  if (!state) {
     return NextResponse.json({
       found: false,
       refs: [],
@@ -128,6 +121,6 @@ export async function POST(req: Request) {
     });
   }
 
-  const answer = answerQuestion(parsed.data.question, snapshotState(evidence), parsed.data.filterMemberId);
+  const answer = answerQuestion(parsed.data.question, state, parsed.data.filterMemberId);
   return NextResponse.json({ ...answer, persistence: authorized.persistence, claudeUsed: false });
 }

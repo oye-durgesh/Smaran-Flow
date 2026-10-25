@@ -1,6 +1,6 @@
 import type { AppState, Appointment, FamilyMember } from "../types";
 import { FAMILY_TIMEZONE, compareDateKeys, zonedNow } from "../timezone";
-import { findDate, findPerson, findTime, isQuestion, normalize } from "./common";
+import { findDate, findPeople, findPerson, findTime, isQuestion, normalize } from "./common";
 import { looksLikeHealth, parseHealth } from "./health";
 import { looksLikeAppointment, parseAppointment } from "./appointment";
 import { parseReminder, type ReminderDraft } from "./reminder";
@@ -61,8 +61,9 @@ const RESCHEDULE = /\b(shift|reschedule|move|badal|badal do|shift kar)\b/;
 const PICKUP = /\b(pick\s*up|pickup|le aana|lekar aana|pharmacy|medical store|refill|dawa (?:leni|leney) (?:hai )?(?:se )?(?:pharmacy|store))\b/;
 const PHARMACY = /\b(pharmacy|medical store|chemist|dawai ki dukan)\b/;
 const MEDICINE_TAKE = /\b(dawa|dawai|dawaai|medicine|tablet|goli|pill|syrup|insulin)\b/;
-const TAKE = /\b(leni hai|lene hai|leney hai|khani hai|khana hai|deni hai|yaad dila|remind|reminder)\b/;
-const CHECK = /\b(bp|blood pressure|sugar|glucose|weight|oxygen|temperature).{0,24}(check|naap|measure|reading)\b|\b(check|naap).{0,24}(bp|sugar|weight)\b/;
+const TAKE = /\b(leni hai|lene hai|leney hai|khani hai|khana hai|deni hai|yaad dila(?:na|o|ao| do)?|remind|reminder)\b/;
+const CHECK = /\b(bp|blood pressure|sugar|glucose|weight|oxygen|temperature).{0,48}(check|naap|measure|reading|karna hai)\b|\b(check|naap).{0,24}(bp|sugar|weight)\b/;
+const NEGATION = /\b(mat (?:laga|bana|save)|don't|do not|nahi (?:lagana|banana)|cancel that request)\b/;
 const FAMILY_AGE = /\b(age|umar|saal|years? old)\b/;
 const AFTER_VISIT = /\b(after[- ]visit|visit note|doctor ne (?:kaha|bola)|clinic (?:ne|mein) (?:kaha|bola))\b/;
 const DOC_Q = /\b(report|prescription|parchi|ecg|scan|document|papers?)\b/;
@@ -72,6 +73,10 @@ export function classifySmaranIntent(text: string, session?: InterpretSession): 
   const trimmed = text.trim();
   if (!trimmed) return "unknown";
   const t = normalize(trimmed);
+
+  if (NEGATION.test(t) && !CANCEL.test(t)) {
+    return "unknown";
+  }
 
   if (AMBIGUOUS.test(t) && !MEDICINE_TAKE.test(t) && !looksLikeAppointment(trimmed) && !looksLikeHealth(trimmed)) {
     return "unknown";
@@ -160,7 +165,17 @@ export function interpretLocally(
     return { ...base, intent: "unknown", requiresConfirmation: false, clarificationQuestion: "Tell SMARAN what to remember — the box is empty." };
   }
 
-  const person = findPerson(transcript, state.family);
+  const people = findPeople(transcript, state.family);
+  const person = people.length === 1 ? people[0] : findPerson(transcript, state.family);
+  if (people.length > 1) {
+    return {
+      ...base,
+      missingFields: ["person"],
+      clarificationQuestion: `Who is this for? I found more than one match: ${people.map((p) => p.name).join(", ")}.`,
+      requiresConfirmation: false,
+      confidence: 0.35,
+    };
+  }
   if (person) {
     base.memberId = person.id;
     base.memberName = person.name;

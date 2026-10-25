@@ -118,6 +118,17 @@ async function deliverOccurrence(
     return { created: 0, duplicates: 0, skipped: 1 };
   }
 
+  const claim = await supabase
+    .from("reminder_occurrences")
+    .update({ status: "processing" })
+    .eq("id", input.occurrenceId)
+    .in("status", ["scheduled", "due", "processing"])
+    .select("id, status")
+    .maybeSingle();
+  if (claim.error || !claim.data) {
+    return { created: 0, duplicates: 1, skipped: 0 };
+  }
+
   const { data: existingNote } = await supabase
     .from("in_app_notifications")
     .select("id, status, snooze_until")

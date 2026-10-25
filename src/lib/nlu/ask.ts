@@ -2,8 +2,8 @@ import type { AppState, FamilyMember } from "../types";
 import { formatDayLong, formatLong, formatShort, formatTime, relativeDay, timeOf, dateOf } from "../dates";
 import { documentsFor, latestConfirmation, latestMeasurement, memberDaySummary, memberById, todayOf, upcomingAppointments } from "../selectors";
 import { currentMedicines } from "../medicine-model";
-import { historyFor, vaccinationsFor } from "../health-record-model";
-import { findDoctor, findPerson, normalize } from "./common";
+import { bpSeries, historyFor, vaccinationsFor } from "../health-record-model";
+import { findDoctor, findPeople, findPerson, normalize } from "./common";
 
 export type AnswerRef =
   | { kind: "document"; id: string }
@@ -33,9 +33,15 @@ const DOC_TERMS: { test: RegExp; match: (name: string, type: string) => boolean;
   { test: /\b(report|reports|document|documents|papers?)\b/, match: () => true, label: "document" },
 ];
 
-export function resolveAskPerson(question: string, state: AppState, filterMemberId?: string): { person?: FamilyMember; mismatch?: { asked: FamilyMember; selected: FamilyMember } } {
-  const mentioned = findPerson(question, state.family) ?? undefined;
+export function resolveAskPerson(
+  question: string,
+  state: AppState,
+  filterMemberId?: string,
+): { person?: FamilyMember; mismatch?: { asked: FamilyMember; selected: FamilyMember }; ambiguous?: FamilyMember[] } {
+  const mentionedPeople = findPeople(question, state.family);
+  const mentioned = mentionedPeople.length === 1 ? mentionedPeople[0] : findPerson(question, state.family) ?? undefined;
   const selected = filterMemberId && filterMemberId !== "all" ? memberById(state, filterMemberId) : undefined;
+  if (mentionedPeople.length > 1 && !selected) return { ambiguous: mentionedPeople };
   if (mentioned && selected && mentioned.id !== selected.id) return { person: mentioned, mismatch: { asked: mentioned, selected } };
   return { person: mentioned ?? selected };
 }
@@ -43,6 +49,13 @@ export function resolveAskPerson(question: string, state: AppState, filterMember
 export function answerQuestion(question: string, state: AppState, filterMemberId?: string): Answer {
   const t = normalize(question);
   const resolved = resolveAskPerson(question, state, filterMemberId);
+  if (resolved.ambiguous?.length) {
+    return {
+      found: false,
+      refs: [],
+      text: `Who do you mean? I found ${resolved.ambiguous.map((p) => p.name).join(" and ")}. Name one person — I will not guess.`,
+    };
+  }
   if (resolved.mismatch) {
     return {
       found: false,
@@ -63,6 +76,21 @@ export function answerQuestion(question: string, state: AppState, filterMemberId
   }
 
   const measureKind = /\b(bp|blood pressure)\b/.test(t) ? ("blood_pressure" as const) : /\b(sugar|glucose)\b/.test(t) ? ("blood_sugar" as const) : /\b(heart rate|pulse|bpm)\b/.test(t) ? ("heart_rate" as const) : /\b(weight|vajan)\b/.test(t) ? ("weight" as const) : null;
+  if (measureKind && person && /\b(trend|graph|chart|last (?:3|three) months)\b/.test(t)) {
+    const series = measureKind === "blood_pressure" ? bpSeries(state, person.id, "90d") : [];
+    const rows = state.measurements
+      .filter((m) => m.familyMemberId === person.id && m.kind === measureKind)
+      .sort((a, b) => (a.recordedAt < b.recordedAt ? 1 : -1));
+    if (!rows.length && !series.length) {
+      return { found: false, refs: [], text: `I couldn't find that information in your family's saved records. There is no ${measureKind.replace("_", " ")} trend for ${person.name}.` };
+    }
+    const latest = rows[0];
+    return {
+      found: true,
+      refs: rows.slice(0, 8).map((m) => ({ kind: "measurement" as const, id: m.id })),
+      text: `${possessive(person)} saved ${measureKind.replace("_", " ")} history has ${rows.length} reading${rows.length === 1 ? "" : "s"}. Latest: ${latest ? `${latest.kind === "blood_pressure" && latest.systolic != null ? `${latest.systolic}/${latest.diastolic}` : latest.value} ${latest.unit} on ${formatShort(dateOf(latest.recordedAt))}` : "none"}. This is recorded data, not a diagnosis.`,
+    };
+  }
   if (measureKind && person && !/\b(medicine|dawai|check|yaad)\b/.test(t)) {
     const m = latestMeasurement(state, person.id, measureKind);
     const label = measureKind === "blood_pressure" ? "blood pressure" : measureKind === "blood_sugar" ? "blood sugar" : measureKind === "heart_rate" ? "heart rate" : "weight";
@@ -105,7 +133,9 @@ export function answerQuestion(question: string, state: AppState, filterMemberId
 
   const specificDoc = docTerm && docTerm.label !== "document";
   if (/\b(refill|dawai khatam|stock)\b/.test(t)) {
-    const rows = state.reminders.filter((r) => r.reminderRole === "refill" && (!person || r.familyMemberId === person.id));
+    const rows = state.reminders.filter(
+      (r) => (r.reminderRole === "refill" || r.kind === "pickup" || /refill/i.test(r.title)) && (!person || r.familyMemberId === person.id),
+    );
     if (!rows.length) return { found: false, refs: [], text: `I couldn't find a refill reminder${person ? ` for ${person.name}` : ""} in the active workspace.` };
     const next = rows[0];
     return { found: true, refs: [{ kind: "reminder", id: next.id }], text: `${possessive(person)} refill reminder “${next.title}” is scheduled${next.date ? ` on ${formatShort(next.date)}` : ""} at ${formatTime(next.time)}.` };
@@ -149,10 +179,16 @@ export function answerQuestion(question: string, state: AppState, filterMemberId
     const latest = docs[0];
     const who = memberById(state, latest.familyMemberId);
     const label = docTerm.label === "document" ? latest.name.toLowerCase() : docTerm.label;
+    const extracted = latest.metadata.extractStatus === "confirmed" || latest.metadata.extractStatus === "needs_review";
+    const extractNote = extracted
+      ? latest.metadata.extractStatus === "needs_review"
+        ? " Extracted text is still unconfirmed."
+        : ""
+      : " The file is uploaded but its contents have not been extracted, so I cannot search the report text.";
     return {
       found: true,
       refs: docs.slice(0, 3).map((d) => ({ kind: "document" as const, id: d.id })),
-      text: `${possessive(who)} latest ${label} is from ${formatLong(latest.date)}${latest.doctor ? `, from ${latest.doctor}` : ""}.`,
+      text: `${possessive(who)} latest ${label} is from ${formatLong(latest.date)}${latest.doctor ? `, from ${latest.doctor}` : ""}.${extractNote}`,
     };
   }
 

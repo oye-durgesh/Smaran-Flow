@@ -38,16 +38,32 @@ const RELATION_ALIASES: Record<Relationship, string[]> = {
   Other: [],
 };
 
-export function findPerson(text: string, family: FamilyMember[]): FamilyMember | null {
+export function findPeople(text: string, family: FamilyMember[]): FamilyMember[] {
   const t = normalize(text);
-  const has = (word: string) => new RegExp(`[\\s(]${word.toLowerCase()}(?:'s|s)?[\\s)]`).test(t);
-  for (const member of family) {
-    if (has(member.name.toLowerCase())) return member;
-  }
-  for (const member of family) {
-    if (RELATION_ALIASES[member.relationship].some(has)) return member;
-  }
-  return null;
+  const has = (word: string) => new RegExp(`[\\s(]${escapeReg(word.toLowerCase())}(?:'s|s)?[\\s)]`).test(t);
+  const byName = family.filter((member) => has(member.name.toLowerCase()) || member.name.split(/\s+/).some((part) => part.length > 2 && has(part)));
+  if (byName.length) return uniqueMembers(byName);
+  const byRelation = family.filter((member) => RELATION_ALIASES[member.relationship].some(has));
+  return uniqueMembers(byRelation);
+}
+
+/** Unique person only. Multiple matches return null so callers must ask. */
+export function findPerson(text: string, family: FamilyMember[]): FamilyMember | null {
+  const matches = findPeople(text, family);
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function uniqueMembers(rows: FamilyMember[]): FamilyMember[] {
+  const seen = new Set<string>();
+  return rows.filter((m) => {
+    if (seen.has(m.id)) return false;
+    seen.add(m.id);
+    return true;
+  });
+}
+
+function escapeReg(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export interface ParsedTime {
@@ -244,6 +260,6 @@ export function titleCase(word: string): string {
 
 export function isQuestion(text: string): boolean {
   const t = normalize(text);
-  if (/\b(yaad dila|remind|reminder bana|set)\b/.test(t)) return false;
+  if (/\b(yaad dila(?:na|o|ao| do)?|remind|reminder bana|set)\b/.test(t)) return false;
   return text.trim().endsWith("?") || /^\s(kab|kya|kaun|kaunsi|kitne|kitni|kahan|when|what|which|where|did|has|have|is|show|find|batao|bata)\b/.test(t) || /\b(kab hai|kab ka|kab ki|kab hui|kab tha|kab thi)\b/.test(t);
 }

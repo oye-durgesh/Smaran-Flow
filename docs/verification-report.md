@@ -1,6 +1,56 @@
 # SMARAN verification report
 
-Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed. No Claude API. No demo reseed. No family data wipe.**
+Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed. No demo reseed. No family data wipe.**
+
+## Reliability pass — parser, scheduler, selective Claude, OCR, Ask
+
+### Root causes found
+
+1. **Simple reminders.** `\byaad dila\b` did not match **yaad dilana**. BP-check titles required adjacent “bp check”. `findPerson` picked the first name/alias instead of asking when several people matched.
+2. **Scheduler.** Saving a reminder row is not delivery. Vercel Hobby cron cannot run every minute. Processor needed an atomic occurrence claim. `/api/reminders/status` still reports `hostingCronVerified: false`.
+3. **Complex Hinglish.** The previous phase forced rules-only and never called Claude even when the parser was `unknown`.
+4. **Scanned OCR.** Extract stopped at local PDF text. Images and empty scanned PDFs never used vision, and also must not fake success without a key.
+5. **Ask retrieval.** Authenticated Ask loaded a thin snapshot (names only, no refill role, no vaccinations/diary/memory). Unextracted files were treated like searchable report text.
+
+### What was fixed
+
+- Parser: `yaad dilana`, looser BP-check window, unique-person matching via `findPeople`, refill/appointment examples.
+- Ask: vault snapshot includes full authorized records; unextracted docs are labelled as not searchable; person mismatch/ambiguity stays honest.
+- Claude: used only when `needsClaudeFallback` is true **and** `ANTHROPIC_API_KEY` is set. Simple commands stay on rules.
+- Extract: selectable PDF → `parseLabText`. Scanned PDF/image → Claude vision/PDF **if configured**, otherwise honest `not_extracted`.
+- Processor: claim occurrence `scheduled/due → processing` before insert. Optional `0009_supabase_cron_reminders.sql` documents pg_cron (no-op SQL). Settings can schedule a 2-minute **real** test reminder on an authenticated family with a UUID recipient.
+
+### Commands actually run
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | unused-import warning fixed |
+| `npm test` | **0** | **261 passed**, **4 skipped** (live Supabase) |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | |
+
+### Integrations not live-verified
+
+- Live Claude API: **not called** in this environment (no verified successful provider request).
+- Scanned OCR: code path present; **not** proven against a real Anthropic vision call.
+- Hosted scheduler: **not active/verified**. Need Supabase `pg_cron`/`pg_net` + `CRON_SECRET` + `SUPABASE_SERVICE_ROLE_KEY`. Vercel Hobby cron is not minute-level.
+- Live RLS / two-account Ask: skipped.
+
+### Completion answers
+
+1. Files: NLU, Ask snapshot, interpret fallback, extract+vision, processor claim, Settings test reminder, migration 0009 (no-op), tests, this report.
+2. Root causes: listed above.
+3. Fixed: parser gaps, Ask vault grounding, selective Claude, honest OCR, atomic claim + cron docs.
+4. Tests: 261 passed, 4 skipped.
+5. Real services: none live-verified this session.
+6. Reminder scheduling: **not verified active**.
+7. Live scanned OCR: **not verified**.
+8. Ask: retrieves from authorized vault snapshot in code; live Supabase Q&A **not** run.
+9. Manual: set `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` server-side; enable pg_cron per 0009 comments; keep `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` in server env.
+
+---
+
 
 ## Existing flow hardening (this pass — before Claude)
 

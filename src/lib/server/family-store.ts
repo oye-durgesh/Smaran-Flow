@@ -8,13 +8,18 @@ import { loadVault, VaultError } from "./vault";
 export interface AuthorizedSnapshot {
   persistence: "supabase" | "device-local";
   authorization: "family-scoped" | "device-local-unauthenticated";
-  family: { id: string; name: string }[];
+  family: AppState["family"];
   appointments: AppState["appointments"];
   reminders: AppState["reminders"];
   measurements: AppState["measurements"];
   documents: AppState["documents"];
   medicines: AppState["medicines"];
   medicalHistory: AppState["medicalHistory"];
+  vaccinations: AppState["vaccinations"];
+  diary: AppState["diary"];
+  memory: AppState["memory"];
+  refills: AppState["refills"];
+  doctors: AppState["doctors"];
 }
 
 const EMPTY: AuthorizedSnapshot = {
@@ -27,6 +32,11 @@ const EMPTY: AuthorizedSnapshot = {
   documents: [],
   medicines: [],
   medicalHistory: [],
+  vaccinations: [],
+  diary: [],
+  memory: [],
+  refills: [],
+  doctors: [],
 };
 
 export async function loadAuthorizedFamily(session: DeviceSession): Promise<AuthorizedSnapshot> {
@@ -44,13 +54,18 @@ export async function loadAuthorizedFamily(session: DeviceSession): Promise<Auth
     return {
       persistence: "supabase",
       authorization: "family-scoped",
-      family: vault.family.map((m) => ({ id: m.id, name: m.name })),
+      family: vault.family,
       appointments: vault.appointments,
       reminders: vault.reminders,
       measurements: vault.measurements,
       documents: vault.documents,
       medicines: vault.medicines,
       medicalHistory: vault.medicalHistory,
+      vaccinations: vault.vaccinations,
+      diary: vault.diary,
+      memory: vault.memory,
+      refills: vault.refills,
+      doctors: vault.doctors,
     };
   } catch (e) {
     if (e instanceof VaultError) throw e;
@@ -59,5 +74,11 @@ export async function loadAuthorizedFamily(session: DeviceSession): Promise<Auth
 }
 
 export function namesOnlyFamily(names: string[]): AuthorizedSnapshot["family"] {
-  return names.slice(0, 20).map((name, i) => ({ id: `hint-${i}`, name }));
+  return names.slice(0, 20).map((name, i) => ({
+    id: `hint-${i}`,
+    name,
+    relationship: "Other",
+    avatar: { initials: name.charAt(0).toUpperCase(), tone: "peach" },
+    createdAt: "",
+  }));
 }

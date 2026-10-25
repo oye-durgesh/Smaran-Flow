@@ -52,9 +52,11 @@ function medicineTitle(t: string): string | null {
 }
 
 function checkTitle(t: string): string | null {
-  const match = t.match(/\b(bp|sugar|blood pressure|weight|oxygen|temperature)\s+(?:ka\s+|ki\s+)?(check|test|naapna|napna|measure|reading)\b/);
+  const match =
+    t.match(/\b(bp|sugar|glucose|blood pressure|weight|oxygen|temperature)\s+(?:ka\s+|ki\s+)?(check|test|naapna|napna|measure|reading)\b/) ||
+    t.match(/\b(bp|sugar|glucose|blood pressure|weight|oxygen|temperature)\b.{0,48}\b(check|test|naap|measure|reading|karna hai)\b/);
   if (!match) return null;
-  const subject = match[1] === "blood pressure" ? "BP" : titleCase(match[1]);
+  const subject = match[1] === "blood pressure" ? "BP" : match[1] === "glucose" ? "Sugar" : titleCase(match[1]);
   return `${subject} Check`;
 }
 

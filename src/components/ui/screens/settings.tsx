@@ -7,7 +7,9 @@ import { Bell, ChevronRight, Download, Eraser, IdCard, Languages, Lock, RotateCc
 import { cn } from "@/lib/utils";
 import { readDeviceState, useStore } from "@/lib/store/store";
 import { addMember, updateMember, updateSettings } from "@/lib/store/actions";
-import { authAction, demoWorkspaceAction, fetchSchedulerStatus, migrateDeviceRecords, wipeCloudVault } from "@/lib/store/cloud";
+import { authAction, createCloudReminder, demoWorkspaceAction, fetchSchedulerStatus, isUuid, migrateDeviceRecords, wipeCloudVault } from "@/lib/store/cloud";
+import { zonedNow } from "@/lib/timezone";
+import { addMinutes, dateOf, timeOf } from "@/lib/dates";
 import { DEMO_LOAD_CONFIRM, DEMO_RESET_CONFIRM } from "@/lib/demo/workspace";
 import type { FamilyMember, Relationship, ReminderLanguage, Settings } from "@/lib/types";
 import { FAMILY_TIMEZONE } from "@/lib/timezone";
@@ -208,6 +210,33 @@ export function SettingsScreen() {
             <p className="mt-2 text-[12px] text-[#9A8173]">
               In-app only. SMARAN does not send phone calls, SMS, WhatsApp, email, or browser push. A closed browser cannot show a toast; the due row waits in the notification centre.
             </p>
+            {session.authenticated && state.family[0] && isUuid(state.family[0].id) && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-3"
+                onClick={async () => {
+                  const now = zonedNow();
+                  const due = addMinutes(now.timestamp, 2);
+                  try {
+                    await createCloudReminder({
+                      recipientId: state.family[0].id,
+                      title: "SMARAN in-app test reminder",
+                      kind: "other",
+                      time: timeOf(due),
+                      date: dateOf(due),
+                      recurrence: "once",
+                    });
+                    await refreshVault();
+                    toast.success(`Test reminder saved for ${dateOf(due)} ${timeOf(due)} Asia/Kolkata. Delivery needs the configured due processor.`);
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Test reminder was not saved.");
+                  }
+                }}
+              >
+                Schedule 2-minute test reminder
+              </Button>
+            )}
             <div className="mt-4">
               <WisprFlowSection
                 context="settings"
