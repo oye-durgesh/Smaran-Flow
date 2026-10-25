@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CalendarCheck, CalendarClock, CalendarDays, CalendarRange, CalendarX2, Check, CheckCircle2, ChevronLeft, ChevronRight, MapPin, Paperclip, Pencil, Plus, Stethoscope, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,21 +18,29 @@ import {
   APPOINTMENT_WISPR_EXAMPLES,
   APPOINTMENT_WISPR_HEADING,
   APPOINTMENT_WISPR_SUPPORT,
+  APPOINTMENT_PAGE_LAYOUT,
   appointmentKind,
-  appointmentsOnDate,
-  awaitingFollowUpCount,
-  calendarActiveDates,
+  appointmentLists,
   dateLabel,
   doctorDisplayName,
-  followUpVisits,
-  groupUpcomingByWhen,
   kindLabel,
-  pastVisits,
+  listOnDate,
   reminderStatusLabel,
-  reviewVisits,
-  upcomingVisits,
   validateAppointmentInput,
 } from "@/lib/appointment-model";
+import {
+  SAMPLE_APPOINTMENT_BADGE,
+  SAMPLE_APPOINTMENTS,
+  SAMPLE_DOCTORS,
+  SAMPLE_FAMILY,
+  SAMPLE_PREVIEW_LABEL,
+  SAMPLE_REFERENCE_DATE,
+  hasLiveAppointments,
+  isFixtureId,
+  sampleChip,
+  sampleMember,
+  type FixtureAppointment,
+} from "@/lib/demo/appointment-fixtures";
 import { missingAppointmentFields, parseAppointment } from "@/lib/nlu";
 import { familySwatch } from "@/lib/family-color";
 import type { AppointmentDraft } from "@/lib/nlu";
@@ -52,11 +60,16 @@ import { Switch } from "@/components/ui/switch";
 type Tab = "calendar" | "upcoming" | "past" | "followups" | "doctors";
 
 export function AppointmentsScreen() {
+  const router = useRouter();
   const { state, session, update, refreshVault } = useStore();
-  const today = todayOf(state);
+  const liveToday = todayOf(state);
+  const liveExists = hasLiveAppointments(state.appointments);
+  const [samplePreview, setSamplePreview] = useState(!liveExists);
+  const today = samplePreview ? SAMPLE_REFERENCE_DATE : liveToday;
   const [tab, setTab] = useState<Tab>("calendar");
   const [month, setMonth] = useState(() => yearMonthOf(today));
   const [selected, setSelected] = useState(today);
+  const [sampleDetail, setSampleDetail] = useState<FixtureAppointment | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -72,19 +85,45 @@ export function AppointmentsScreen() {
   const [editId, setEditId] = useState<string | null>(null);
   const [wisprReview, setWisprReview] = useState<ReturnType<typeof parseAppointment> | null>(null);
 
-  const upcoming = upcomingVisits(state);
-  const past = pastVisits(state);
-  const reviews = reviewVisits(state);
-  const followups = followUpVisits(state);
-  const awaiting = awaitingFollowUpCount(state);
-  const onDay = appointmentsOnDate(state, selected);
+  const records = samplePreview ? SAMPLE_APPOINTMENTS : state.appointments;
+  const lists = useMemo(() => appointmentLists(records, today), [records, today]);
+  const upcoming = lists.upcoming;
+  const past = lists.past;
+  const reviews = lists.reviews;
+  const followups = lists.followups;
+  const awaiting = lists.awaiting;
+  const onDay = listOnDate(records, selected);
   const cells = useMemo(() => monthGridMonday(month), [month]);
-  const busy = useMemo(() => calendarActiveDates(state), [state]);
-  const upcomingGroups = useMemo(() => groupUpcomingByWhen(upcoming, today), [upcoming, today]);
-  const doctors = state.doctors.filter((d) => !d.archived);
+  const busy = lists.busy;
+  const upcomingGroups = lists.groups;
+  const doctors = samplePreview ? SAMPLE_DOCTORS : state.doctors.filter((d) => !d.archived);
   const primaryDoctors = doctors.filter((d) => d.category === "primary");
   const specialistDoctors = doctors.filter((d) => d.category !== "primary");
   const persistence = session.authenticated ? "Saved to the family vault after a successful write." : "Saved on this device only — not cloud-saved.";
+  const recent = past.slice(0, 4);
+  const upcomingRail = upcoming.filter((a) => a.date !== today).slice(0, 2);
+
+  function enterSample() {
+    setSamplePreview(true);
+    setSelected(SAMPLE_REFERENCE_DATE);
+    setMonth(yearMonthOf(SAMPLE_REFERENCE_DATE));
+    setTab("calendar");
+  }
+
+  function leaveSample() {
+    setSamplePreview(false);
+    setSelected(liveToday);
+    setMonth(yearMonthOf(liveToday));
+    setTab("calendar");
+  }
+
+  function openItem(a: Appointment) {
+    if (samplePreview || isFixtureId(a.id) || a.source === "sample") {
+      setSampleDetail(a);
+      return;
+    }
+    router.push(`/appointments/${a.id}`);
+  }
 
   function openNew(date = selected) {
     setEditId(null);
@@ -153,6 +192,7 @@ export function AppointmentsScreen() {
       toast.success(editId ? "Appointment updated." : "Appointment saved.");
       setFormOpen(false);
       setEditId(null);
+      setSamplePreview(false);
       setSelected(draft.date);
       setMonth(yearMonthOf(draft.date));
       setTab("calendar");
@@ -170,31 +210,44 @@ export function AppointmentsScreen() {
         subtitle="Every visit, every doctor, every follow-up."
         actions={
           <div className="flex flex-wrap justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setDoctorOpen(true)} className="h-10 rounded-full px-3.5 text-[13px] font-bold">
-              <Stethoscope className="size-4" aria-hidden /> Add doctor
+            <Button type="button" variant="outline" onClick={() => setTab("doctors")} className="h-10 rounded-full px-3.5 text-[13px] font-bold">
+              <Stethoscope className="size-4" aria-hidden /> Manage doctors
             </Button>
-            <Button type="button" onClick={() => openNew(today)} className="h-10 rounded-full bg-peach px-3.5 text-[13px] font-bold text-ink-strong hover:bg-peach">
+            <Button type="button" onClick={() => openNew(today)} className="h-10 rounded-full bg-[#E8A98D] px-3.5 text-[13px] font-bold text-[#49352C] hover:bg-[#E8A98D]">
               <Plus className="size-4" aria-hidden /> New appointment
             </Button>
           </div>
         }
       />
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {samplePreview ? (
+          <>
+            <span className="rounded-full bg-[#FBE4D7] px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-[#8F4538]">{SAMPLE_PREVIEW_LABEL}</span>
+            <span className="rounded-full border border-[#F0D9CC] px-2.5 py-1 text-[11px] font-bold text-[#9A8173]">{SAMPLE_APPOINTMENT_BADGE}</span>
+            <button type="button" className="text-[13px] font-bold text-[#C45C48] hover:underline" onClick={leaveSample}>Leave sample preview</button>
+          </>
+        ) : (
+          <button type="button" className="text-[13px] font-bold text-[#C45C48] hover:underline" onClick={enterSample}>
+            {liveExists ? "View sample preview" : "Try a sample preview"}
+          </button>
+        )}
+      </div>
       <div className="mb-5 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-        <SummaryCard label="Upcoming" value={upcoming.length} icon={<CalendarClock className="size-4" />} accent="#F3D4C4" onClick={() => setTab("upcoming")} />
-        <SummaryCard label="Awaiting follow-up" value={awaiting} icon={<CalendarRange className="size-4" />} accent="#F8EBD5" onClick={() => setTab("followups")} />
-        <SummaryCard label="Past visits" value={past.length} icon={<CalendarCheck className="size-4" />} accent="#E7F0E6" onClick={() => setTab("past")} />
+        <SummaryCard label="Upcoming" value={upcoming.length} hint={upcoming[0] ? `${upcoming[0].doctor} · ${dateLabel(upcoming[0].date, today)}` : "No upcoming visits"} icon={<CalendarClock className="size-4" />} accent="#FBE4D7" onClick={() => setTab("upcoming")} />
+        <SummaryCard label="Awaiting follow-up" value={awaiting} hint={followups[0] ? `${followups[0].doctor} · ${followups[0].followUpDate ?? followups[0].date}` : "No open follow-ups"} icon={<CalendarRange className="size-4" />} accent="#F8EBD5" onClick={() => setTab("followups")} />
+        <SummaryCard label="Past visits" value={past.length} hint={past[0] ? `${past[0].doctor} · ${past[0].date}` : "No completed visits"} icon={<CalendarCheck className="size-4" />} accent="#F3E6DC" onClick={() => setTab("past")} />
       </div>
       <div className="mb-5 flex flex-wrap gap-2" role="tablist" aria-label="Appointment sections">
         {([["calendar", "Calendar"], ["upcoming", "Upcoming"], ["past", "Past visits"], ["followups", "Follow-ups"], ["doctors", "Doctors"]] as const).map(([key, label]) => (
-          <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} className={cn("h-10 rounded-full px-3.5 text-[13px] font-bold", tab === key ? "bg-[#C45C48] text-white" : "border border-line-strong bg-surface-raised text-ink")}>
+          <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} className={cn("h-10 rounded-full px-3.5 text-[13px] font-bold", tab === key ? "bg-[#E8A98D] text-[#49352C]" : "border border-[#F0D9CC] bg-[#FFFCFA] text-[#9A8173]")}>
             {label}
           </button>
         ))}
       </div>
 
       {tab === "calendar" && (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,1fr)]">
-          <Surface className="min-w-0 p-4 sm:p-5">
+        <div className={cn("grid gap-4", APPOINTMENT_PAGE_LAYOUT.calendar)}>
+          <Surface className="min-w-0 border-[#F0D9CC] bg-[#FFFCFA] p-4 sm:p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[20px] font-extrabold text-ink-strong">{formatMonthTitle(month)}</h2>
               <div className="flex flex-wrap gap-2">
@@ -233,16 +286,17 @@ export function AppointmentsScreen() {
           </Surface>
           <section className="min-w-0">
             <h3 className="mb-2 text-[16px] font-extrabold text-ink-strong">{formatFullDate(selected)}</h3>
+            {samplePreview && <p className="mb-2 text-[12px] font-bold text-[#9A8173]">{SAMPLE_APPOINTMENT_BADGE}</p>}
             {onDay.length === 0 ? (
-              <div className="rounded-[18px] border border-dashed border-line-strong bg-surface/70 px-4 py-5">
-                <p className="text-[15px] font-bold text-ink-strong">No visits on this day.</p>
-                <p className="mt-1 text-[13px] leading-5 text-ink-muted">Appointments saved for this date will appear here.</p>
-                <Button type="button" size="sm" className="mt-3 rounded-full bg-peach text-ink-strong hover:bg-peach" onClick={() => openNew(selected)}>
+              <div className="rounded-[18px] border border-dashed border-[#F0D9CC] bg-[#FFFCFA] px-4 py-5">
+                <p className="text-[15px] font-bold text-[#49352C]">No appointments on this day.</p>
+                <p className="mt-1 text-[13px] leading-5 text-[#9A8173]">Select another date or create a new appointment.</p>
+                <Button type="button" size="sm" className="mt-3 rounded-full bg-[#E8A98D] text-[#49352C] hover:bg-[#E8A98D]" onClick={() => openNew(selected)}>
                   <Plus className="size-4" /> New appointment
                 </Button>
               </div>
             ) : (
-              <ul className="space-y-3">{onDay.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} onEdit={() => openEdit(a)} onCancel={() => setConfirmCancel(a.id)} onComplete={() => { setVisitFor(a); setVisitNotes(""); }} /></li>)}</ul>
+              <DayTimeline items={onDay} sample={samplePreview} onOpen={openItem} />
             )}
           </section>
         </div>
@@ -256,7 +310,7 @@ export function AppointmentsScreen() {
             {upcomingGroups.map((group) => (
               <section key={group.key}>
                 <h3 className="mb-2 text-[13px] font-extrabold tracking-wide text-ink-muted uppercase">{group.label}</h3>
-                <ul className="grid gap-3 md:grid-cols-2">{group.items.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} onEdit={() => openEdit(a)} onCancel={() => setConfirmCancel(a.id)} onComplete={() => { setVisitFor(a); setVisitNotes(""); }} /></li>)}</ul>
+                <ul className="grid gap-3 md:grid-cols-2">{group.items.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} sample={samplePreview} onOpen={() => openItem(a)} onEdit={samplePreview ? undefined : () => openEdit(a)} onCancel={samplePreview ? undefined : () => setConfirmCancel(a.id)} onComplete={samplePreview ? undefined : () => { setVisitFor(a); setVisitNotes(""); }} /></li>)}</ul>
               </section>
             ))}
           </div>
@@ -271,13 +325,13 @@ export function AppointmentsScreen() {
             {reviews.length > 0 && (
               <section>
                 <h3 className="mb-2 text-[13px] font-extrabold tracking-wide text-ink-muted uppercase">Needs review</h3>
-                <ul className="grid gap-3 md:grid-cols-2">{reviews.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} onEdit={() => openEdit(a)} onCancel={() => setConfirmCancel(a.id)} onComplete={() => { setVisitFor(a); setVisitNotes(""); }} /></li>)}</ul>
+                <ul className="grid gap-3 md:grid-cols-2">{reviews.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} sample={samplePreview} onOpen={() => openItem(a)} onEdit={samplePreview ? undefined : () => openEdit(a)} onCancel={samplePreview ? undefined : () => setConfirmCancel(a.id)} onComplete={samplePreview ? undefined : () => { setVisitFor(a); setVisitNotes(""); }} /></li>)}</ul>
               </section>
             )}
             {past.length > 0 && (
               <section>
                 <h3 className="mb-2 text-[13px] font-extrabold tracking-wide text-ink-muted uppercase">Completed visits</h3>
-                <ul className="grid gap-3 md:grid-cols-2">{past.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} onFollow={() => { setFollowFrom(a); setFollowDate(a.followUpDate ?? ""); }} /></li>)}</ul>
+                <ul className="grid gap-3 md:grid-cols-2">{past.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} sample={samplePreview} onOpen={() => openItem(a)} onFollow={samplePreview ? undefined : () => { setFollowFrom(a); setFollowDate(a.followUpDate ?? ""); }} /></li>)}</ul>
               </section>
             )}
           </div>
@@ -288,7 +342,7 @@ export function AppointmentsScreen() {
         followups.length === 0 ? (
           <EmptyState icon={<CalendarDays className="size-6" />} title="No follow-ups recorded." body="A follow-up needs a confirmed date. Passing a visit does not create one automatically." />
         ) : (
-          <ul className="grid gap-3 md:grid-cols-2">{followups.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} onEdit={() => openEdit(a)} onFollow={() => { setFollowFrom(a); setFollowDate(a.followUpDate ?? ""); }} /></li>)}</ul>
+          <ul className="grid gap-3 md:grid-cols-2">{followups.map((a) => <li key={a.id}><VisitCard appointment={a} today={today} sample={samplePreview} onOpen={() => openItem(a)} onEdit={samplePreview ? undefined : () => openEdit(a)} onFollow={samplePreview ? undefined : () => { setFollowFrom(a); setFollowDate(a.followUpDate ?? ""); }} /></li>)}</ul>
         )
       )}
 
@@ -298,8 +352,8 @@ export function AppointmentsScreen() {
             <EmptyState icon={<Stethoscope className="size-6" />} title="No doctors recorded." body="Add a doctor as written on the prescription or visit note. Names are never invented." action={{ label: "Add doctor", onClick: () => setDoctorOpen(true) }} />
           ) : (
             <>
-              <DoctorGroup title="Primary doctor" doctors={primaryDoctors} empty="No primary doctor recorded." />
-              <DoctorGroup title="Specialist doctors" doctors={specialistDoctors} empty="No specialists recorded." />
+              <DoctorGroup title="Primary doctor" doctors={primaryDoctors} empty="No primary doctor recorded." readOnly={samplePreview} />
+              <DoctorGroup title="Specialist doctors" doctors={specialistDoctors} empty="No specialists recorded." readOnly={samplePreview} />
             </>
           )}
         </div>
@@ -316,6 +370,9 @@ export function AppointmentsScreen() {
           examples={APPOINTMENT_WISPR_EXAMPLES}
           support={APPOINTMENT_WISPR_SUPPORT}
           onCapture={async (text) => {
+            if (samplePreview) {
+              return "Sample preview only — this did not save an appointment or send a notification.";
+            }
             const parsed = parseAppointment(text, state.family, today);
             const missing = missingAppointmentFields(parsed);
             if (missing.length) {
@@ -325,6 +382,8 @@ export function AppointmentsScreen() {
           }}
         />
         <p className="sr-only">{APPOINTMENT_WISPR_HEADING}</p>
+        <RailCard title="Recent appointments" onViewAll={() => setTab("past")} sample={samplePreview} rows={recent} today={today} onOpen={openItem} />
+        <RailCard title="Upcoming" onViewAll={() => setTab("upcoming")} sample={samplePreview} rows={upcomingRail} today={today} onOpen={openItem} />
         <p className="text-[13px] text-ink-muted">{persistence} Reminder rows are schedules, not delivered notifications.</p>
       </>
     }>
@@ -336,7 +395,8 @@ export function AppointmentsScreen() {
         </>
       }>
         {formError && <p className="mb-3 text-[13.5px] font-semibold text-missed" role="alert">{formError}</p>}
-        <AppointmentForm draft={draft} people={state.family} doctors={doctors} onChange={setDraft} />
+        {samplePreview && <p className="mb-3 text-[13px] font-semibold text-[#8F4538]">This form saves a real appointment. It does not write the sample fixtures.</p>}
+        <AppointmentForm draft={draft} people={state.family} doctors={state.doctors.filter((d) => !d.archived)} onChange={setDraft} />
       </Modal>
       <Modal open={Boolean(confirmCancel)} onOpenChange={(o) => !o && setConfirmCancel(null)} title="Cancel this appointment?" description="It will leave Upcoming and stay on the record as cancelled." footer={
         <>
@@ -438,6 +498,16 @@ export function AppointmentsScreen() {
           </dl>
         )}
       </Modal>
+      <Modal open={Boolean(sampleDetail)} onOpenChange={(o) => !o && setSampleDetail(null)} title={sampleDetail?.doctor ?? "Sample visit"} description={SAMPLE_APPOINTMENT_BADGE}>
+        {sampleDetail && (
+          <div className="space-y-2 text-[14px] text-[#49352C]">
+            <p><span className="text-[#9A8173]">For </span>{sampleMember(sampleDetail.familyMemberId)?.name}</p>
+            <p><span className="text-[#9A8173]">When </span>{sampleDetail.date} · {formatTime(sampleDetail.time)}</p>
+            <p><span className="text-[#9A8173]">Clinic </span>{sampleDetail.clinic ?? "Not recorded"}</p>
+            <p className="text-[13px] text-[#9A8173]">Demonstration only. Nothing was saved to the family vault.</p>
+          </div>
+        )}
+      </Modal>
     </Screen>
   );
 }
@@ -461,20 +531,87 @@ function emptyApptDraft(memberId: string, date: string) {
   };
 }
 
-function SummaryCard({ label, value, icon, accent, onClick }: { label: string; value: number; icon: React.ReactNode; accent: string; onClick: () => void }) {
+function SummaryCard({ label, value, hint, icon, accent, onClick }: { label: string; value: number; hint: string; icon: React.ReactNode; accent: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="rounded-[16px] border border-line bg-surface-raised px-3.5 py-3 text-left shadow-[var(--shadow-soft)]">
+    <button type="button" onClick={onClick} className="rounded-[16px] border border-[#F0D9CC] bg-[#FFFCFA] px-3.5 py-3 text-left shadow-[var(--shadow-soft)]">
       <div className="flex items-center gap-2">
-        <span className="inline-flex size-8 items-center justify-center rounded-[10px] text-ink-strong" style={{ background: accent }}>{icon}</span>
-        <p className="text-[12px] font-bold text-ink-muted">{label}</p>
+        <span className="inline-flex size-8 items-center justify-center rounded-[10px] text-[#49352C]" style={{ background: accent }}>{icon}</span>
+        <p className="text-[12px] font-bold text-[#9A8173]">{label}</p>
       </div>
-      <p className="mt-1 text-[26px] font-extrabold leading-none text-ink-strong">{value}</p>
+      <p className="mt-1 text-[26px] font-extrabold leading-none text-[#49352C]">{value}</p>
+      <p className="mt-1 truncate text-[12px] text-[#9A8173]">{hint}</p>
     </button>
   );
 }
 
-function DoctorGroup({ title, doctors, empty }: { title: string; doctors: FamilyDoctor[]; empty: string }) {
+function DayTimeline({ items, sample, onOpen }: { items: Appointment[]; sample: boolean; onOpen: (a: Appointment) => void }) {
+  const { state } = useStore();
+  return (
+    <ol className="space-y-0">
+      {items.map((a, i) => {
+        const who = sample ? sampleMember(a.familyMemberId) : memberById(state, a.familyMemberId);
+        const swatch = familySwatch(who);
+        return (
+          <li key={a.id} className="flex gap-3">
+            <div className="w-16 shrink-0 pt-1 text-right text-[12px] font-bold text-[#9A8173]">{formatTime(a.time)}</div>
+            <div className="flex w-4 shrink-0 flex-col items-center">
+              <span className="mt-2 size-2.5 rounded-full" style={{ background: swatch.primary }} />
+              {i < items.length - 1 && <span className="w-px flex-1 bg-[#F0D9CC]" />}
+            </div>
+            <button type="button" onClick={() => onOpen(a)} className="mb-3 min-w-0 flex-1 rounded-[16px] border border-[#F0D9CC] bg-[#FFFCFA] px-3 py-2.5 text-left">
+              <div className="flex items-start gap-2">
+                <MemberAvatar member={who} size={32} identity />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[14.5px] font-extrabold text-[#49352C]">{a.doctor}</p>
+                  <p className="text-[12.5px] font-semibold" style={{ color: swatch.text }}>{who?.name ?? a.familyMemberId} · {a.specialty || "Specialty not recorded"}</p>
+                  <p className="text-[12px] text-[#9A8173]">{a.clinic || a.location || "Clinic not recorded"}</p>
+                </div>
+                <span className="rounded-full bg-[#FBE4D7] px-2 py-0.5 text-[11px] font-bold text-[#8F4538]">{sample ? sampleChip(a) : kindLabel(appointmentKind(a))}</span>
+                <ChevronRight className="size-4 shrink-0 text-[#9A8173]" />
+              </div>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function RailCard({ title, rows, today, sample, onViewAll, onOpen }: { title: string; rows: Appointment[]; today: string; sample: boolean; onViewAll: () => void; onOpen: (a: Appointment) => void }) {
+  const { state } = useStore();
+  return (
+    <section className="rounded-[18px] border border-[#F0D9CC] bg-[#FFFCFA] p-3.5">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="text-[14px] font-extrabold text-[#49352C]">{title}</h3>
+        <button type="button" className="text-[12.5px] font-bold text-[#C45C48] hover:underline" onClick={onViewAll}>View all</button>
+      </div>
+      {sample && <p className="mb-2 text-[11px] font-bold text-[#9A8173]">{SAMPLE_APPOINTMENT_BADGE}</p>}
+      {rows.length === 0 ? <p className="text-[13px] text-[#9A8173]">Nothing to show.</p> : (
+        <ul className="space-y-2">
+          {rows.map((a) => {
+            const who = sample ? sampleMember(a.familyMemberId) : memberById(state, a.familyMemberId);
+            return (
+              <li key={a.id}>
+                <button type="button" onClick={() => onOpen(a)} className="flex w-full items-center gap-2 text-left">
+                  <span className="inline-flex size-8 items-center justify-center rounded-[10px] bg-[#FBE4D7] text-[#8F4538]"><Stethoscope className="size-3.5" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13.5px] font-bold text-[#49352C]">{a.doctor}</span>
+                    <span className="block truncate text-[12px] text-[#9A8173]">{who?.name ?? a.familyMemberId} · {dateLabel(a.date, today)} · {formatTime(a.time)}</span>
+                  </span>
+                  <ChevronRight className="size-4 text-[#9A8173]" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function DoctorGroup({ title, doctors, empty, readOnly }: { title: string; doctors: FamilyDoctor[]; empty: string; readOnly?: boolean }) {
   const { state, update } = useStore();
+  const people = readOnly ? SAMPLE_FAMILY : state.family;
   return (
     <section>
       <h3 className="mb-2 text-[13px] font-extrabold tracking-wide text-ink-muted uppercase">{title}</h3>
@@ -487,9 +624,9 @@ function DoctorGroup({ title, doctors, empty }: { title: string; doctors: Family
                 <p className="text-[13px] text-ink-muted">{d.category === "primary" ? "Primary doctor" : "Specialist"}{d.specialty ? ` · ${d.specialty}` : " · specialty not recorded"}</p>
                 <p className="text-[13px] text-ink-muted">{d.clinic || "Clinic not recorded"}{d.address ? ` · ${d.address}` : ""}</p>
                 <p className="text-[13px] text-ink-muted">{d.phone || "Contact not recorded"}</p>
-                <p className="text-[12.5px] text-ink-muted">Used by {d.recipientIds.map((id) => memberById(state, id)?.name).filter(Boolean).join(", ") || "not linked yet"}</p>
-                <p className="mt-1 text-[12.5px] text-ink-muted">{state.appointments.filter((a) => a.doctorId === d.id || a.doctor === d.name).length} linked visit{state.appointments.filter((a) => a.doctorId === d.id || a.doctor === d.name).length === 1 ? "" : "s"}</p>
-                <Button size="sm" variant="ghost" className="mt-2" onClick={() => update((s) => archiveDoctor(s, d.id))}>Archive</Button>
+                <p className="text-[12.5px] text-ink-muted">Used by {d.recipientIds.map((id) => people.find((m) => m.id === id)?.name).filter(Boolean).join(", ") || "not linked yet"}</p>
+                <p className="mt-1 text-[12.5px] text-ink-muted">{(readOnly ? SAMPLE_APPOINTMENTS : state.appointments).filter((a) => a.doctorId === d.id || a.doctor === d.name).length} linked visit{(readOnly ? SAMPLE_APPOINTMENTS : state.appointments).filter((a) => a.doctorId === d.id || a.doctor === d.name).length === 1 ? "" : "s"}</p>
+                {readOnly ? <p className="mt-2 text-[12px] font-bold text-[#9A8173]">{SAMPLE_APPOINTMENT_BADGE}</p> : <Button size="sm" variant="ghost" className="mt-2" onClick={() => update((s) => archiveDoctor(s, d.id))}>Archive</Button>}
               </Surface>
             </li>
           ))}
@@ -499,9 +636,9 @@ function DoctorGroup({ title, doctors, empty }: { title: string; doctors: Family
   );
 }
 
-function VisitCard({ appointment, today, onCancel, onComplete, onFollow, onEdit }: { appointment: Appointment; today: string; onCancel?: () => void; onComplete?: () => void; onFollow?: () => void; onEdit?: () => void }) {
+function VisitCard({ appointment, today, sample, onCancel, onComplete, onFollow, onEdit, onOpen }: { appointment: Appointment; today: string; sample?: boolean; onCancel?: () => void; onComplete?: () => void; onFollow?: () => void; onEdit?: () => void; onOpen?: () => void }) {
   const { state } = useStore();
-  const member = memberById(state, appointment.familyMemberId);
+  const member = sample ? sampleMember(appointment.familyMemberId) : memberById(state, appointment.familyMemberId);
   const swatch = familySwatch(member);
   const kind = appointmentKind(appointment, today);
   const doctor = state.doctors.find((d) => d.id === appointment.doctorId);
@@ -522,7 +659,11 @@ function VisitCard({ appointment, today, onCancel, onComplete, onFollow, onEdit 
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <Link href={`/appointments/${appointment.id}`} className="inline-flex h-9 items-center rounded-[12px] px-3 text-[13px] font-bold text-peach-deep hover:underline">View details</Link>
+        {onOpen ? (
+          <button type="button" onClick={onOpen} className="inline-flex h-9 items-center rounded-[12px] px-3 text-[13px] font-bold text-peach-deep hover:underline">View details</button>
+        ) : (
+          <Link href={`/appointments/${appointment.id}`} className="inline-flex h-9 items-center rounded-[12px] px-3 text-[13px] font-bold text-peach-deep hover:underline">View details</Link>
+        )}
         {onEdit && kind !== "cancelled" && <Button size="sm" variant="outline" onClick={onEdit}>Edit</Button>}
         {onComplete && (kind === "upcoming" || kind === "needs_review") && <Button size="sm" variant="outline" onClick={onComplete}>Mark attended</Button>}
         {onCancel && (kind === "upcoming" || kind === "needs_review") && <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>}

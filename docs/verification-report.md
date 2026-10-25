@@ -2,7 +2,29 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## Family Appointments redesign (this pass)
+## Family Appointments sample preview (this pass)
+
+Reference-matched Appointments workspace plus an isolated fictional sample preview. No migration. Fixtures never write to Supabase, reminders, or Health Cards.
+
+- Sample fixtures live in `src/lib/demo/appointment-fixtures.ts` with `fixture-*` IDs and `source: "sample"`.
+- Empty live lists open sample preview automatically. Real records stay on live data; users can still enter/leave sample preview.
+- Sample clock is Sunday 25 October 2026. Live mode uses Asia/Kolkata `calendarToday()`.
+- New appointment still uses the real form/`saveAppointment`/`createCloudAppointment` and leaves sample preview after a confirmed write.
+- Wispr examples prefill only. In sample preview, submit says nothing was saved.
+
+### Commands this pass
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **155 passed**, **4 skipped** |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | `/appointments` |
+
+---
+
+## Family Appointments redesign (prior pass)
 
 Premium Appointments workspace on the existing models (`saveAppointment`, `scheduleFollowUp`, `upsertDoctor`, `/api/appointments`). No new migration. Today’s weekly calendar is unchanged.
 

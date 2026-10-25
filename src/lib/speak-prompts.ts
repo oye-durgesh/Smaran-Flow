@@ -28,10 +28,9 @@ export const SPEAK_PROMPTS = {
     "Papa ka doctor ka appointment kal 11 baje hai.",
   ],
   appointments: [
-    "Mummy ki Dr Sharma ke saath Friday ko 11 baje appointment hai.",
-    "Papa ka follow-up agle Monday ko 3 baje rakhna hai.",
-    "Dadi ki next appointment kal 10 baje schedule karo.",
-    "Mummy ke next checkup ki date yaad dilana.",
+    "Mummy ki next appointment kab hai?",
+    "Papa ka follow-up kal schedule karna hai.",
+    "Dadi ki doctor list dikhao.",
   ],
   documents: [
     "Mummy ka latest blood report dikhao.",

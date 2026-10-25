@@ -4,14 +4,18 @@ import { relativeDay } from "./dates";
 import { addCalendarDays, mondayWeekOf } from "./timezone";
 
 export const APPOINTMENT_WISPR_EXAMPLES = [
-  "Mummy ki Dr Sharma ke saath Friday ko 11 baje appointment hai.",
-  "Papa ka follow-up agle Monday ko 3 baje rakhna hai.",
-  "Dadi ki next appointment kal 10 baje schedule karo.",
-  "Mummy ke next checkup ki date yaad dilana.",
+  "Mummy ki next appointment kab hai?",
+  "Papa ka follow-up kal schedule karna hai.",
+  "Dadi ki doctor list dikhao.",
 ] as const;
 
 export const APPOINTMENT_WISPR_HEADING = "Use Wispr Flow for better voice capture";
 export const APPOINTMENT_WISPR_SUPPORT = "Speak naturally — SMARAN will organize it for you.";
+export const APPOINTMENT_PAGE_LAYOUT = {
+  desktop: "overflow-x-hidden",
+  calendar: "xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,1fr)]",
+  mobile: "stack-vertical",
+};
 
 export const UNKNOWN = "Not recorded";
 
@@ -43,8 +47,37 @@ export function uniqueAppointments(items: Appointment[]): Appointment[] {
   });
 }
 
+export function listOnDate(items: Appointment[], date: DateKey): Appointment[] {
+  return uniqueAppointments(items.filter((a) => a.date === date)).sort((a, b) => (a.time < b.time ? -1 : 1));
+}
+
 export function appointmentsOnDate(state: AppState, date: DateKey): Appointment[] {
-  return uniqueAppointments(state.appointments.filter((a) => a.date === date)).sort((a, b) => (a.time < b.time ? -1 : 1));
+  return listOnDate(state.appointments, date);
+}
+
+export function appointmentLists(items: Appointment[], today: DateKey) {
+  const unique = uniqueAppointments(items);
+  const upcoming = unique.filter((a) => appointmentKind(a, today) === "upcoming").sort((a, b) => (a.date + a.time < b.date + b.time ? -1 : 1));
+  const past = unique.filter((a) => a.status === "completed").sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1));
+  const reviews = unique.filter((a) => appointmentKind(a, today) === "needs_review");
+  const followups = unique
+    .filter((a) => Boolean(a.followUpOfId) || (a.followUpDate && a.status !== "cancelled") || Boolean(a.visit?.followUpRecommended && a.visit.followUpDate))
+    .sort((a, b) => ((a.followUpDate ?? a.date) < (b.followUpDate ?? b.date) ? -1 : 1));
+  const awaiting = followups.filter((a) => {
+    if (a.followUpOfId) return appointmentKind(a, today) === "upcoming";
+    const date = a.followUpDate ?? a.visit?.followUpDate;
+    if (!date) return false;
+    return !unique.some((x) => x.followUpOfId === a.id && x.status !== "cancelled");
+  }).length;
+  return {
+    upcoming,
+    past,
+    reviews,
+    followups,
+    awaiting,
+    busy: new Set(unique.filter((a) => a.status !== "cancelled").map((a) => a.date)),
+    groups: groupUpcomingByWhen(upcoming, today),
+  };
 }
 
 /** Dates that should show a calendar mark. Cancelled-only days stay empty of an ordinary visit dot. */
@@ -70,44 +103,24 @@ export function groupUpcomingByWhen(items: Appointment[], today: DateKey): { key
     .filter((group) => group.items.length > 0);
 }
 
-export function upcomingVisits(state: AppState, memberId?: string): Appointment[] {
-  const today = calendarToday();
-  return uniqueAppointments(state.appointments)
-    .filter((a) => appointmentKind(a, today) === "upcoming" && (!memberId || a.familyMemberId === memberId))
-    .sort((a, b) => (a.date + a.time < b.date + b.time ? -1 : 1));
+export function upcomingVisits(state: AppState, memberId?: string, today: DateKey = calendarToday()): Appointment[] {
+  return appointmentLists(state.appointments, today).upcoming.filter((a) => !memberId || a.familyMemberId === memberId);
 }
 
 export function pastVisits(state: AppState, memberId?: string): Appointment[] {
-  return uniqueAppointments(state.appointments)
-    .filter((a) => a.status === "completed" && (!memberId || a.familyMemberId === memberId))
-    .sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1));
+  return appointmentLists(state.appointments, calendarToday()).past.filter((a) => !memberId || a.familyMemberId === memberId);
 }
 
-export function reviewVisits(state: AppState, memberId?: string): Appointment[] {
-  const today = calendarToday();
-  return uniqueAppointments(state.appointments).filter((a) => appointmentKind(a, today) === "needs_review" && (!memberId || a.familyMemberId === memberId));
+export function reviewVisits(state: AppState, memberId?: string, today: DateKey = calendarToday()): Appointment[] {
+  return appointmentLists(state.appointments, today).reviews.filter((a) => !memberId || a.familyMemberId === memberId);
 }
 
 export function followUpVisits(state: AppState, memberId?: string): Appointment[] {
-  return uniqueAppointments(state.appointments)
-    .filter((a) => {
-      if (memberId && a.familyMemberId !== memberId) return false;
-      if (a.followUpOfId) return true;
-      if (a.followUpDate && a.status !== "cancelled") return true;
-      if (a.visit?.followUpRecommended && a.visit.followUpDate) return true;
-      return false;
-    })
-    .sort((a, b) => ((a.followUpDate ?? a.date) < (b.followUpDate ?? b.date) ? -1 : 1));
+  return appointmentLists(state.appointments, calendarToday()).followups.filter((a) => !memberId || a.familyMemberId === memberId);
 }
 
-export function awaitingFollowUpCount(state: AppState): number {
-  return followUpVisits(state).filter((a) => {
-    if (a.followUpOfId) return appointmentKind(a) === "upcoming";
-    const date = a.followUpDate ?? a.visit?.followUpDate;
-    if (!date) return false;
-    const already = state.appointments.some((x) => x.followUpOfId === a.id && x.status !== "cancelled");
-    return !already;
-  }).length;
+export function awaitingFollowUpCount(state: AppState, today: DateKey = calendarToday()): number {
+  return appointmentLists(state.appointments, today).awaiting;
 }
 
 export function reminderStatusLabel(a: Appointment): string {

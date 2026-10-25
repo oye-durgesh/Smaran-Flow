@@ -3,6 +3,7 @@ import { createEmptyState } from "./seed";
 import { addCalendarMonths, monthGrid, monthGridMonday, yearMonthOf, zonedNow } from "./timezone";
 import { calendarToday } from "./selectors";
 import {
+  APPOINTMENT_PAGE_LAYOUT,
   APPOINTMENT_WISPR_EXAMPLES,
   APPOINTMENT_WISPR_HEADING,
   appointmentKind,
@@ -171,7 +172,8 @@ describe("authorization and layout", () => {
   });
 
   it("keeps the appointments calendar overflow-safe", () => {
-    expect("overflow-x-hidden grid grid-cols-7").toContain("overflow-x-hidden");
+    expect(APPOINTMENT_PAGE_LAYOUT.desktop).toContain("overflow-x-hidden");
+    expect(APPOINTMENT_PAGE_LAYOUT.mobile).toBe("stack-vertical");
   });
 
   it("groups upcoming labels from the actual Asia/Kolkata today", () => {
@@ -180,8 +182,8 @@ describe("authorization and layout", () => {
     expect(upcomingBucket("2026-10-30", "2026-10-25")).not.toBe("tomorrow");
     expect(groupUpcomingByWhen([{ date: "2026-10-26" } as never], "2026-10-25")[0]?.label).toBe("Tomorrow");
     expect(APPOINTMENT_WISPR_HEADING).toBe("Use Wispr Flow for better voice capture");
-    expect(APPOINTMENT_WISPR_EXAMPLES).toHaveLength(4);
-    expect(APPOINTMENT_WISPR_EXAMPLES[0]).toMatch(/Mummy ki Dr Sharma/);
+    expect(APPOINTMENT_WISPR_EXAMPLES).toHaveLength(3);
+    expect(APPOINTMENT_WISPR_EXAMPLES[0]).toMatch(/Mummy ki next appointment/);
   });
 
   it("does not mark cancelled-only days on the calendar", () => {
