@@ -8,7 +8,27 @@ import { fetchSession, fetchVault, type SessionPayload } from "./cloud";
 import { isolateState } from "../demo/workspace";
 
 const STORAGE_KEY = "smaran:state";
+const REAL_BACKUP_KEY = "smaran:real-state";
 const listeners = new Set<() => void>();
+
+function readBackup(): AppState | null {
+  try {
+    const raw = window.localStorage.getItem(REAL_BACKUP_KEY);
+    if (!raw) return null;
+    return migrate(JSON.parse(raw) as AppState);
+  } catch {
+    return null;
+  }
+}
+
+function writeBackup(state: AppState) {
+  if (state.settings.demoWorkspace) return;
+  try {
+    window.localStorage.setItem(REAL_BACKUP_KEY, JSON.stringify(state));
+  } catch {
+    /* ignore */
+  }
+}
 
 function emit() {
   for (const l of listeners) l();
@@ -142,6 +162,7 @@ interface StoreValue {
   commit: <T>(fn: (s: AppState) => [AppState, T]) => T;
   resetDemo: () => void;
   restoreDemo: () => void;
+  setDemoEnabled: (on: boolean) => void;
   clearAll: () => void;
   refreshSession: () => Promise<void>;
   refreshVault: () => Promise<boolean>;
@@ -179,7 +200,19 @@ export function StoreProvider({ children }: { children: ReactNode; fallback?: Re
   }, []);
 
   const restoreDemo = useCallback(() => {
+    const current = getSnapshot();
+    writeBackup(current);
     persist(createDemoState());
+  }, []);
+
+  const setDemoEnabled = useCallback((on: boolean) => {
+    const current = getSnapshot();
+    if (on) {
+      writeBackup(current);
+      persist(createDemoState());
+      return;
+    }
+    persist(readBackup() ?? { ...createEmptyState(), settings: { ...createEmptyState().settings, demoWorkspace: false } });
   }, []);
 
   const clearAll = useCallback(() => {
@@ -242,8 +275,8 @@ export function StoreProvider({ children }: { children: ReactNode; fallback?: Re
   }, [refreshSession]);
 
   const value = useMemo(
-    () => ({ state, session, vaultError, update, commit, resetDemo, restoreDemo, clearAll, refreshSession, refreshVault }),
-    [state, session, vaultError, update, commit, resetDemo, restoreDemo, clearAll, refreshSession, refreshVault],
+    () => ({ state, session, vaultError, update, commit, resetDemo, restoreDemo, setDemoEnabled, clearAll, refreshSession, refreshVault }),
+    [state, session, vaultError, update, commit, resetDemo, restoreDemo, setDemoEnabled, clearAll, refreshSession, refreshVault],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

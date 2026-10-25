@@ -11,7 +11,8 @@ import { agendaFor, memberById, todayOf, upcomingAfter } from "@/lib/selectors";
 import { formatTime, greetingFor } from "@/lib/dates";
 import { formatFullDate, mondayWeekOf, zonedNow } from "@/lib/timezone";
 import { TODAY_EXAMPLES, TODAY_SECTIONS, TODAY_SHORTCUTS, captureOnToday } from "@/lib/store/today-capture";
-import { createCloudReminder, isUuid } from "@/lib/store/cloud";
+import { createCloudReminder, demoWorkspaceAction, isUuid } from "@/lib/store/cloud";
+import { Switch } from "@/components/ui/switch";
 import { WeekProgressCalendar } from "@/components/smaran/week-progress-calendar";
 import { EmptyState, MemberAvatar, SectionLabel, StatusBadge } from "@/components/smaran/primitives";
 import { WisprFlowSection } from "@/components/smaran/wispr-flow-section";
@@ -199,7 +200,9 @@ function Schedule({ selected, today }: { selected: string; today: string }) {
 }
 
 export function TodayScreen() {
-  const { state, update, commit, session, refreshVault } = useStore();
+  const { state, update, commit, session, refreshVault, refreshSession, setDemoEnabled } = useStore();
+  const [demoBusy, setDemoBusy] = useState(false);
+  const demoOn = Boolean(state.settings.demoWorkspace || session.isDemo);
   const { isWeb } = useView();
   const t = useT();
   const today = todayOf(state);
@@ -266,15 +269,53 @@ export function TodayScreen() {
       <div className={cn("grid gap-8", isWeb ? "xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start" : "")}>
         <div className="min-w-0">
           <header className="mb-6" data-section={TODAY_SECTIONS[0]}>
-            <h1 className="text-[28px] leading-tight font-extrabold tracking-tight text-ink-strong sm:text-[34px]">
-              {greeting}{state.user.name.trim() ? `, ${state.user.name}` : ""}.
-            </h1>
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="min-w-0 text-[28px] leading-tight font-extrabold tracking-tight text-ink-strong sm:text-[34px]">
+                {greeting}{state.user.name.trim() ? `, ${state.user.name}` : ""}.
+              </h1>
+              <label className="mt-1 inline-flex shrink-0 items-center gap-2 rounded-full border border-line bg-surface-raised px-2.5 py-1.5">
+                <span className="text-[12px] font-extrabold tracking-wide text-ink-strong">Demo</span>
+                <Switch
+                  size="sm"
+                  checked={demoOn}
+                  disabled={demoBusy}
+                  aria-label={demoOn ? "Turn demo data off" : "Turn demo data on"}
+                  className="data-checked:bg-peach data-unchecked:bg-ivory-deep"
+                  onCheckedChange={(checked) => {
+                    void (async () => {
+                      setDemoBusy(true);
+                      try {
+                        if (session.authenticated) {
+                          if (checked) {
+                            const demo = session.workspaces?.find((w) => w.isDemo);
+                            if (demo) await demoWorkspaceAction({ action: "switch", familyId: demo.id });
+                            else await demoWorkspaceAction({ action: "load", confirm: true });
+                            await refreshSession();
+                          } else {
+                            const real = session.workspaces?.find((w) => !w.isDemo);
+                            if (real) await demoWorkspaceAction({ action: "switch", familyId: real.id });
+                            await refreshSession();
+                          }
+                        }
+                        setDemoEnabled(checked);
+                        toast.success(checked ? "Demo data on — fictional family." : "Demo data off.");
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : "Could not switch demo data.");
+                      } finally {
+                        setDemoBusy(false);
+                      }
+                    })();
+                  }}
+                />
+                <span className="text-[11px] font-bold text-ink-muted">{demoOn ? "On" : "Off"}</span>
+              </label>
+            </div>
             <p className="mt-1 text-[16px] font-semibold text-ink" data-testid="today-full-date">
               {formatFullDate(today)}
             </p>
             <p className="mt-1 text-[15px] text-ink-muted">{t("todaySubtitle")}</p>
-            {(state.settings.demoWorkspace || session.isDemo) && (
-              <p className="mt-2 rounded-full bg-sand/60 px-3 py-1 text-[12px] font-semibold text-ink">DEMO DATA — FICTIONAL — NOT FOR CLINICAL USE</p>
+            {demoOn && (
+              <p className="mt-2 inline-flex rounded-full bg-sand/60 px-3 py-1 text-[12px] font-semibold text-ink">DEMO DATA — FICTIONAL — NOT FOR CLINICAL USE</p>
             )}
           </header>
           {filterInbox(state.inAppNotifications ?? [], "due").filter((n) => n.scheduledAt.startsWith(today)).length > 0 && (
