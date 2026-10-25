@@ -179,7 +179,7 @@ export function interpretLocally(
     return {
       ...base,
       memberId: h.memberId ?? base.memberId,
-      measurementKind: h.kind,
+      measurementKind: h.kind === "blood_pressure" || h.kind === "blood_sugar" || h.kind === "weight" || h.kind === "heart_rate" ? h.kind : undefined,
       measurementValue: h.value,
       unit: h.unit,
       missingFields: [!h.memberId && "person", !h.kind && "measurementKind", !h.value && "value", h.incomplete].filter(Boolean) as string[],

@@ -406,6 +406,12 @@ export function upsertMeasurement(
     source: input.source ?? "wispr",
     documentId: input.documentId,
     note: input.note,
+    ...(input.kind === "blood_pressure"
+      ? (() => {
+          const pair = input.value.trim().match(/^(\d{2,3})\s*\/\s*(\d{2,3})$/);
+          return pair ? { systolic: Number(pair[1]), diastolic: Number(pair[2]) } : {};
+        })()
+      : {}),
   };
   const next = { ...state, measurements: [measurement, ...state.measurements] };
   return [

@@ -72,7 +72,13 @@ export function parseHealth(text: string, family: FamilyMember[]): HealthDraft {
 }
 
 export function healthLabel(kind: MeasurementKind): string {
-  return kind === "blood_pressure" ? "Blood pressure" : kind === "blood_sugar" ? "Blood sugar" : kind === "heart_rate" ? "Heart rate" : "Weight";
+  if (kind === "blood_pressure") return "Blood pressure";
+  if (kind === "blood_sugar") return "Blood sugar";
+  if (kind === "heart_rate") return "Heart rate";
+  if (kind === "temperature") return "Temperature";
+  if (kind === "spo2") return "SpO₂";
+  if (kind === "other") return "Other measurement";
+  return "Weight";
 }
 
 /** Pull every complete measurement mentioned in one utterance (e.g. sugar + BP). */

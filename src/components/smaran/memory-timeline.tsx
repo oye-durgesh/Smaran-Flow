@@ -37,6 +37,10 @@ const ICONS: Record<MemoryEvent["type"], { icon: typeof Check; cls: string }> = 
   doctor_created: { icon: UserPlus, cls: "bg-sand text-brown" },
   doctor_updated: { icon: PencilLine, cls: "bg-ivory-deep text-brown" },
   followup_created: { icon: CalendarPlus, cls: "bg-sand text-brown" },
+  history_recorded: { icon: FilePlus2, cls: "bg-peach-soft text-peach-deep" },
+  history_updated: { icon: PencilLine, cls: "bg-ivory-deep text-brown" },
+  vaccination_recorded: { icon: Check, cls: "bg-confirmed text-white" },
+  diary_recorded: { icon: PencilLine, cls: "bg-sand text-brown" },
 };
 
 function hrefFor(e: MemoryEvent): string | undefined {

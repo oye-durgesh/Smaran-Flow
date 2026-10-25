@@ -23,13 +23,13 @@ export async function fetchSession(): Promise<SessionPayload> {
 }
 
 export async function fetchVault(): Promise<
-  | { ok: true; family: unknown[]; appointments: unknown[]; reminders: unknown[]; measurements: unknown[]; documents: unknown[]; memory: unknown[]; medicines?: unknown[]; refills?: unknown[]; doctors?: unknown[] }
+  | { ok: true; family: unknown[]; appointments: unknown[]; reminders: unknown[]; measurements: unknown[]; documents: unknown[]; memory: unknown[]; medicines?: unknown[]; refills?: unknown[]; doctors?: unknown[]; medicalHistory?: unknown[]; vaccinations?: unknown[]; diary?: unknown[] }
   | { ok: false; status: number; error: string; persistence?: string }
 > {
   const res = await fetch("/api/vault", { cache: "no-store" });
   const data = (await res.json()) as { error?: string; persistence?: string; family?: unknown[] };
   if (!res.ok) return { ok: false, status: res.status, error: data.error || "Vault load failed.", persistence: data.persistence };
-  return { ok: true, ...(data as { family: unknown[]; appointments: unknown[]; reminders: unknown[]; measurements: unknown[]; documents: unknown[]; memory: unknown[]; medicines?: unknown[]; refills?: unknown[]; doctors?: unknown[] }) };
+  return { ok: true, ...(data as { family: unknown[]; appointments: unknown[]; reminders: unknown[]; measurements: unknown[]; documents: unknown[]; memory: unknown[]; medicines?: unknown[]; refills?: unknown[]; doctors?: unknown[]; medicalHistory?: unknown[]; vaccinations?: unknown[]; diary?: unknown[] }) };
 }
 
 export async function saveCloudMedicine(input: Record<string, unknown>) {
@@ -85,10 +85,28 @@ export async function createCloudReminder(input: { recipientId: string; title: s
   return data;
 }
 
-export async function createCloudMeasurement(input: { recipientId: string; kind: string; value: string; unit: string; sourceType?: string }) {
+export async function createCloudMeasurement(input: {
+  recipientId: string;
+  kind: string;
+  value: string;
+  unit: string;
+  sourceType?: string;
+  systolic?: number;
+  diastolic?: number;
+  glucoseContext?: string;
+  note?: string;
+  recordedAt?: string;
+}) {
   const res = await fetch("/api/measurements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
   const data = (await res.json()) as { error?: string; id?: string };
   if (!res.ok) throw new Error(data.error || "Measurement create failed.");
+  return data;
+}
+
+export async function createCloudHealthRecord(input: Record<string, unknown>) {
+  const res = await fetch("/api/health-record", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+  const data = (await res.json()) as { error?: string; id?: string };
+  if (!res.ok) throw new Error(data.error || "Health record save failed.");
   return data;
 }
 

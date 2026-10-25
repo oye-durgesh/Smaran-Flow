@@ -17,12 +17,18 @@ function migrate(parsed: AppState): AppState {
   const medicines = Array.isArray(parsed.medicines) ? parsed.medicines : [];
   const refills = Array.isArray(parsed.refills) ? parsed.refills : [];
   const doctors = Array.isArray(parsed.doctors) ? parsed.doctors : [];
+  const medicalHistory = Array.isArray(parsed.medicalHistory) ? parsed.medicalHistory : [];
+  const vaccinations = Array.isArray(parsed.vaccinations) ? parsed.vaccinations : [];
+  const diary = Array.isArray(parsed.diary) ? parsed.diary : [];
   if (parsed.version === STATE_VERSION && Array.isArray(parsed.measurements)) {
     return {
       ...parsed,
       medicines,
       refills,
       doctors,
+      medicalHistory,
+      vaccinations,
+      diary,
       reminders: parsed.reminders.map((r) => ({ ...r, kind: r.kind === "pickup" || r.kind === "check" || r.kind === "medicine" ? r.kind : r.kind === "other" ? "other" : "other" })),
       appointments: parsed.appointments.map((a) => ({ ...a, status: a.status === "completed" || a.status === "cancelled" ? a.status : "upcoming" })),
     };
@@ -35,6 +41,9 @@ function migrate(parsed: AppState): AppState {
     medicines,
     refills,
     doctors,
+    medicalHistory,
+    vaccinations,
+    diary,
   };
 }
 
@@ -175,6 +184,9 @@ export function StoreProvider({ children }: { children: ReactNode; fallback?: Re
       medicines: (vault.medicines as AppState["medicines"] | undefined) ?? [],
       refills: (vault.refills as AppState["refills"] | undefined) ?? [],
       doctors: (vault.doctors as AppState["doctors"] | undefined) ?? [],
+      medicalHistory: (vault.medicalHistory as AppState["medicalHistory"] | undefined) ?? [],
+      vaccinations: (vault.vaccinations as AppState["vaccinations"] | undefined) ?? [],
+      diary: (vault.diary as AppState["diary"] | undefined) ?? [],
     };
     emit();
     return true;

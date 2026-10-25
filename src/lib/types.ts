@@ -211,7 +211,9 @@ export interface HealthDocument {
   addedAt: LocalTimestamp;
 }
 
-export type MeasurementKind = "blood_pressure" | "blood_sugar" | "weight" | "heart_rate";
+export type MeasurementKind = "blood_pressure" | "blood_sugar" | "weight" | "heart_rate" | "temperature" | "spo2" | "other";
+export type GlucoseContext = "fasting" | "post_meal" | "random";
+export type MeasurementConfirmation = "family_reported" | "confirmed" | "needs_review";
 
 export interface HealthMeasurement {
   id: ID;
@@ -219,11 +221,68 @@ export interface HealthMeasurement {
   kind: MeasurementKind;
   value: string;
   unit: string;
+  systolic?: number;
+  diastolic?: number;
+  customLabel?: string;
+  glucoseContext?: GlucoseContext;
   recordedAt: LocalTimestamp;
   source: "wispr" | "manual" | "sample" | "document";
   documentId?: ID;
+  recordedBy?: string;
+  confirmation?: MeasurementConfirmation;
   /** Sample values are stored family notes, not clinical advice. */
   note?: string;
+}
+
+export type HistoryCategory = "illness" | "chronic" | "surgery" | "hospitalization" | "family_history";
+
+export interface MedicalHistoryEntry {
+  id: ID;
+  familyMemberId: ID;
+  category: HistoryCategory;
+  name: string;
+  status?: string;
+  startDate?: DateKey;
+  endDate?: DateKey;
+  hospital?: string;
+  relationship?: string;
+  notes?: string;
+  documentId?: ID;
+  source: "manual" | "document" | "sample";
+  recordedBy?: string;
+  createdAt: LocalTimestamp;
+  updatedAt: LocalTimestamp;
+  previous?: Record<string, string | undefined>;
+}
+
+export type VaccinationStatus = "completed" | "upcoming" | "overdue" | "unknown";
+
+export interface Vaccination {
+  id: ID;
+  familyMemberId: ID;
+  name: string;
+  dose?: string;
+  receivedDate?: DateKey;
+  nextDueDate?: DateKey;
+  clinic?: string;
+  documentId?: ID;
+  notes?: string;
+  source: "manual" | "document" | "sample";
+  recordedBy?: string;
+  createdAt: LocalTimestamp;
+}
+
+export interface DiaryEntry {
+  id: ID;
+  familyMemberId: ID;
+  title: string;
+  body: string;
+  recordedAt: LocalTimestamp;
+  recordedBy?: string;
+  appointmentId?: ID;
+  documentId?: ID;
+  measurementId?: ID;
+  source: "manual" | "sample";
 }
 
 export type MemoryEventType =
@@ -255,7 +314,11 @@ export type MemoryEventType =
   | "refill_updated"
   | "doctor_created"
   | "doctor_updated"
-  | "followup_created";
+  | "followup_created"
+  | "history_recorded"
+  | "history_updated"
+  | "vaccination_recorded"
+  | "diary_recorded";
 
 export interface MemoryEvent {
   id: ID;
@@ -311,6 +374,9 @@ export interface AppState {
   doctors: FamilyDoctor[];
   documents: HealthDocument[];
   measurements: HealthMeasurement[];
+  medicalHistory: MedicalHistoryEntry[];
+  vaccinations: Vaccination[];
+  diary: DiaryEntry[];
   memory: MemoryEvent[];
   conversations: Conversation[];
   settings: Settings;

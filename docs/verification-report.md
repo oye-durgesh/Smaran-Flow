@@ -2,7 +2,38 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## Family Appointments (this pass)
+## Family Health Record (this pass)
+
+The per-person Health Card opens a Family Health Record for the selected care recipient. Navigation is driven by that person’s saved id — a new family member gets the same sections with empty states, not a copy of someone else’s readings.
+
+- Header: actual name, relationship and age only when stored, family identity colour, last saved update from memory timestamps, **Add record**, **Print**.
+- Tabs: Overview, Medical History, Measurements, Documents & Reports, Appointments & Visits, Vaccinations, Health Diary.
+- Overview cards and charts read saved measurements, appointments, and history. Sample rows are labelled and **excluded from charts**. Missing weeks stay empty. Weekly view uses the latest actual Sunday–Saturday reading.
+- BP stores systolic and diastolic separately. Glucose keeps the reported value, unit, and context; `38` is not rewritten.
+- Documents in the record are the same `documents` rows as the standalone Documents page, filtered to that person.
+- Appointments are the same records as Family Appointments.
+- Device-local writes use `recordMeasurement` / `saveHistory` / `saveVaccination` / `saveDiary`. Signed-in UUID recipients POST `/api/measurements` or `/api/health-record`. Failed writes keep the form and do not toast success.
+- This is a family record, not a diagnosis or treatment plan. Claude / OCR were not added in this pass.
+
+### New migration
+
+`supabase/migrations/0006_health_record.sql` — measurement systolic/diastolic/glucose_context/note columns; `medical_history`, `vaccinations`, `health_diary` with family RLS. Earlier migrations were not rewritten.
+
+### Commands this pass
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **126 passed**, **4 skipped** (live Supabase) |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | Routes include `/health-card/[id]`, `/api/health-record` |
+
+Not verified live: applying 0006, two-account RLS, OCR/Claude extraction, notification delivery, cross-device vault, click-test of chart tooltips on a phone.
+
+---
+
+## Family Appointments (prior pass)
 
 Appointments is a dedicated family visits workspace. Today’s weekly progress calendar was not changed.
 

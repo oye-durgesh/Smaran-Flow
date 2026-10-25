@@ -18,7 +18,7 @@ import { formatTime } from "./dates";
  */
 export const DEMO_TODAY = "2026-10-23";
 export const DEMO_NOW = `${DEMO_TODAY}T10:30`;
-export const STATE_VERSION = 6;
+export const STATE_VERSION = 7;
 
 const family: FamilyMember[] = [
   {
@@ -400,6 +400,9 @@ export function createDemoState(): AppState {
     doctors,
     documents,
     measurements,
+    medicalHistory: [],
+    vaccinations: [],
+    diary: [],
     memory: seedMemory(),
     conversations: [],
     settings: {
@@ -427,6 +430,9 @@ export function createEmptyState(): AppState {
     doctors: [],
     documents: [],
     measurements: [],
+    medicalHistory: [],
+    vaccinations: [],
+    diary: [],
     memory: [],
     conversations: [],
   };

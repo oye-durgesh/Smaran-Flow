@@ -50,9 +50,11 @@ CRON_SECRET=
 
 Without Anthropic, `/api/interpret` uses the deterministic parser and sets `claudeUsed: false`. Without `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, the app stays in **device-local mode** (`localStorage` + IndexedDB) and labels that clearly. It does not pretend browser data is cloud-synced.
 
-Apply `supabase/migrations/0001_smaran_family.sql` through `0005_doctors_and_followups.sql` in a Supabase project, then sign in under Settings. Care recipients (Mummy/Papa) are not login accounts. Use **Copy this browser's records into my family** to migrate local rows; local copies are never deleted automatically.
+Apply `supabase/migrations/0001_smaran_family.sql` through `0006_health_record.sql` in a Supabase project, then sign in under Settings. Care recipients (Mummy/Papa) are not login accounts. Use **Copy this browser's records into my family** to migrate local rows; local copies are never deleted automatically.
 
 **Medicines** is a first-class section: current courses, dose reminders, refill reminders, and history, grouped by the actual care recipients in the family. Dose reminders and pharmacy pickups stay separate. The Health Card and Today read the same saved medicine records.
+
+**Family Health Record** (open a person from Family / Health Card) is a person-specific file: Overview, Medical History, Measurements, Documents & Reports, Appointments & Visits, Vaccinations, and Health Diary. Charts use only confirmed saved readings for that person. Sample notes stay labelled and are excluded from BP/glucose trends. Blood pressure stores systolic and diastolic separately. A reported glucose of `38` is kept exactly and marked for review. `+ Add record` stays on the selected person. The standalone Documents page uses the same document rows.
 
 `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never put it in a `NEXT_PUBLIC_` variable.
 
@@ -92,4 +94,5 @@ Apply `supabase/migrations/0001_smaran_family.sql` only after you create a Supab
 | Web Push / cron delivery | blocked | `/api/cron/reminders` returns `delivered: 0` | VAPID + cron secret |
 | OCR on scans | blocked | Extract route fails honestly without key/worker | Anthropic vision or OCR worker |
 | Cross-family RLS live | blocked | policy SQL + unit rules; no live two-account run | two Supabase users |
+| Family Health Record (per person) | verified (local persist + unit) | Health Record tabs, charts from saved measurements, `/api/health-record` | Apply 0006; signed-in UUID recipients for cloud writes |
 | Health Card share across devices | blocked | Same-browser store | Print to PDF |

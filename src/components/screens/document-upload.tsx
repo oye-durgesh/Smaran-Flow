@@ -62,6 +62,7 @@ export function DocumentUploadScreen() {
   const { isWeb } = useView();
   const today = todayOf(state);
   const presetAppointment = state.appointments.find((a) => a.id === params.get("appointment"));
+  const presetMember = params.get("member");
 
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -90,7 +91,7 @@ export function DocumentUploadScreen() {
         return;
       }
       const guess = file.sample ? { memberId: "mummy", name: "Blood Report", type: "report" as const, doctor: "Dr Sharma", date: "2026-10-21" } : guessFromFileName(file.name, state.family);
-      const memberId = presetAppointment?.familyMemberId ?? guess.memberId;
+      const memberId = presetAppointment?.familyMemberId ?? (presetMember && state.family.some((m) => m.id === presetMember) ? presetMember : undefined) ?? guess.memberId;
       const extracted = extractHealthValues(`${file.name} `, state.family)
         .filter((h) => h.kind && h.value)
         .map((h) => ({ kind: h.kind!, value: h.value!, unit: h.unit ?? "" }));
@@ -108,7 +109,7 @@ export function DocumentUploadScreen() {
       setProgress(file.blob ? 0 : 100);
       setPhase("saving");
     },
-    [state.family, today, presetAppointment],
+    [state.family, today, presetAppointment, presetMember],
   );
 
   useEffect(() => {

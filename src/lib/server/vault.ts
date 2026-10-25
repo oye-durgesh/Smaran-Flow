@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AppState, Appointment, FamilyDoctor, FamilyMember, HealthDocument, HealthMeasurement, Medicine, MedicineRefill, MemoryEvent, Reminder } from "@/lib/types";
+import type { AppState, Appointment, DiaryEntry, FamilyDoctor, FamilyMember, HealthDocument, HealthMeasurement, MedicalHistoryEntry, Medicine, MedicineRefill, MemoryEvent, Reminder, Vaccination } from "@/lib/types";
 import { readSession, type DeviceSession } from "./session";
 import { createUserClient } from "./supabase";
 import { matchStoredAppointments, requireUniqueAppointment } from "./access";
@@ -149,16 +149,22 @@ function mapMeasurement(row: Record<string, unknown>): HealthMeasurement {
   return {
     id: String(row.id),
     familyMemberId: String(row.recipient_id),
-    kind: row.kind === "blood_pressure" || row.kind === "blood_sugar" || row.kind === "weight" || row.kind === "heart_rate" ? row.kind : "blood_pressure",
+    kind: row.kind === "blood_pressure" || row.kind === "blood_sugar" || row.kind === "weight" || row.kind === "heart_rate" || row.kind === "temperature" || row.kind === "spo2" || row.kind === "other" ? row.kind : "other",
     value: String(row.value),
     unit: String(row.unit || ""),
+    systolic: row.systolic == null ? undefined : Number(row.systolic),
+    diastolic: row.diastolic == null ? undefined : Number(row.diastolic),
+    glucoseContext: row.glucose_context === "fasting" || row.glucose_context === "post_meal" || row.glucose_context === "random" ? row.glucose_context : undefined,
     recordedAt: String(row.recorded_at).slice(0, 16),
     source: row.is_sample ? "sample" : row.source_type === "document" ? "document" : "manual",
+    recordedBy: row.author_id ? String(row.author_id) : undefined,
+    confirmation: row.confirmation_status === "confirmed" || row.confirmation_status === "needs_review" ? row.confirmation_status : "family_reported",
+    note: row.note ? String(row.note) : undefined,
   };
 }
 
-export async function loadVault(supabase: SupabaseClient, familyId: string): Promise<Pick<AppState, "family" | "appointments" | "reminders" | "measurements" | "documents" | "memory" | "medicines" | "refills" | "doctors">> {
-  const [recipients, appointments, reminders, measurements, documents, memory, medicines, refills, doctors] = await Promise.all([
+export async function loadVault(supabase: SupabaseClient, familyId: string): Promise<Pick<AppState, "family" | "appointments" | "reminders" | "measurements" | "documents" | "memory" | "medicines" | "refills" | "doctors" | "medicalHistory" | "vaccinations" | "diary">> {
+  const [recipients, appointments, reminders, measurements, documents, memory, medicines, refills, doctors, history, vaccinations, diary] = await Promise.all([
     supabase.from("care_recipients").select("*").eq("family_id", familyId),
     supabase.from("appointments").select("*").eq("family_id", familyId),
     supabase.from("reminders").select("*").eq("family_id", familyId),
@@ -168,12 +174,18 @@ export async function loadVault(supabase: SupabaseClient, familyId: string): Pro
     supabase.from("medicines").select("*").eq("family_id", familyId),
     supabase.from("medicine_refills").select("*").eq("family_id", familyId),
     supabase.from("family_doctors").select("*").eq("family_id", familyId),
+    supabase.from("medical_history").select("*").eq("family_id", familyId),
+    supabase.from("vaccinations").select("*").eq("family_id", familyId),
+    supabase.from("health_diary").select("*").eq("family_id", familyId),
   ]);
   const err = recipients.error || appointments.error || reminders.error || measurements.error || documents.error || memory.error;
   if (err) throw new VaultError(err.message, 500);
   if (medicines.error && !missingTable(medicines.error)) throw new VaultError(medicines.error.message, 500);
   if (refills.error && !missingTable(refills.error)) throw new VaultError(refills.error.message, 500);
   if (doctors.error && !missingTable(doctors.error)) throw new VaultError(doctors.error.message, 500);
+  if (history.error && !missingTable(history.error)) throw new VaultError(history.error.message, 500);
+  if (vaccinations.error && !missingTable(vaccinations.error)) throw new VaultError(vaccinations.error.message, 500);
+  if (diary.error && !missingTable(diary.error)) throw new VaultError(diary.error.message, 500);
 
   return {
     family: (recipients.data ?? []).map(mapRecipient),
@@ -188,7 +200,7 @@ export async function loadVault(supabase: SupabaseClient, familyId: string): Pro
         type: "other",
         date: String(r.created_at).slice(0, 10),
         file: { name: String(r.name || "file"), size: Number(r.byte_size || 0), mime: String(r.mime || "application/octet-stream"), storage: "local" },
-        metadata: { source: r.is_sample ? "sample" : "upload", detectedFrom: "manual" },
+        metadata: { source: r.is_sample ? "sample" : "upload", detectedFrom: r.extracted_text ? "description" : "manual", description: r.extracted_text ? String(r.extracted_text) : undefined },
         addedAt: String(r.created_at).slice(0, 16),
       }),
     ),
@@ -207,6 +219,56 @@ export async function loadVault(supabase: SupabaseClient, familyId: string): Pro
     medicines: missingTable(medicines.error) ? [] : (medicines.data ?? []).map((r) => mapMedicine(r as Record<string, unknown>)),
     refills: missingTable(refills.error) ? [] : (refills.data ?? []).map((r) => mapRefill(r as Record<string, unknown>)),
     doctors: missingTable(doctors.error) ? [] : (doctors.data ?? []).map((r) => mapDoctor(r as Record<string, unknown>)),
+    medicalHistory: missingTable(history.error)
+      ? []
+      : (history.data ?? []).map(
+          (r): MedicalHistoryEntry => ({
+            id: String(r.id),
+            familyMemberId: String(r.recipient_id),
+            category: r.category === "chronic" || r.category === "surgery" || r.category === "hospitalization" || r.category === "family_history" ? r.category : "illness",
+            name: String(r.name),
+            status: r.status ? String(r.status) : undefined,
+            startDate: r.start_date ? String(r.start_date) : undefined,
+            endDate: r.end_date ? String(r.end_date) : undefined,
+            hospital: r.hospital ? String(r.hospital) : undefined,
+            relationship: r.relationship ? String(r.relationship) : undefined,
+            notes: r.notes ? String(r.notes) : undefined,
+            source: r.is_sample ? "sample" : "manual",
+            recordedBy: r.created_by ? String(r.created_by) : undefined,
+            createdAt: String(r.created_at).slice(0, 16),
+            updatedAt: String(r.updated_at || r.created_at).slice(0, 16),
+          }),
+        ),
+    vaccinations: missingTable(vaccinations.error)
+      ? []
+      : (vaccinations.data ?? []).map(
+          (r): Vaccination => ({
+            id: String(r.id),
+            familyMemberId: String(r.recipient_id),
+            name: String(r.name),
+            dose: r.dose ? String(r.dose) : undefined,
+            receivedDate: r.received_date ? String(r.received_date) : undefined,
+            nextDueDate: r.next_due_date ? String(r.next_due_date) : undefined,
+            clinic: r.clinic ? String(r.clinic) : undefined,
+            notes: r.notes ? String(r.notes) : undefined,
+            source: r.is_sample ? "sample" : "manual",
+            recordedBy: r.created_by ? String(r.created_by) : undefined,
+            createdAt: String(r.created_at).slice(0, 16),
+          }),
+        ),
+    diary: missingTable(diary.error)
+      ? []
+      : (diary.data ?? []).map(
+          (r): DiaryEntry => ({
+            id: String(r.id),
+            familyMemberId: String(r.recipient_id),
+            title: String(r.title),
+            body: String(r.body),
+            recordedAt: String(r.recorded_at || r.created_at).slice(0, 16),
+            recordedBy: r.created_by ? String(r.created_by) : undefined,
+            source: r.is_sample ? "sample" : "manual",
+          }),
+        ),
   };
 }
 

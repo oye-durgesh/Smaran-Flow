@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { SmaranLogo } from "./brand";
 import { MemberAvatar } from "./primitives";
 
-function lastUpdatedLabel(state: AppState, ts?: string) {
+export function lastUpdatedLabel(state: AppState, ts?: string) {
   if (!ts) return "Not updated yet";
   if (compareTs(addMinutes(ts, 3), state.demoNow) >= 0) return "Last updated just now";
   const day = relativeDay(dateOf(ts), todayOf(state));
