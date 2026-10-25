@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Reminder } from "./types";
 import { createReminder } from "./store/actions";
-import { createEmptyState } from "./seed";
+import { createDemoState, createEmptyState } from "./seed";
 import {
   acknowledgeNotification,
   applyLocalProcessor,
   claimDueNotifications,
+  recipientLabel,
   completeNotification,
   createOneTimeReminderInput,
   createRecurringReminderInput,
@@ -246,6 +247,23 @@ describe("in-app reminder scheduling", () => {
     const status = schedulerStatus({ cronSecretConfigured: false, serviceRoleConfigured: false, hostingCronVerified: false });
     expect(status.configured).toBe(false);
     expect(status.honest).toMatch(/not configured/i);
+  });
+
+  it("does not auto-fire sample reminders or invent a Family recipient", () => {
+    const state = createDemoState();
+    const sample = state.reminders.find((r) => r.source === "sample");
+    expect(sample).toBeTruthy();
+    const next = applyLocalProcessor(createDemoState(), kolkataMorning("2026-10-25T21:00"));
+    expect(next.inAppNotifications.some((n) => n.reminderId === sample?.id)).toBe(false);
+    const named = claimDueNotifications(emptyStore([reminder({ id: "r1", title: "Thyronorm", time: "09:00" })]), {
+      now: kolkataMorning("2026-10-26T09:00"),
+    });
+    const withName = {
+      ...named.created[0]!,
+      recipientName: undefined,
+      familyMemberId: "mummy",
+    };
+    expect(recipientLabel(createDemoState(), withName)).toBe("Mummy");
   });
 
   it("keeps dose taken as an explicit action", () => {

@@ -392,6 +392,7 @@ export interface InAppNotification {
   occurrenceId: ID;
   reminderId: ID;
   familyMemberId: ID;
+  recipientName?: string;
   title: string;
   scheduledAt: LocalTimestamp;
   timezone: string;

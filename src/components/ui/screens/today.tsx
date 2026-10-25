@@ -18,7 +18,7 @@ import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
 import { familyLegend, familySwatch, NEUTRAL_SWATCH } from "@/lib/family-color";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { filterInbox, lateLabel, reminderHref } from "@/lib/in-app-reminders";
+import { filterInbox, lateLabel, recipientLabel, reminderHref } from "@/lib/in-app-reminders";
 
 export const CAPTURE_EXAMPLES = TODAY_EXAMPLES;
 export { TODAY_SECTIONS, TODAY_SHORTCUTS };
@@ -275,18 +275,21 @@ export function TodayScreen() {
             </p>
             <p className="mt-1 text-[15px] text-ink-muted">{t("todaySubtitle")}</p>
           </header>
-          {filterInbox(state.inAppNotifications ?? [], "due").length > 0 && (
+          {filterInbox(state.inAppNotifications ?? [], "due").filter((n) => n.scheduledAt.startsWith(today)).length > 0 && (
             <section className="mb-6 rounded-[20px] border border-peach bg-peach-soft/50 p-3.5" aria-label="Due reminders">
               <p className="text-[12px] font-extrabold tracking-[0.12em] text-ink-muted uppercase">Due in-app reminders</p>
               <ul className="mt-2 space-y-2">
-                {filterInbox(state.inAppNotifications ?? [], "due").map((n) => (
+                {filterInbox(state.inAppNotifications ?? [], "due")
+                  .filter((n) => n.scheduledAt.startsWith(today))
+                  .slice(0, 6)
+                  .map((n) => (
                   <li key={n.id}>
                     <Link href={reminderHref(n)} className="block rounded-[14px] bg-surface-raised px-3 py-2">
                       <p className="text-[14.5px] font-bold text-ink-strong">
-                        {memberById(state, n.familyMemberId)?.name ?? "Family"} — {n.title}
+                        {recipientLabel(state, n)} — {n.title}
                       </p>
                       <p className="text-[12.5px] text-ink-muted">
-                        Scheduled {n.scheduledAt.slice(0, 10)} · {formatTime(n.scheduledAt.slice(11, 16))} · {n.status}
+                        Scheduled {formatTime(n.scheduledAt.slice(11, 16))} · {n.status}
                       </p>
                       {lateLabel(n) && <p className="text-[12px] font-semibold text-terracotta">{lateLabel(n)}</p>}
                     </Link>

@@ -119,11 +119,14 @@ export function DesktopSidebar({ className }: { className?: string }) {
   const state = useAppState();
   return (
     <nav aria-label="Main" data-testid="desktop-sidebar" className={cn("flex h-full w-[248px] shrink-0 flex-col border-r border-line bg-surface/70 px-3 py-6", className)}>
-      <div className="mb-7 flex items-start justify-between gap-2 px-2">
+      <div className="mb-5 px-2">
         <Link href="/today">
           <SmaranLogo size="md" />
         </Link>
-        <NotificationBell />
+        <div className="mt-3 flex items-center justify-between rounded-[14px] border border-line bg-surface-raised px-2 py-1">
+          <span className="px-1 text-[12px] font-bold text-ink-muted">Alerts</span>
+          <NotificationBell />
+        </div>
       </div>
       <NavLinks path={path} compact />
       <Link

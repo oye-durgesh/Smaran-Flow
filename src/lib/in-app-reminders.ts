@@ -31,6 +31,7 @@ export interface ReminderWorkspace {
   notifications: InAppNotification[];
   attempts: DeliveryAttempt[];
   medicines?: AppState["medicines"];
+  memberNames?: Record<string, string>;
 }
 
 export interface ProcessOptions {
@@ -42,6 +43,8 @@ export interface ProcessOptions {
   userId?: string;
   writeOk?: boolean;
   missedGraceMinutes?: number;
+  includeSample?: boolean;
+  horizonBackDays?: number;
 }
 
 export interface ProcessResult {
@@ -124,11 +127,11 @@ function courseAllowsDate(reminder: Reminder, date: DateKey, medicines: AppState
   return true;
 }
 
-export function plannedDueStamps(reminder: Reminder, now: Date, timeZone = FAMILY_TIMEZONE, medicines?: AppState["medicines"]): string[] {
+export function plannedDueStamps(reminder: Reminder, now: Date, timeZone = FAMILY_TIMEZONE, medicines?: AppState["medicines"], horizonBackDays = 2): string[] {
   if (reminder.status !== "active") return [];
   const today = zonedNow(timeZone, now).date;
   const start = reminderStartDate(reminder);
-  const horizonStart = addCalendarDays(today, -2);
+  const horizonStart = addCalendarDays(today, -horizonBackDays);
   const horizonEnd = addCalendarDays(today, 1);
   const from = start > horizonStart ? start : horizonStart;
   const stamps: string[] = [];
@@ -220,7 +223,11 @@ export function claimDueNotifications(store: ReminderWorkspace, opts: ProcessOpt
       skipped += 1;
       continue;
     }
-    for (const dueAt of plannedDueStamps(reminder, opts.now, tz, store.medicines)) {
+    if (!opts.includeSample && reminder.source === "sample") {
+      skipped += 1;
+      continue;
+    }
+    for (const dueAt of plannedDueStamps(reminder, opts.now, tz, store.medicines, opts.horizonBackDays ?? 2)) {
       if (isBeforeScheduled(dueAt, opts.now, tz)) continue;
 
       let occ = store.occurrences.find((o) => o.reminderId === reminder.id && o.dueAt === dueAt);
@@ -258,6 +265,7 @@ export function claimDueNotifications(store: ReminderWorkspace, opts: ProcessOpt
         occurrenceId: occ.id,
         reminderId: reminder.id,
         familyMemberId: reminder.familyMemberId,
+        recipientName: store.memberNames?.[reminder.familyMemberId],
         title: reminder.title,
         scheduledAt: dueAt,
         timezone: tz,
@@ -400,14 +408,17 @@ export function filterInbox(notifications: InAppNotification[], filter: "all" | 
 }
 
 export function applyLocalProcessor(state: AppState, now = new Date()): AppState {
+  const sampleIds = new Set(state.reminders.filter((r) => r.source === "sample").map((r) => r.id));
   const store: ReminderWorkspace = {
-    reminders: state.reminders,
+    reminders: state.reminders.filter((r) => r.source !== "sample"),
     occurrences: [],
-    notifications: [...(state.inAppNotifications ?? [])],
+    notifications: (state.inAppNotifications ?? []).filter((n) => !sampleIds.has(n.reminderId)),
     attempts: [],
     medicines: state.medicines,
+    memberNames: Object.fromEntries(state.family.map((m) => [m.id, m.name])),
   };
   for (const n of store.notifications) {
+    if (!n.recipientName) n.recipientName = store.memberNames?.[n.familyMemberId];
     if (!store.occurrences.some((o) => o.id === n.occurrenceId)) {
       store.occurrences.push({
         id: n.occurrenceId,
@@ -418,8 +429,24 @@ export function applyLocalProcessor(state: AppState, now = new Date()): AppState
       });
     }
   }
-  claimDueNotifications(store, { now, timezone: FAMILY_TIMEZONE });
+  claimDueNotifications(store, { now, timezone: FAMILY_TIMEZONE, includeSample: false, horizonBackDays: 0 });
   return { ...state, inAppNotifications: store.notifications };
+}
+
+export function recipientLabel(state: AppState, n: InAppNotification): string {
+  if (n.recipientName?.trim()) return n.recipientName;
+  const direct = state.family.find((m) => m.id === n.familyMemberId);
+  if (direct) return direct.name;
+  const reminder = state.reminders.find((r) => r.id === n.reminderId);
+  const fromReminder = reminder ? state.family.find((m) => m.id === reminder.familyMemberId) : undefined;
+  if (fromReminder) return fromReminder.name;
+  if (n.familyMemberId === "mummy" || reminder?.familyMemberId === "mummy") return "Mummy";
+  if (n.familyMemberId === "papa" || reminder?.familyMemberId === "papa") return "Papa";
+  return "Family";
+}
+
+export function schedulerStatusShort(configured: boolean): string {
+  return configured ? "Hosted scheduler verified." : "Scheduler not configured — Settings has the steps.";
 }
 
 export function reminderHref(n: InAppNotification): string {
