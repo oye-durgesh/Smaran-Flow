@@ -1,7 +1,7 @@
-import { classifySmaranIntent, missingAppointmentFields, missingReminderFields, parseAppointment, parseReminder } from "@/lib/nlu";
-import type { AppointmentDraft, ReminderDraft } from "@/lib/nlu";
+import { classifySmaranIntent, missingReminderFields, parseReminder } from "@/lib/nlu";
+import type { ReminderDraft } from "@/lib/nlu";
 import type { AppState } from "@/lib/types";
-import { createAppointment, createReminder } from "./actions";
+import { createReminder } from "./actions";
 import { zonedNow } from "../timezone";
 
 export const TODAY_SECTIONS = ["greeting", "calendar", "upcoming", "schedule", "shortcuts"] as const;
@@ -12,12 +12,9 @@ export const TODAY_SHORTCUTS = [
 ] as const;
 
 export const TODAY_EXAMPLES = [
-  "Mummy ki prescribed dawa kal subah 9 baje yaad dilana.",
-  "Papa ka BP 128 over 82 tha, save kar do.",
-  "Dadi ki doctor appointment kal 11 baje add karni hai.",
-  "Kal 2 baje pharmacy se dawa pick karni hai.",
-  "Mummy ka latest blood report kab upload hua tha?",
-  "Papa ka next appointment kab hai?",
+  "Mummy ki dawa aaj shaam 8 baje yaad dilana.",
+  "Papa ka BP check karne ka reminder kal 9 baje lagana hai.",
+  "Dadi ki appointment ke baad follow-up yaad dilana.",
 ] as const;
 
 export type TodayCaptureResult =
@@ -39,15 +36,9 @@ export function captureOnToday(state: AppState, text: string): { next: AppState;
   }
 
   if (intent === "appointment_create_or_update") {
-    const draft = parseAppointment(trimmed, state.family, today);
-    const missing = missingAppointmentFields(draft);
-    if (missing.length) {
-      return { next: state, result: { ok: false, error: "Which person, doctor, date and time? I will not guess. Nothing was saved." } };
-    }
-    const created = createAppointment(state, draft as Required<Pick<AppointmentDraft, "memberId" | "doctor" | "date" | "time">> & AppointmentDraft);
     return {
-      next: created.state,
-      result: { ok: true, kind: "appointment", id: created.id, href: `/appointments/${created.id}`, title: `${draft.doctor} appointment` },
+      next: state,
+      result: { ok: false, error: "Appointment scheduling is handled in Family Appointments. Nothing was saved on Today." },
     };
   }
 

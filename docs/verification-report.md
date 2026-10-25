@@ -2,7 +2,29 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## In-app reminder system (this pass)
+## Shared Wispr Flow composer (this pass)
+
+One reusable composer (`WisprFlowComposer` + `WISPR_SECTIONS` policy) on Today, Medicines, Appointments, Documents, Health Card, Ask SMARAN, and Settings. Logo is `/brand/wispr-flow.png`. No microphone button. No Claude. No new migration.
+
+Cross-section writes are blocked before execution (e.g. Medicines cannot create appointments). Today no longer saves appointments. Settings only accepts preference phrases.
+
+Windows / Mac / phone shortcut copy is shown when **Use Wispr Flow** is clicked. The browser still does not record audio.
+
+Supabase writes were **not** live-tested in this environment.
+
+### Commands this pass
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **200 passed**, **4 skipped** |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | |
+
+---
+
+## In-app reminder system (prior pass)
 
 Persistent, time-based **in-app** reminders. No phone, SMS, WhatsApp, email, or browser-push delivery. Hosted cron is **not verified** on a live Vercel/Supabase project in this session.
 

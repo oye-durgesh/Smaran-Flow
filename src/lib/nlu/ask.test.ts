@@ -69,12 +69,10 @@ describe("ask ui contract", () => {
   });
 
   it("keeps the Wispr Flow helper copy and official brand asset path", () => {
-    expect(ASK_PLACEHOLDER).toBe("Ask anything about your family's health…");
-    expect(WISPR_HEADING).toBe("Use Wispr Flow for better speech-to-text");
-    expect(WISPR_SUPPORT).toBe(
-      "Speak naturally in Wispr Flow. Your words will appear in this box — review and send them to Ask SMARAN.",
-    );
-    expect(WISPR_FOCUS_HINT.toLowerCase()).toMatch(/does not record/);
+    expect(ASK_PLACEHOLDER).toMatch(/BP|appointment|medicines|report/i);
+    expect(WISPR_HEADING).toBe("Ask SMARAN");
+    expect(WISPR_SUPPORT.toLowerCase()).toMatch(/organize|wispr/);
+    expect(WISPR_FOCUS_HINT.toLowerCase()).toMatch(/wispr flow/);
     expect(BRAND_ASSETS.wisprFlow).toBe("/brand/wispr-flow.png");
   });
 });

@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowUp, ChevronRight, Lightbulb, Loader2, Paperclip, SearchX, ShieldAlert } from "lucide-react";
-import { toast } from "sonner";
+import { ChevronRight, Lightbulb, Loader2, SearchX, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
@@ -17,11 +16,13 @@ import { Screen } from "@/components/shell/screen";
 import { AppointmentCard, DocumentCard, ReminderRow } from "@/components/smaran/cards";
 import { PageHeader } from "@/components/smaran/primitives";
 import { SmaranBotAvatar } from "@/components/smaran/smaran-bot-avatar";
-import { WisprFlowMark } from "@/components/smaran/brand";
+import { WisprFlowSection } from "@/components/smaran/wispr-flow-section";
 import { TrendChart } from "@/components/smaran/trend-chart";
 import { familySwatch } from "@/lib/family-color";
 import { bpSeries, glucoseSeries } from "@/lib/health-record-model";
-import { ASK_PLACEHOLDER, ASK_SUBTITLE, ASK_SUGGESTIONS, WISPR_FOCUS_HINT, WISPR_HEADING, WISPR_SUPPORT, askLayoutContract, greetingText, handleComposerKey, sameAskRoute } from "@/lib/ask-ui";
+import { ASK_SUBTITLE, ASK_SUGGESTIONS, askLayoutContract, greetingText, sameAskRoute } from "@/lib/ask-ui";
+import { evaluateSectionPolicy } from "@/lib/wispr-flow-context";
+import { classifySmaranIntent } from "@/lib/nlu/intents";
 import { todayOf } from "@/lib/selectors";
 
 interface Turn {
@@ -48,12 +49,9 @@ export function AskScreen() {
   const layout = askLayoutContract();
   const [filter, setFilter] = useState("all");
   const [turns, setTurns] = useState<Turn[]>([]);
-  const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [seeAll, setSeeAll] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
-  const [wisprHint, setWisprHint] = useState(false);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const started = useRef(false);
 
@@ -72,11 +70,18 @@ export function AskScreen() {
   async function submit(text: string) {
     const question = text.trim();
     if (!question || busy) return;
+    const gate = evaluateSectionPolicy("ask", classifySmaranIntent(question));
+    if (!gate.allowed) {
+      setTurns((all) => [
+        ...all,
+        { id: uid("q"), question, at: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" }), answer: { found: false, refs: [], text: gate.message } },
+      ]);
+      return;
+    }
     setBusy(true);
     const at = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
     const pendingId = uid("q");
     setTurns((all) => [...all, { id: pendingId, question, at }]);
-    setDraft("");
     try {
       const res = await fetch(sameAskRoute(), {
         method: "POST",
@@ -124,7 +129,6 @@ export function AskScreen() {
       router.push(href);
       return;
     }
-    setDraft(question);
     void submit(question);
   }
 
@@ -166,69 +170,9 @@ export function AskScreen() {
     </div>
   );
 
-  function focusForWispr() {
-    setWisprHint(true);
-    inputRef.current?.focus();
-    toast.message(WISPR_FOCUS_HINT);
-  }
-
   const composer = (
     <div className="mx-auto w-full max-w-[720px]">
-      <div className="mb-2 flex items-start gap-3 px-0.5">
-        <button
-          type="button"
-          onClick={focusForWispr}
-          aria-label={WISPR_HEADING}
-          title={WISPR_FOCUS_HINT}
-          className="inline-flex shrink-0 items-center justify-center rounded-[16px] bg-[#F8E8DC] px-2 py-1.5 hover:bg-[#F3D9C8]"
-        >
-          <WisprFlowMark size={28} />
-        </button>
-        <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-bold leading-5 tracking-normal text-ink-strong text-pretty">{WISPR_HEADING}</p>
-          <p className="mt-1 text-[13px] leading-5 tracking-normal text-[#7A5346] text-pretty">{WISPR_SUPPORT}</p>
-          {wisprHint && (
-            <p className="mt-1 text-[12.5px] leading-5 text-ink-muted" role="status">
-              {WISPR_FOCUS_HINT}
-            </p>
-          )}
-        </div>
-      </div>
-      <div className="flex min-w-0 items-end gap-1.5 rounded-[22px] border border-line-strong bg-surface-raised px-2 py-1.5 shadow-[var(--shadow-soft)] sm:gap-2 sm:px-2.5">
-        <Link
-          href={filter === "all" ? "/documents/upload" : `/documents/upload?member=${filter}`}
-          aria-label="Attach a document"
-          className="mb-0.5 inline-flex size-11 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-ivory-deep"
-        >
-          <Paperclip className="size-5" />
-        </Link>
-        <textarea
-          ref={inputRef}
-          value={draft}
-          rows={1}
-          disabled={busy}
-          placeholder={ASK_PLACEHOLDER}
-          aria-label={ASK_PLACEHOLDER}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            const action = handleComposerKey({ key: e.key, shiftKey: e.shiftKey, isComposing: e.nativeEvent.isComposing });
-            if (action === "submit") {
-              e.preventDefault();
-              void submit(draft);
-            }
-          }}
-          className="field-sizing-content max-h-28 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent py-2.5 text-[16px] leading-6 tracking-normal text-ink-strong outline-none"
-        />
-        <button
-          type="button"
-          disabled={busy || !draft.trim()}
-          onClick={() => void submit(draft)}
-          aria-label="Send message"
-          className="mb-0.5 inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-peach text-ink-strong disabled:bg-ivory-deep"
-        >
-          {busy ? <Loader2 className="size-5 animate-spin" /> : <ArrowUp className="size-5" strokeWidth={2.6} />}
-        </button>
-      </div>
+      <WisprFlowSection context="ask" careRecipientId={filter === "all" ? undefined : filter} compact onCapture={async (text) => { await submit(text); }} />
     </div>
   );
 

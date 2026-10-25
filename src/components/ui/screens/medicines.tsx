@@ -30,7 +30,7 @@ import { zonedNow } from "@/lib/timezone";
 import type { FamilyMember, Medicine, MedicineFrequency, MedicineRefill, Reminder, ReminderDayStatus } from "@/lib/types";
 import { Screen } from "@/components/shell/screen";
 import { EmptyState, MemberAvatar, PageHeader, StatusBadge, Surface } from "@/components/smaran/primitives";
-import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
+import { WisprFlowSection } from "@/components/smaran/wispr-flow-section";
 import { Modal } from "@/components/smaran/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -195,7 +195,7 @@ export function MedicinesScreen() {
     <Screen
       aside={
         <>
-          <SmaranSpeakBox context="general" />
+          <WisprFlowSection context="medicines" />
           <p className="text-[13px] leading-relaxed text-ink-muted">
             {persistence}. Marking a dose taken is a family-entered event, not proof the medicine was swallowed. Pharmacy pickups stay on Today.
           </p>

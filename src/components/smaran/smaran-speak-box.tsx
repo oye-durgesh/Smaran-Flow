@@ -14,7 +14,10 @@ import { latestMeasurement, memberById, todayOf } from "@/lib/selectors";
 import { formatLong } from "@/lib/dates";
 import { promptsFor, speakCopy, type SpeakContext } from "@/lib/speak-prompts";
 import { Button } from "@/components/ui/button";
-import { WisprFlowInput } from "./wispr-flow-input";
+import { WisprFlowComposer } from "./wispr-flow-composer";
+import type { WisprSectionId } from "@/lib/wispr-flow-context";
+import { evaluateSectionPolicy } from "@/lib/wispr-flow-context";
+import { classifySmaranIntent } from "@/lib/nlu/intents";
 
 export type { SpeakContext };
 
@@ -36,7 +39,6 @@ export function SmaranSpeakBox({
   onCapture,
   stayOnPage = false,
   examples,
-  support,
 }: {
   context?: SpeakContext;
   placeholder?: string;
@@ -65,9 +67,21 @@ export function SmaranSpeakBox({
     setPendingAppt(null);
     setBusy(true);
     try {
+      const section: WisprSectionId =
+        context === "appointments" ? "appointments" : context === "documents" ? "documents" : context === "ask" ? "ask" : typeof context === "object" ? "health-card" : "today";
+      const early = evaluateSectionPolicy(section, classifySmaranIntent(text));
+      if (!early.allowed) {
+        setClarify(early.message + (early.href ? ` ${early.hrefLabel ?? ""}` : ""));
+        return;
+      }
       const result = await requestInterpretation(text, state, sessionOf(context));
       const action = primaryAction(result);
       const intent = action.intent;
+      const gated = evaluateSectionPolicy(section, intent);
+      if (!gated.allowed) {
+        setClarify(gated.message);
+        return;
+      }
       if (result.actions.length > 1) {
         setClarify(`I found ${result.actions.length} requests. Reviewing the first: ${intent.replace(/_/g, " ")}.`);
       }
@@ -230,15 +244,12 @@ export function SmaranSpeakBox({
 
   return (
     <div className={className}>
-      <WisprFlowInput
-        primary
-        variant={variant}
+      <WisprFlowComposer
+        context={context === "appointments" ? "appointments" : context === "documents" ? "documents" : context === "ask" ? "ask" : typeof context === "object" ? "health-card" : "today"}
         placeholder={placeholder ?? c.placeholder}
-        support={support ?? c.helper}
         examples={examples ?? promptsFor(context)}
-        examplesAction="fill"
-        busy={busy}
-        busyLabel="Working on what you wrote…"
+        isLoading={busy}
+        compact={variant === "composer"}
         onSubmit={onSubmit}
       />
       {clarify && (

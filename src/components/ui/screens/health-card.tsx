@@ -11,6 +11,8 @@ import { memberById } from "@/lib/selectors";
 import { Screen } from "@/components/shell/screen";
 import { HealthCard } from "@/components/smaran/health-card";
 import { HealthRecordView } from "@/components/screens/health-record";
+import { WisprFlowSection } from "@/components/smaran/wispr-flow-section";
+import { answerQuestion } from "@/lib/nlu";
 import { SmaranLogo } from "@/components/smaran/brand";
 import { EmptyState, MemberAvatar, PageHeader, SectionLabel } from "@/components/smaran/primitives";
 import { Modal } from "@/components/smaran/modal";
@@ -63,6 +65,15 @@ export function HealthCardScreen() {
     <Screen
       aside={
           <>
+            <WisprFlowSection
+              context="health-card"
+              careRecipientId={member.id}
+              onCapture={async (text) => {
+                const answer = answerQuestion(text, state, member.id);
+                if (!answer.found) return answer.text;
+                toast.message(answer.text);
+              }}
+            />
             <div className="rounded-[18px] bg-sand/40 p-4 text-[13.5px] leading-relaxed text-ink">
               <p className="font-bold text-ink-strong">What&apos;s on this card</p>
               <p className="mt-1">Saved family notes: appointments, reminders, confirmations, documents and health measurements. Sample values are labelled. This is not a medical record.</p>

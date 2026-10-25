@@ -14,7 +14,7 @@ import { TODAY_EXAMPLES, TODAY_SECTIONS, TODAY_SHORTCUTS, captureOnToday } from 
 import { createCloudAppointment, createCloudReminder, isUuid } from "@/lib/store/cloud";
 import { WeekProgressCalendar } from "@/components/smaran/week-progress-calendar";
 import { EmptyState, MemberAvatar, SectionLabel, StatusBadge } from "@/components/smaran/primitives";
-import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
+import { WisprFlowSection } from "@/components/smaran/wispr-flow-section";
 import { familyLegend, familySwatch, NEUTRAL_SWATCH } from "@/lib/family-color";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -225,10 +225,8 @@ export function TodayScreen() {
 
   const wispr = (
     <div data-testid="today-wispr" className="xl:sticky xl:top-6">
-      <SmaranSpeakBox
-        stayOnPage
-        examples={TODAY_EXAMPLES}
-        support="Wispr Flow inserts dictated text into this box. SMARAN does not record audio in the browser."
+      <WisprFlowSection
+        context="today"
         onCapture={async (text) => {
           const out = commit((s) => {
             const captured = captureOnToday(s, text);

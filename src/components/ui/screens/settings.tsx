@@ -27,6 +27,8 @@ import { SAMPLE_APPOINTMENT_BADGE, SAMPLE_PREVIEW_LABEL } from "@/lib/demo/appoi
 import { Screen } from "@/components/shell/screen";
 import { ResetDemoDialog } from "@/components/shell/demo-controls";
 import { WisprFlowMark } from "@/components/smaran/brand";
+import { WisprFlowSection } from "@/components/smaran/wispr-flow-section";
+import { detectSettingsPreference } from "@/lib/wispr-flow-context";
 import { MemberAvatar, PageHeader, PillGroup } from "@/components/smaran/primitives";
 import { Modal } from "@/components/smaran/modal";
 import { Button } from "@/components/ui/button";
@@ -204,6 +206,22 @@ export function SettingsScreen() {
             <p className="mt-2 text-[12px] text-[#9A8173]">
               In-app only. SMARAN does not send phone calls, SMS, WhatsApp, email, or browser push. A closed browser cannot show a toast; the due row waits in the notification centre.
             </p>
+            <div className="mt-4">
+              <WisprFlowSection
+                context="settings"
+                onCapture={async (text) => {
+                  const pref = detectSettingsPreference(text);
+                  if (!pref) return "Settings cannot create medical reminders or appointments.";
+                  if (pref.field === "reminderLanguage") {
+                    setPref({ reminderLanguage: pref.value as ReminderLanguage });
+                    toast.success("Reminder language updated.");
+                    return;
+                  }
+                  if (pref.value === "open") return "Use the in-app reminder banners switch above. Nothing else was changed.";
+                  if (pref.value === "colors") return "Family colours are in About me on the left. Nothing was changed automatically.";
+                }}
+              />
+            </div>
           </Card>
 
           <Card id="family-account" title="Family account" icon={<Shield className="size-4" />}>

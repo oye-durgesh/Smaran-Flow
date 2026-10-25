@@ -2,21 +2,9 @@ export type SpeakContext = "general" | "ask" | "documents" | "appointments" | "f
 
 export const SPEAK_PROMPTS = {
   general: [
-    "Mummy ko subah 9 baje sugar ki dawa leni hai.",
-    "Papa ko kal doctor ke paas 11 baje jaana hai.",
-    "Riya ka school project Friday tak complete karna hai.",
-    "Dadi ko shaam 7 baje BP ki dawa deni hai.",
-    "Mummy ko Sunday ko grocery lene ki yaad dilani hai.",
-    "Papa ka dentist appointment Monday ko 4 baje hai.",
-    "Aman ko kal school se 2 baje pick karna hai.",
-    "Gas cylinder book karna hai.",
-    "Bijli ka bill 25 tareekh se pehle bharna hai.",
-    "Mummy ko subah walk ke liye 7 baje yaad dilana hai.",
-    "Kal 10 baje Sharma ji ko phone karna hai.",
-    "Thursday ko medicine refill karwani hai.",
-    "Saturday ko ghar ki safai karni hai.",
-    "Didi ka birthday next week hai, gift lena hai.",
-    "Papa ko train ticket Monday ko book karni hai.",
+    "Mummy ki dawa aaj shaam 8 baje yaad dilana.",
+    "Papa ka BP check karne ka reminder kal 9 baje lagana hai.",
+    "Dadi ki appointment ke baad follow-up yaad dilana.",
   ],
   family: [
     "Mummy ki age 58 hai.",

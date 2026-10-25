@@ -15,9 +15,7 @@ import { documentsFor, memberById, todayOf } from "@/lib/selectors";
 import { addMinutes, dateOf, formatDayLong, formatDayShort, formatOffset, formatShort, formatTime, stamp, timeOf } from "@/lib/dates";
 import { addCalendarMonths, formatFullDate, formatMonthTitle, monthGridMonday, yearMonthOf } from "@/lib/timezone";
 import {
-  APPOINTMENT_WISPR_EXAMPLES,
   APPOINTMENT_WISPR_HEADING,
-  APPOINTMENT_WISPR_SUPPORT,
   APPOINTMENT_PAGE_LAYOUT,
   appointmentKind,
   appointmentLists,
@@ -48,7 +46,7 @@ import type { Appointment, FamilyDoctor, FamilyMember } from "@/lib/types";
 import { Screen } from "@/components/shell/screen";
 import { DOC_ICON } from "@/components/smaran/cards";
 import { DetailRow, EmptyState, MemberAvatar, PageHeader, SectionLabel, StatusBadge, Surface } from "@/components/smaran/primitives";
-import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
+import { WisprFlowSection } from "@/components/smaran/wispr-flow-section";
 import { AppointmentDraftEditor } from "@/components/smaran/understood";
 import { Modal } from "@/components/smaran/modal";
 import { Button } from "@/components/ui/button";
@@ -364,11 +362,8 @@ export function AppointmentsScreen() {
   return (
     <Screen width="wide" aside={
       <>
-        <SmaranSpeakBox
+        <WisprFlowSection
           context="appointments"
-          stayOnPage
-          examples={APPOINTMENT_WISPR_EXAMPLES}
-          support={APPOINTMENT_WISPR_SUPPORT}
           onCapture={async (text) => {
             if (samplePreview) {
               return "Sample preview only — this did not save an appointment or send a notification.";

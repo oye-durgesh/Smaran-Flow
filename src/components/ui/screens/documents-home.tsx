@@ -12,13 +12,13 @@ import type { ChartRange } from "@/lib/health-record-model";
 import { Screen } from "@/components/shell/screen";
 import { EmptyState, MemberAvatar, PageHeader, Surface } from "@/components/smaran/primitives";
 import { Button } from "@/components/ui/button";
-import { WisprFlowInput } from "@/components/smaran/wispr-flow-input";
+import { WisprFlowSection } from "@/components/smaran/wispr-flow-section";
 import { TrendChart } from "@/components/smaran/trend-chart";
 import { familySwatch } from "@/lib/family-color";
 import { bpSeries, glucoseSeries, historyFor, latestDisplay, vaccinationsFor, vaccinationStatus } from "@/lib/health-record-model";
 import { pastVisits, upcomingVisits } from "@/lib/appointment-model";
 import { answerQuestion } from "@/lib/nlu";
-import { DASHBOARD_DOC_ROWS, WISPR_DOC_EXAMPLES, libraryCounts } from "@/lib/document-library";
+import { DASHBOARD_DOC_ROWS, libraryCounts } from "@/lib/document-library";
 import {
   SAMPLE_BP_SERIES,
   SAMPLE_DEMO_BADGE,
@@ -55,7 +55,6 @@ export function DocumentsHome() {
   const [range, setRange] = useState<ChartRange>("12m");
   const [demo, setDemo] = useState<DemoSession | null>(null);
   const [askText, setAskText] = useState<string | null>(null);
-  const [askBusy, setAskBusy] = useState(false);
 
   const selected = person === "all" ? undefined : memberById(state, person);
   const swatch = selected ? familySwatch(selected) : undefined;
@@ -80,7 +79,6 @@ export function DocumentsHome() {
   ].slice(0, 5);
 
   async function ask(text: string) {
-    setAskBusy(true);
     try {
       const res = await fetch(sameAskRoute(), {
         method: "POST",
@@ -103,8 +101,6 @@ export function DocumentsHome() {
       else setAskText(answerQuestion(text, state, selected?.id).text);
     } catch {
       setAskText(answerQuestion(text, state, selected?.id).text);
-    } finally {
-      setAskBusy(false);
     }
   }
 
@@ -293,13 +289,12 @@ export function DocumentsHome() {
 
   const aside = (
     <div className="space-y-5">
-      <WisprFlowInput
-        placeholder="Ask about this person's reports…"
-        examples={WISPR_DOC_EXAMPLES}
-        examplesAction="fill"
-        support="Speak naturally — SMARAN will organize it for you."
-        onSubmit={ask}
-        busy={askBusy}
+      <WisprFlowSection
+        context="documents"
+        careRecipientId={selected?.id}
+        onCapture={async (text) => {
+          await ask(text);
+        }}
       />
       {askText && <p className="rounded-[14px] bg-ivory-deep/60 p-3 text-[13.5px]" role="status">{askText}</p>}
       {demoPanel}

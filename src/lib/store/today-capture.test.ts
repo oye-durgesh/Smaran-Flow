@@ -15,13 +15,14 @@ describe("Today capture stays on Today", () => {
     expect(result.href.startsWith("/reminders/")).toBe(true);
   });
 
-  it("saves an appointment through createAppointment", () => {
+  it("does not create an appointment from Today", () => {
     const state = createDemoState();
+    const before = state.appointments.length;
     const { next, result } = captureOnToday(state, "Papa ka Dr Mehta ke saath 28 October ko 5 baje appointment hai.");
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.kind).toBe("appointment");
-    expect(next.appointments.some((a) => a.id === result.id && a.doctor.toLowerCase().includes("mehta"))).toBe(true);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatch(/Family Appointments/);
+    expect(next.appointments.length).toBe(before);
   });
 
   it("returns a visible error and does not write on unknown text", () => {
