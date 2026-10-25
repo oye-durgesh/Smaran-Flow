@@ -26,6 +26,10 @@ describe("family identity colors", () => {
     expect(card.background).toBe(shortcut.background);
   });
 
+  it("honours a saved colour key over the name alias", () => {
+    expect(familySwatch({ id: "riya-1", name: "Riya", relationship: "Other", colorKey: "clay" }).primary).toBe("#C07A5A");
+  });
+
   it("assigns a deterministic fallback for extra members", () => {
     const extra = { id: "riya-42", name: "Riya", relationship: "Other" as const };
     const a = familySwatch(extra);

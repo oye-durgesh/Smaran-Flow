@@ -25,6 +25,8 @@ export interface FamilyMember {
   phone?: string;
   avatar: { initials: string; tone: AvatarTone };
   createdAt: LocalTimestamp;
+  /** Optional palette key from Settings. Survives vault refresh via settings.memberColors. */
+  colorKey?: string;
 }
 
 export type ReminderKind = "medicine" | "check" | "pickup" | "other";
@@ -359,13 +361,18 @@ export interface Conversation {
 }
 
 export type Language = "en" | "hi";
+export type ReminderLanguage = "en" | "hi" | "hinglish";
 
 export interface Settings {
   language: Language;
+  reminderLanguage: ReminderLanguage;
   reminderSound: "Gentle" | "Bell" | "Silent";
   wisprEnabled: boolean;
   notifications: boolean;
   familyUpdates: boolean;
+  reducedMotion: boolean;
+  compactDensity: boolean;
+  memberColors: Record<string, string>;
 }
 
 export interface AppState {

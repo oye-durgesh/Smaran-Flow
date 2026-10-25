@@ -7,19 +7,20 @@ export interface DeviceSession {
   userId: string | null;
   familyId: string | null;
   role: string | null;
+  email: string | null;
   authenticated: boolean;
   configured: boolean;
 }
 
 export async function readSession(): Promise<DeviceSession> {
   if (!backendConfigured()) {
-    return { mode: "device-local", userId: null, familyId: null, role: null, authenticated: false, configured: false };
+    return { mode: "device-local", userId: null, familyId: null, role: null, email: null, authenticated: false, configured: false };
   }
   try {
     const supabase = await createUserClient();
     const { data: userData, error } = await supabase.auth.getUser();
     if (error || !userData.user) {
-      return { mode: "supabase", userId: null, familyId: null, role: null, authenticated: false, configured: true };
+      return { mode: "supabase", userId: null, familyId: null, role: null, email: null, authenticated: false, configured: true };
     }
     const { data: membership } = await supabase.from("family_memberships").select("family_id, role").eq("user_id", userData.user.id).limit(1).maybeSingle();
     return {
@@ -27,10 +28,11 @@ export async function readSession(): Promise<DeviceSession> {
       userId: userData.user.id,
       familyId: membership?.family_id ?? null,
       role: membership?.role ?? null,
+      email: userData.user.email ?? null,
       authenticated: true,
       configured: true,
     };
   } catch {
-    return { mode: "supabase", userId: null, familyId: null, role: null, authenticated: false, configured: true };
+    return { mode: "supabase", userId: null, familyId: null, role: null, email: null, authenticated: false, configured: true };
   }
 }

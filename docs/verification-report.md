@@ -2,7 +2,28 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
-## Family Appointments sample preview (this pass)
+## Settings dashboard (this pass)
+
+Compact two-column Settings control center. No new migration. Identity colours persist in `settings.memberColors` and are reapplied after vault refresh.
+
+- Left: About me, Family members (add/edit + colour), Voice & language, Wispr Flow.
+- Right: Notifications (honest browser/server status), Family account (existing auth), Data & demo (isolated sample preview vs local restore vs consent copy), App preferences.
+- Spoken assistant playback and family invites are labelled unavailable.
+- Session email is returned only when Supabase `getUser()` provides it.
+
+### Commands this pass
+
+| Command | Exit | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | **0** | |
+| `npm run lint` | **0** | |
+| `npm test` | **0** | **162 passed**, **4 skipped** |
+| `git diff --check` | **0** | |
+| `npm run build` | **0** | `/settings` |
+
+---
+
+## Family Appointments sample preview (prior pass)
 
 Reference-matched Appointments workspace plus an isolated fictional sample preview. No migration. Fixtures never write to Supabase, reminders, or Health Cards.
 

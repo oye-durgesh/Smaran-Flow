@@ -75,7 +75,7 @@ function snapshotState(evidence: NonNullable<ReturnType<typeof askBodySchema.par
     diary: [],
     memory: [],
     conversations: [],
-    settings: { language: "en", reminderSound: "Gentle", wisprEnabled: true, notifications: false, familyUpdates: false },
+    settings: { language: "en", reminderLanguage: "hinglish", reminderSound: "Gentle", wisprEnabled: true, notifications: false, familyUpdates: false, reducedMotion: false, compactDensity: true, memberColors: {} },
     demoNow: evidence.measurements[0]?.recordedAt ?? "2026-01-01T00:00",
     selectedDate: "2026-01-01",
   };

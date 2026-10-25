@@ -5,6 +5,7 @@ export interface SessionPayload {
   userId: string | null;
   familyId: string | null;
   role: string | null;
+  email: string | null;
   authenticated: boolean;
   configured: boolean;
   persistence: PersistenceMode;

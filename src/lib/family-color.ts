@@ -37,6 +37,12 @@ export const FAMILY_SWATCHES = {
 } as const satisfies Record<string, FamilySwatch>;
 
 /** Extra warm identities when the family has more people than the named set. */
+export const COLOR_PALETTE: FamilySwatch[] = [
+  { ...FAMILY_SWATCHES.mummy },
+  { ...FAMILY_SWATCHES.papa },
+  { ...FAMILY_SWATCHES.dadi },
+];
+
 export const FAMILY_FALLBACK_SWATCHES: FamilySwatch[] = [
   { key: "sand", label: "Family", primary: "#C4A484", background: "#F6EBDD", border: "#E4D0B8", text: "#6F5340" },
   { key: "clay", label: "Family", primary: "#C07A5A", background: "#F6E4D8", border: "#E5C2AE", text: "#7A4632" },
@@ -94,8 +100,20 @@ export function namedFamilyKey(member: Pick<FamilyMember, "id" | "name" | "relat
   return RELATIONSHIP_ALIAS[member.relationship] ?? null;
 }
 
-export function familySwatch(member?: Pick<FamilyMember, "id" | "name" | "relationship"> | null): FamilySwatch {
+export function swatchByKey(key: string | undefined): FamilySwatch | undefined {
+  if (!key) return undefined;
+  if (key in FAMILY_SWATCHES) return FAMILY_SWATCHES[key as keyof typeof FAMILY_SWATCHES];
+  return FAMILY_FALLBACK_SWATCHES.find((s) => s.key === key);
+}
+
+export function allColorChoices(): FamilySwatch[] {
+  return [...COLOR_PALETTE, ...FAMILY_FALLBACK_SWATCHES];
+}
+
+export function familySwatch(member?: Pick<FamilyMember, "id" | "name" | "relationship" | "colorKey"> | null): FamilySwatch {
   if (!member?.id) return NEUTRAL_SWATCH;
+  const preferred = swatchByKey(member.colorKey);
+  if (preferred) return { ...preferred, label: member.name };
   const named = namedFamilyKey(member);
   if (named) return { ...FAMILY_SWATCHES[named], label: member.name };
   const fallback = FAMILY_FALLBACK_SWATCHES[hashId(member.id) % FAMILY_FALLBACK_SWATCHES.length];

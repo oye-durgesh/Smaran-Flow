@@ -35,7 +35,7 @@ const TONES: FamilyMember["avatar"]["tone"][] = ["peach", "terracotta", "sand", 
 
 /* ---------- Family ---------- */
 
-export function addMember(state: AppState, input: { name: string; relationship: Relationship; age?: number; phone?: string }): [AppState, string] {
+export function addMember(state: AppState, input: { name: string; relationship: Relationship; age?: number; phone?: string; colorKey?: string }): [AppState, string] {
   const id = uid("fam");
   const member: FamilyMember = {
     id,
@@ -45,17 +45,23 @@ export function addMember(state: AppState, input: { name: string; relationship: 
     phone: input.phone?.trim() || undefined,
     avatar: { initials: input.name.trim().charAt(0).toUpperCase(), tone: TONES[state.family.length % TONES.length] },
     createdAt: recordedNow(),
+    colorKey: input.colorKey,
   };
-  const next = { ...state, family: [...state.family, member] };
+  const next = {
+    ...state,
+    family: [...state.family, member],
+    settings: input.colorKey ? { ...state.settings, memberColors: { ...state.settings.memberColors, [id]: input.colorKey } } : state.settings,
+  };
   return [withEvent(next, { familyMemberId: id, type: "member_added", title: `${member.name} added to your family`, source: "manual", refId: id }), id];
 }
 
-export function updateMember(state: AppState, id: string, patch: Partial<Pick<FamilyMember, "name" | "age" | "phone" | "relationship">>): AppState {
+export function updateMember(state: AppState, id: string, patch: Partial<Pick<FamilyMember, "name" | "age" | "phone" | "relationship" | "colorKey">>): AppState {
   return {
     ...state,
     family: state.family.map((m) =>
       m.id === id ? { ...m, ...patch, avatar: patch.name ? { ...m.avatar, initials: patch.name.charAt(0).toUpperCase() } : m.avatar } : m,
     ),
+    settings: patch.colorKey ? { ...state.settings, memberColors: { ...state.settings.memberColors, [id]: patch.colorKey } } : state.settings,
   };
 }
 

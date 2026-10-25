@@ -13,6 +13,19 @@ function emit() {
   for (const l of listeners) l();
 }
 
+function withSettingsDefaults(parsed: AppState): AppState["settings"] {
+  const seed = createDemoState().settings;
+  return {
+    ...seed,
+    ...parsed.settings,
+    memberColors: { ...seed.memberColors, ...parsed.settings?.memberColors },
+  };
+}
+
+function applyMemberColors(family: AppState["family"], colors: Record<string, string>): AppState["family"] {
+  return family.map((m) => ({ ...m, colorKey: colors[m.id] ?? m.colorKey }));
+}
+
 function migrate(parsed: AppState): AppState {
   const medicines = Array.isArray(parsed.medicines) ? parsed.medicines : [];
   const refills = Array.isArray(parsed.refills) ? parsed.refills : [];
@@ -20,9 +33,12 @@ function migrate(parsed: AppState): AppState {
   const medicalHistory = Array.isArray(parsed.medicalHistory) ? parsed.medicalHistory : [];
   const vaccinations = Array.isArray(parsed.vaccinations) ? parsed.vaccinations : [];
   const diary = Array.isArray(parsed.diary) ? parsed.diary : [];
+  const settings = withSettingsDefaults(parsed);
   if (parsed.version === STATE_VERSION && Array.isArray(parsed.measurements)) {
     return {
       ...parsed,
+      settings,
+      family: applyMemberColors(parsed.family, settings.memberColors),
       medicines,
       refills,
       doctors,
@@ -44,6 +60,8 @@ function migrate(parsed: AppState): AppState {
     medicalHistory,
     vaccinations,
     diary,
+    settings,
+    family: applyMemberColors(Array.isArray(parsed.family) ? parsed.family : [], settings.memberColors),
   };
 }
 
@@ -117,6 +135,7 @@ const idleSession: SessionPayload = {
   userId: null,
   familyId: null,
   role: null,
+  email: null,
   authenticated: false,
   configured: false,
   persistence: "device-local",
@@ -175,7 +194,7 @@ export function StoreProvider({ children }: { children: ReactNode; fallback?: Re
     cloudView = true;
     snapshot = {
       ...device,
-      family: vault.family as AppState["family"],
+      family: applyMemberColors(vault.family as AppState["family"], device.settings.memberColors),
       appointments: vault.appointments as AppState["appointments"],
       reminders: vault.reminders as AppState["reminders"],
       measurements: vault.measurements as AppState["measurements"],
