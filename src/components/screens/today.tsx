@@ -1,214 +1,260 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { CalendarHeart, ChevronRight, FileText, MessageCircleQuestion, Plus, Sparkles, IdCard } from "lucide-react";
+import { CalendarHeart, CheckCircle2, FileText, IdCard, MessageCircleQuestion, Pill, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store/store";
 import { useView } from "@/lib/store/view";
 import { useT } from "@/lib/i18n";
-import { agendaFor, busyDays, memberDaySummary, todayOf, upcomingAppointments, memberById } from "@/lib/selectors";
-import { formatDayLong, formatTime, greetingFor, relativeDay, timeOf, weekOf } from "@/lib/dates";
-import { Screen } from "@/components/shell/screen";
-import { useSendReminderNow } from "@/components/shell/use-send-reminder";
-import { SevenDaySelector } from "@/components/smaran/seven-day-selector";
-import { AgendaCard } from "@/components/smaran/cards";
-import { EmptyState, MemberAvatar, SectionLabel, Surface, CheckDot } from "@/components/smaran/primitives";
-import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
-import { SmaranLogo } from "@/components/smaran/brand";
-import { cn } from "@/lib/utils";
+import { agendaFor, busyDays, memberById, todayOf, upcomingAfter } from "@/lib/selectors";
+import { formatTime, greetingFor } from "@/lib/dates";
+import { formatFullDate, monthGrid, yearMonthOf, zonedNow } from "@/lib/timezone";
 
-export const CAPTURE_EXAMPLES = ["Mummy ko roz raat 9 baje BP ki medicine yaad dilani hai.", "Mummy ka Dr Sharma ke saath Friday ko 11 baje appointment hai."];
+function monthGridDays(month: string) {
+  return monthGrid(month).map((c) => c.date);
+}
+import { TODAY_EXAMPLES, TODAY_SECTIONS, TODAY_SHORTCUTS, captureOnToday } from "@/lib/store/today-capture";
+import { createCloudAppointment, createCloudReminder, isUuid } from "@/lib/store/cloud";
+import { MonthCalendar } from "@/components/smaran/month-calendar";
+import { EmptyState, MemberAvatar, SectionLabel } from "@/components/smaran/primitives";
+import { SmaranSpeakBox } from "@/components/smaran/smaran-speak-box";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+export const CAPTURE_EXAMPLES = TODAY_EXAMPLES;
+export { TODAY_SECTIONS, TODAY_SHORTCUTS };
 
 export function useCaptureSubmit() {
-  const router = useRouter();
-  return (text: string) => router.push(`/new?text=${encodeURIComponent(text)}`);
+  const { commit } = useStore();
+  return (text: string) => {
+    const result = commit((s) => {
+      const out = captureOnToday(s, text);
+      return [out.next, out.result];
+    });
+    return result;
+  };
 }
 
-export function FamilyStatusList() {
+function Shortcuts() {
   const { state } = useStore();
-  const today = todayOf(state);
+  const first = state.family[0];
+  const items = [
+    { href: TODAY_SHORTCUTS[0].href, icon: MessageCircleQuestion, label: TODAY_SHORTCUTS[0].label, testid: "shortcut-ask" },
+    { href: TODAY_SHORTCUTS[1].href, icon: FileText, label: TODAY_SHORTCUTS[1].label, testid: "shortcut-documents" },
+    { href: first ? `${TODAY_SHORTCUTS[2].hrefPrefix}${first.id}` : "/family", icon: IdCard, label: TODAY_SHORTCUTS[2].label, testid: "shortcut-health" },
+  ];
   return (
-    <ul className="space-y-3">
-      {state.family.map((m) => {
-        const s = memberDaySummary(state, m.id, today);
-        return (
-          <li key={m.id}>
-            <Link href={`/family/${m.id}`} className="block rounded-[18px] border border-line bg-surface-raised p-4 hover:border-line-strong">
-              <div className="mb-2.5 flex items-center gap-3">
-                <MemberAvatar member={m} size={34} />
-                <span className="flex-1 text-[15.5px] font-extrabold text-ink-strong">{m.name}</span>
-                <span className="text-[12.5px] font-bold text-ink-muted">
-                  {s.confirmed}/{s.total} done
-                </span>
-              </div>
-              <ul className="space-y-1.5">
-                {s.agenda.map((item) => (
-                  <li key={item.id} className="flex items-center gap-2.5 text-[14px]">
-                    {item.kind === "reminder" ? <CheckDot done={item.status === "confirmed"} className="size-[18px]" /> : <CalendarHeart className="size-[18px] text-terracotta" aria-hidden />}
-                    <span className={cn("flex-1 truncate", item.status === "confirmed" ? "text-ink-muted" : "font-semibold text-ink-strong")}>
-                      {item.kind === "reminder" ? item.reminder.title : `${item.appointment.doctor} appointment`}
-                    </span>
-                    <span className="text-[12px] text-ink-muted">{formatTime(item.time)}</span>
-                  </li>
-                ))}
-                {s.agenda.length === 0 && <li className="text-[13.5px] text-ink-muted">Nothing today.</li>}
-              </ul>
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
+    <section data-testid="today-shortcuts">
+      <SectionLabel>Shortcuts</SectionLabel>
+      <div className="grid grid-cols-3 gap-2.5">
+        {items.map((i) => (
+          <Link key={i.testid} href={i.href} data-testid={i.testid} className="rounded-[18px] border border-line bg-surface-raised p-3.5 hover:border-line-strong">
+            <i.icon className="size-5 text-peach-deep" aria-hidden />
+            <div className="mt-2 text-[14px] leading-tight font-bold text-ink-strong">{i.label}</div>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
-function QuickActions() {
+function UpcomingList({ selected }: { selected: string }) {
   const { state } = useStore();
-  const { isWeb } = useView();
-  const first = state.family[0];
-  const items = [
-    { href: "/ask", icon: MessageCircleQuestion, label: "Ask SMARAN", body: "Search family memory" },
-    { href: "/documents", icon: FileText, label: "Documents", body: `${state.documents.length} saved` },
-    ...(first ? [{ href: `/health-card/${first.id}`, icon: IdCard, label: "Health Card", body: `${first.name}'s summary` }] : []),
-  ];
+  const items = upcomingAfter(state, selected);
   return (
-    <div className={cn("grid gap-2.5", isWeb ? "grid-cols-3" : "grid-cols-3")}>
-      {items.map((i) => (
-        <Link key={i.href} href={i.href} className="group rounded-[18px] border border-line bg-surface-raised p-3.5 transition-colors hover:border-line-strong">
-          <i.icon className="size-5 text-peach-deep" aria-hidden />
-          <div className="mt-2 text-[14px] leading-tight font-bold text-ink-strong">{i.label}</div>
-          {isWeb && <div className="mt-0.5 text-[12.5px] text-ink-muted">{i.body}</div>}
-        </Link>
-      ))}
-    </div>
+    <section data-testid="today-upcoming" className="mt-8">
+      <SectionLabel>Upcoming</SectionLabel>
+      {items.length === 0 ? (
+        <p className="rounded-[18px] border border-dashed border-line px-4 py-5 text-[14.5px] text-ink-muted">Nothing upcoming after this day.</p>
+      ) : (
+        <ul className="space-y-2">
+          {items.slice(0, 8).map((item) => (
+            <li key={item.id}>
+              <Link
+                href={item.kind === "appointment" ? `/appointments/${item.appointment.id}` : `/reminders/${item.reminder.id}`}
+                className="flex items-center gap-3 rounded-[16px] border border-line bg-surface-raised px-3 py-3 hover:border-line-strong"
+              >
+                <MemberAvatar member={item.member} size={34} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14.5px] font-bold text-ink-strong">{item.title}</span>
+                  <span className="block truncate text-[12.5px] text-ink-muted">
+                    {item.member?.name} · {item.date} · {formatTime(item.time)}
+                    {item.kind === "reminder" && item.reminder.source === "sample" ? " · sample" : ""}
+                    {item.kind === "appointment" && item.appointment.source === "sample" ? " · sample" : ""}
+                  </span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function Schedule({ selected, today }: { selected: string; today: string }) {
+  const { state } = useStore();
+  const agenda = agendaFor(state, selected);
+  const medicines = agenda.filter((i) => i.kind === "reminder" && i.reminder.kind === "medicine");
+  const checks = agenda.filter((i) => i.kind === "reminder" && (i.reminder.kind === "check" || i.reminder.kind === "other"));
+  const visits = agenda.filter((i) => i.kind === "appointment" || (i.kind === "reminder" && i.reminder.kind === "pickup"));
+  const completed = agenda.filter((i) => (i.kind === "reminder" && i.status === "confirmed") || (i.kind === "appointment" && i.status === "completed"));
+  const pendingMeds = medicines.filter((i) => i.kind === "reminder" && i.status !== "confirmed");
+  const pendingChecks = checks.filter((i) => i.kind === "reminder" && i.status !== "confirmed");
+  const pendingVisits = visits.filter((i) => (i.kind === "appointment" ? i.status === "upcoming" : i.status !== "confirmed"));
+
+  const groups = [
+    { key: "medicines", title: "Medicines", items: pendingMeds, icon: Pill },
+    { key: "checks", title: "Health checks and care tasks", items: pendingChecks, icon: Sparkles },
+    { key: "visits", title: "Appointments and pickups", items: pendingVisits, icon: CalendarHeart },
+    { key: "done", title: "Completed", items: completed, icon: CheckCircle2 },
+  ];
+
+  return (
+    <section data-testid="today-schedule" className="mt-8">
+      <SectionLabel>{selected === today ? "Today's Schedule" : formatFullDate(selected)}</SectionLabel>
+      {agenda.length === 0 ? (
+        <EmptyState icon={<Sparkles className="size-6" />} title="Nothing scheduled for this day." body="Speak or type what your family needs to remember." />
+      ) : (
+        <div className="space-y-5">
+          {groups.map((g) =>
+            g.items.length === 0 ? null : (
+              <div key={g.key}>
+                <p className="mb-2 text-[12px] font-extrabold tracking-[0.14em] text-ink-muted uppercase">{g.title}</p>
+                <ul className="space-y-2">
+                  {g.items.map((item) => {
+                    const done = (item.kind === "reminder" && item.status === "confirmed") || (item.kind === "appointment" && item.status === "completed");
+                    const href = item.kind === "reminder" ? `/reminders/${item.reminder.id}` : `/appointments/${item.appointment.id}`;
+                    const title = item.kind === "reminder" ? item.reminder.title : `${item.appointment.doctor} appointment`;
+                    const sample = item.kind === "reminder" ? item.reminder.source === "sample" : item.appointment.source === "sample";
+                    return (
+                      <li key={`${g.key}-${item.id}`}>
+                        <Link href={href} className={cn("flex items-center gap-3 rounded-[16px] border px-3 py-3", done ? "border-line bg-ivory/80" : "border-line bg-surface-raised")}>
+                          <MemberAvatar member={memberById(state, item.kind === "reminder" ? item.reminder.familyMemberId : item.appointment.familyMemberId)} size={34} />
+                          <span className="min-w-0 flex-1">
+                            <span className={cn("block truncate text-[14.5px] font-bold", done ? "text-ink-muted line-through" : "text-ink-strong")}>{title}</span>
+                            <span className="block text-[12.5px] text-ink-muted">
+                              {item.member?.name} · {formatTime(item.time)}
+                              {sample ? " · sample" : ""}
+                            </span>
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ),
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
 export function TodayScreen() {
-  const { state, update } = useStore();
+  const { state, update, commit, session, refreshVault } = useStore();
   const { isWeb } = useView();
   const t = useT();
-  const sendNow = useSendReminderNow();
   const today = todayOf(state);
   const selected = state.selectedDate;
-  const agenda = agendaFor(state, selected);
-  const busy = busyDays(state, weekOf(selected));
-  const greeting = t(greetingFor(timeOf(state.demoNow)));
-  const isToday = selected === today;
-  const confirmedCount = agenda.filter((i) => i.kind === "reminder" && i.status === "confirmed").length;
-  const reminderCount = agenda.filter((i) => i.kind === "reminder").length;
+  const now = zonedNow();
+  const greeting = t(greetingFor(now.time));
+  const [month, setMonth] = useState(yearMonthOf(selected));
 
-  const setDate = (date: string) => update((s) => ({ ...s, selectedDate: date }));
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      update((s) => ({ ...s, selectedDate: today }));
+      setMonth(yearMonthOf(today));
+    }, 0);
+    return () => window.clearTimeout(timer);
+    // Reset only when Today is opened — not after the user picks another day.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const heading = (
-    <div className={cn(isWeb ? "mb-8" : "mb-6")}>
-      <h1 className={cn("font-extrabold tracking-tight text-ink-strong", isWeb ? "text-[36px] leading-tight" : "text-[28px] leading-tight")}>
-        {greeting}, {state.user.name}.
-      </h1>
-      <p className={cn("mt-1.5 text-ink-muted", isWeb ? "text-[17px]" : "text-[15.5px]")}>{t("todaySubtitle")}</p>
+  const monthDays = useMemo(() => monthGridDays(month), [month]);
+  const busy = busyDays(state, monthDays);
+
+  const goToday = () => {
+    update((s) => ({ ...s, selectedDate: today }));
+    setMonth(yearMonthOf(today));
+  };
+
+  const wispr = (
+    <div data-testid="today-wispr" className="xl:sticky xl:top-6">
+      <SmaranSpeakBox
+        stayOnPage
+        examples={TODAY_EXAMPLES}
+        support="Wispr Flow inserts dictated text into this box. SMARAN does not record audio in the browser."
+        onCapture={async (text) => {
+          const out = commit((s) => {
+            const captured = captureOnToday(s, text);
+            return [captured.next, captured.result];
+          });
+          if (!out.ok) {
+            toast.error(out.error);
+            return out.error;
+          }
+          if (session.authenticated) {
+            const reminder = state.reminders.find((r) => r.id === out.id);
+            const appointment = state.appointments.find((a) => a.id === out.id);
+            try {
+              if (out.kind === "reminder" && reminder && isUuid(reminder.familyMemberId)) {
+                await createCloudReminder({ recipientId: reminder.familyMemberId, title: reminder.title, kind: reminder.kind, time: reminder.time, date: reminder.date, recurrence: reminder.frequency });
+                await refreshVault();
+              }
+              if (out.kind === "appointment" && appointment && isUuid(appointment.familyMemberId)) {
+                await createCloudAppointment({ recipientId: appointment.familyMemberId, doctor: appointment.doctor, date: appointment.date, time: appointment.time, location: appointment.location, notes: appointment.notes });
+                await refreshVault();
+              }
+            } catch (e) {
+              const message = e instanceof Error ? e.message : "Save failed.";
+              toast.error(message);
+              return message;
+            }
+          }
+          toast.success(`Saved ${out.title}`);
+        }}
+      />
     </div>
   );
 
-  const list = (
-    <section aria-label="Today's memory">
-      <SectionLabel
-        action={
-          reminderCount > 0 && (
-            <span className="text-[12.5px] font-bold text-ink-muted">
-              {confirmedCount} of {reminderCount} confirmed
-            </span>
-          )
-        }
-      >
-        {isToday ? t("todaysMemory") : `${relativeDay(selected, today)} · ${formatDayLong(selected)}`}
-      </SectionLabel>
-      {agenda.length > 0 ? (
-        <ul className="space-y-3 stagger" key={selected}>
-          {agenda.map((item) => (
-            <li key={item.id}>
-              <AgendaCard item={item} today={today} onSend={isToday ? sendNow : undefined} />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <EmptyState
-          icon={<Sparkles className="size-6" />}
-          title="Nothing to remember yet."
-          body="Tell SMARAN what your family needs to remember."
-          action={{ label: "Add reminder", href: "/new?kind=reminder" }}
-        />
-      )}
-    </section>
-  );
-
-  const wispr = <SmaranSpeakBox />;
-
-  if (isWeb) {
-    const upcoming = upcomingAppointments(state).slice(0, 3);
-    return (
-      <Screen
-        aside={
-          <>
-            {wispr}
-            <div>
-              <SectionLabel action={<Link href="/appointments" className="text-[12.5px] font-bold text-peach-deep hover:underline">All</Link>}>{t("upcoming")}</SectionLabel>
-              <ul className="space-y-2">
-                {upcoming.map((a) => (
-                  <li key={a.id}>
-                    <Link href={`/appointments/${a.id}`} className="flex items-center gap-3 rounded-[16px] border border-line bg-surface-raised p-3 hover:border-line-strong">
-                      <MemberAvatar member={memberById(state, a.familyMemberId)} size={34} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[14.5px] font-bold text-ink-strong">{a.doctor}</span>
-                        <span className="block truncate text-[12.5px] text-ink-muted">
-                          {memberById(state, a.familyMemberId)?.name} · {relativeDay(a.date, today)} · {formatTime(a.time)}
-                        </span>
-                      </span>
-                      <ChevronRight className="size-4 text-ink-muted" aria-hidden />
-                    </Link>
-                  </li>
-                ))}
-                {upcoming.length === 0 && <li className="text-[14px] text-ink-muted">No appointments coming up.</li>}
-              </ul>
-            </div>
-            <div>
-              <SectionLabel>{t("familyStatus")}</SectionLabel>
-              <FamilyStatusList />
-            </div>
-          </>
-        }
-      >
-        {heading}
-        <Surface className="mb-8 p-5">
-          <SevenDaySelector selected={selected} today={today} onSelect={setDate} busy={busy} size="lg" />
-        </Surface>
-        {list}
-        <div className="mt-8 flex items-center justify-between gap-3">
-          <SectionLabel className="mb-0">Shortcuts</SectionLabel>
-          <Link href="/medicines" className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line-strong bg-surface-raised px-3.5 text-[13px] font-bold text-ink hover:border-peach">
-            <Plus className="size-4" aria-hidden /> Medicine reminders
-          </Link>
-        </div>
-        <div className="mt-3">
-          <QuickActions />
-        </div>
-      </Screen>
-    );
-  }
-
   return (
-    <Screen>
-      <div className="mb-5 flex items-center justify-between">
-        <SmaranLogo size="sm" />
-        <Link href="/settings" aria-label="Profile and settings" className="flex size-10 items-center justify-center rounded-full bg-sand text-[15px] font-extrabold text-brown">
-          {state.user.name.charAt(0)}
-        </Link>
+    <div data-testid="today-screen" className="mx-auto w-full max-w-[1180px] px-4 pt-5 pb-10 sm:px-6 lg:px-8 lg:pt-8">
+      <div className={cn("grid gap-8", isWeb ? "xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start" : "")}>
+        <div className="min-w-0">
+          <header className="mb-6" data-section={TODAY_SECTIONS[0]}>
+            <h1 className="text-[28px] leading-tight font-extrabold tracking-tight text-ink-strong sm:text-[34px]">
+              {greeting}, {state.user.name}.
+            </h1>
+            <p className="mt-1 text-[16px] font-semibold text-ink" data-testid="today-full-date">
+              {formatFullDate(today)}
+            </p>
+            <p className="mt-1 text-[15px] text-ink-muted">{t("todaySubtitle")}</p>
+          </header>
+          <MonthCalendar
+            month={month}
+            today={today}
+            selected={selected}
+            busy={busy}
+            onSelect={(date) => {
+              update((s) => ({ ...s, selectedDate: date }));
+              setMonth(yearMonthOf(date));
+            }}
+            onMonthChange={setMonth}
+            onToday={goToday}
+          />
+          <UpcomingList selected={selected} />
+          <Schedule selected={selected} today={today} />
+          <div className="mt-8">
+            <Shortcuts />
+          </div>
+          <div className="mt-8 xl:hidden">{wispr}</div>
+        </div>
+        <aside className="hidden min-w-0 xl:block" aria-label="Wispr Flow">
+          {wispr}
+        </aside>
       </div>
-      {heading}
-      <SevenDaySelector selected={selected} today={today} onSelect={setDate} busy={busy} className="mb-7" />
-      {list}
-      <div className="mt-6">
-        <QuickActions />
-      </div>
-      <div className="mt-7">{wispr}</div>
-    </Screen>
+    </div>
   );
 }

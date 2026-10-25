@@ -68,6 +68,7 @@ export function WisprFlowInput({
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [rotate, setRotate] = useState(0);
+  const [focused, setFocused] = useState(false);
 
   useEffect(() => {
     onSubmitRef.current = onSubmit;
@@ -97,12 +98,12 @@ export function WisprFlowInput({
   }, []);
 
   useEffect(() => {
-    if (!examples.length || value.trim() || busy) return;
+    if (!examples.length || value.trim() || busy || focused) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) return;
     const t = window.setInterval(() => setRotate((i) => i + 1), 4500);
     return () => window.clearInterval(t);
-  }, [examples.length, value, busy]);
+  }, [examples.length, value, busy, focused]);
 
   const onChange = (next: string) => {
     setValue(next);
@@ -190,6 +191,8 @@ export function WisprFlowInput({
           rows={variant === "composer" ? 1 : 3}
           onInput={(e) => onChange(e.currentTarget.value)}
           onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();

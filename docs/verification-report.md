@@ -2,6 +2,18 @@
 
 Date: 25 Oct 2026, Asia/Kolkata. Branch `main`. **No push, no deploy, no secrets committed.**
 
+## Today / Home (this pass)
+
+Today uses `calendarToday()` / `zonedNow("Asia/Kolkata")`, not `demoNow` (Friday 23 Oct). Greeting date is formatted at runtime (`Sunday, 25 October 2026` when that is the live Kolkata day). Month grid + year-boundary helpers live in `src/lib/timezone.ts`.
+
+Layout: left sidebar (Today, Today's Medicines, Family Appointments, Documents, Ask SMARAN, Settings, Health Cards, About Me). Memory is not a sidebar item (`/memory` still exists). Center: greeting → month calendar → Upcoming → Today's Schedule → shortcuts. Right (xl+): compact Wispr panel. Family Today rail removed. Mobile: hamburger drawer + overflow-x-hidden.
+
+Today capture stays on `/today` and writes through `createReminder` / `createAppointment`. Failed saves return an error string, not success.
+
+Commands this pass: `npm run lint` 0 · `npx tsc --noEmit` 0 · `npm test` **56 passed**, 4 skipped · `git diff --check` 0 · `npm run build` 0.
+
+Honest leftovers: live browser visual/QA of calendar and drawer not click-tested here; mobile overflow is CSS-constrained, not a device lab test; Claude still unused; `/memory` is reachable only by URL.
+
 This report does not treat “code exists” as “it works.” Live Supabase, Claude, OCR, two-account RLS, and push remain unverified in this environment.
 
 ---

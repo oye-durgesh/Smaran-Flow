@@ -34,13 +34,19 @@ export function SmaranSpeakBox({
   className,
   onQuestion,
   onCapture,
+  stayOnPage = false,
+  examples,
+  support,
 }: {
   context?: SpeakContext;
   placeholder?: string;
   variant?: "card" | "composer";
   className?: string;
   onQuestion?: (text: string) => void;
-  onCapture?: (text: string) => void;
+  onCapture?: (text: string) => void | string | Promise<void | string>;
+  stayOnPage?: boolean;
+  examples?: readonly string[];
+  support?: string;
 }) {
   const router = useRouter();
   const { state, session, update, commit, refreshVault } = useStore();
@@ -51,7 +57,6 @@ export function SmaranSpeakBox({
   const [saved, setSaved] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const c = speakCopy(context);
-  const examples = promptsFor(context);
 
   const onSubmit = async (text: string): Promise<string | void> => {
     setSaved(null);
@@ -90,6 +95,10 @@ export function SmaranSpeakBox({
         return;
       }
       if (intent === "ask_question" || intent === "document_question" || context === "documents" || context === "ask") {
+        if (stayOnPage) {
+          setClarify("Open Ask SMARAN from Shortcuts to search. You are still on Today.");
+          return;
+        }
         if (onQuestion) onQuestion(text);
         else router.push(`/ask?q=${encodeURIComponent(text)}`);
         return;
@@ -112,7 +121,10 @@ export function SmaranSpeakBox({
         return;
       }
       if (onCapture) {
-        onCapture(text);
+        return await onCapture(text);
+      }
+      if (stayOnPage) {
+        setClarify("Stay on Today: confirm the request here. I did not open another page.");
         return;
       }
       const kind =
@@ -222,8 +234,8 @@ export function SmaranSpeakBox({
         primary
         variant={variant}
         placeholder={placeholder ?? c.placeholder}
-        support={c.helper}
-        examples={examples}
+        support={support ?? c.helper}
+        examples={examples ?? promptsFor(context)}
         examplesAction="fill"
         busy={busy}
         busyLabel="Working on what you wrote…"

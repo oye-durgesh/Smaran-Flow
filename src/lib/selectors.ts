@@ -10,9 +10,18 @@ import type {
   Reminder,
   ReminderDayStatus,
 } from "./types";
-import { addDays, dateOf, formatTime, minutesOf, timeOf, weekday, weekdayName } from "./dates";
+import { addDays, dateOf, formatTime, minutesOf, weekday, weekdayName } from "./dates";
+import { zonedNow } from "./timezone";
 
-export const todayOf = (state: AppState): DateKey => dateOf(state.demoNow);
+/** Actual calendar day in Asia/Kolkata. Not the demo clock and not a sample record date. */
+export function calendarToday(): DateKey {
+  return zonedNow().date;
+}
+
+export function todayOf(state?: AppState): DateKey {
+  void state;
+  return calendarToday();
+}
 
 export const memberById = (state: AppState, id?: string): FamilyMember | undefined =>
   state.family.find((m) => m.id === id);
@@ -51,7 +60,7 @@ export function frequencyLabel(reminder: Pick<Reminder, "weekday" | "date"> & { 
 export function nextOccurrence(reminder: Reminder, state: AppState): DateKey | null {
   if (reminder.status === "paused") return null;
   const today = todayOf(state);
-  const nowMinutes = minutesOf(timeOf(state.demoNow));
+  const nowMinutes = minutesOf(zonedNow().time);
   for (let i = 0; i < 14; i++) {
     const date = addDays(today, i);
     if (!reminderOccursOn(reminder, date)) continue;
@@ -104,6 +113,45 @@ export function memberDaySummary(state: AppState, memberId: string, date: DateKe
     missed: reminders.filter((i) => i.status === "missed").length,
     appointments: agenda.filter((i) => i.kind === "appointment").length,
   };
+}
+
+export type UpcomingItem =
+  | { kind: "appointment"; id: string; date: DateKey; time: string; title: string; member?: FamilyMember; appointment: Appointment }
+  | { kind: "reminder"; id: string; date: DateKey; time: string; title: string; member?: FamilyMember; reminder: Reminder };
+
+/** Future items after the selected day. Selected-day rows belong in Today's Schedule only. */
+export function upcomingAfter(state: AppState, selected: DateKey): UpcomingItem[] {
+  const items: UpcomingItem[] = [];
+  for (const a of state.appointments) {
+    if (a.status !== "upcoming" || a.date <= selected) continue;
+    items.push({
+      kind: "appointment",
+      id: a.id,
+      date: a.date,
+      time: a.time,
+      title: `${a.doctor} appointment`,
+      member: memberById(state, a.familyMemberId),
+      appointment: a,
+    });
+  }
+  for (const r of state.reminders) {
+    if (r.status === "paused") continue;
+    for (let i = 1; i <= 21; i++) {
+      const date = addDays(selected, i);
+      if (!reminderOccursOn(r, date) || confirmationOn(r, date)) continue;
+      items.push({
+        kind: "reminder",
+        id: `${r.id}:${date}`,
+        date,
+        time: r.time,
+        title: r.title,
+        member: memberById(state, r.familyMemberId),
+        reminder: r,
+      });
+      break;
+    }
+  }
+  return items.sort((a, b) => (a.date + a.time < b.date + b.time ? -1 : 1));
 }
 
 export function upcomingAppointments(state: AppState, memberId?: string): Appointment[] {

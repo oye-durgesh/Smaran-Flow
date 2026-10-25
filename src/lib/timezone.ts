@@ -67,3 +67,53 @@ export function isTimeKey(value: string | undefined): value is string {
 export function compareDateKeys(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
+
+export function yearMonthOf(dateKey: string): string {
+  return dateKey.slice(0, 7);
+}
+
+export function addCalendarMonths(yearMonth: string, delta: number): string {
+  const [y, m] = yearMonth.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+export function daysInMonth(yearMonth: string): number {
+  const [y, m] = yearMonth.split("-").map(Number);
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+
+export interface CalendarCell {
+  date: string;
+  inMonth: boolean;
+}
+
+/** Sunday-first 6-week grid for a YYYY-MM month. */
+export function monthGrid(yearMonth: string): CalendarCell[] {
+  const first = `${yearMonth}-01`;
+  const lead = weekdayOf(first);
+  const start = addCalendarDays(first, -lead);
+  return Array.from({ length: 42 }, (_, i) => {
+    const date = addCalendarDays(start, i);
+    return { date, inMonth: yearMonthOf(date) === yearMonth };
+  });
+}
+
+/** "Sunday, 25 October 2026" from a date key, without local-TZ drift. */
+export function formatFullDate(dateKey: string, timeZone = FAMILY_TIMEZONE): string {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const utcNoon = new Date(Date.UTC(y, m - 1, d, 6, 0, 0));
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(utcNoon);
+}
+
+export function formatMonthTitle(yearMonth: string, timeZone = FAMILY_TIMEZONE): string {
+  const [y, m] = yearMonth.split("-").map(Number);
+  const utc = new Date(Date.UTC(y, m - 1, 1, 6, 0, 0));
+  return new Intl.DateTimeFormat("en-GB", { timeZone, month: "long", year: "numeric" }).format(utc);
+}
