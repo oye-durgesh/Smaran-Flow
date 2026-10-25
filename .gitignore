@@ -43,3 +43,6 @@ next-env.d.ts
 
 # downloadable source archive (generated locally)
 smaran-flow.zip
+
+# local Supabase CLI cache (never commit)
+supabase/.temp/
