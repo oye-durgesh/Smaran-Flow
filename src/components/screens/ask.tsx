@@ -173,69 +173,67 @@ export function AskScreen() {
   }
 
   const composer = (
-    <div className="mx-auto w-full max-w-[720px] pb-[env(safe-area-inset-bottom)]">
-      <div className="overflow-hidden rounded-[22px] border border-line-strong bg-surface-raised px-2.5 py-2 shadow-[var(--shadow-soft)] sm:px-3">
-        <div className="mb-2 flex items-start gap-2.5">
-          <button
-            type="button"
-            onClick={focusForWispr}
-            aria-label={WISPR_HEADING}
-            title={WISPR_FOCUS_HINT}
-            className="inline-flex h-11 shrink-0 items-center justify-center rounded-[14px] bg-[#F8E8DC] px-2.5 hover:bg-[#F3D9C8]"
-          >
-            <WisprFlowMark size={22} />
-          </button>
-          <div className="min-w-0 flex-1 pt-0.5">
-            <p className="text-[13px] font-bold leading-snug text-ink-strong">{WISPR_HEADING}</p>
-            <p className="mt-0.5 text-[12px] leading-snug text-ink-muted">{WISPR_SUPPORT}</p>
-          </div>
+    <div className="mx-auto w-full max-w-[720px]">
+      <div className="mb-2 flex items-start gap-3 px-0.5">
+        <button
+          type="button"
+          onClick={focusForWispr}
+          aria-label={WISPR_HEADING}
+          title={WISPR_FOCUS_HINT}
+          className="inline-flex shrink-0 items-center justify-center rounded-[16px] bg-[#F8E8DC] px-2 py-1.5 hover:bg-[#F3D9C8]"
+        >
+          <WisprFlowMark size={28} />
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-bold leading-5 tracking-normal text-ink-strong text-pretty">{WISPR_HEADING}</p>
+          <p className="mt-1 text-[13px] leading-5 tracking-normal text-[#7A5346] text-pretty">{WISPR_SUPPORT}</p>
+          {wisprHint && (
+            <p className="mt-1 text-[12.5px] leading-5 text-ink-muted" role="status">
+              {WISPR_FOCUS_HINT}
+            </p>
+          )}
         </div>
-        {wisprHint && (
-          <p className="mb-2 text-[12px] leading-snug text-ink-muted" role="status">
-            {WISPR_FOCUS_HINT}
-          </p>
-        )}
-        <div className="flex min-w-0 items-end gap-1.5 sm:gap-2">
-          <Link
-            href={filter === "all" ? "/documents/upload" : `/documents/upload?member=${filter}`}
-            aria-label="Attach a document"
-            className="mb-0.5 inline-flex size-11 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-ivory-deep"
-          >
-            <Paperclip className="size-5" />
-          </Link>
-          <textarea
-            ref={inputRef}
-            value={draft}
-            rows={1}
-            disabled={busy}
-            placeholder={ASK_PLACEHOLDER}
-            aria-label={ASK_PLACEHOLDER}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              const action = handleComposerKey({ key: e.key, shiftKey: e.shiftKey, isComposing: e.nativeEvent.isComposing });
-              if (action === "submit") {
-                e.preventDefault();
-                void submit(draft);
-              }
-            }}
-            className="field-sizing-content max-h-28 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent py-2.5 text-[16px] text-ink-strong outline-none"
-          />
-          <button
-            type="button"
-            disabled={busy || !draft.trim()}
-            onClick={() => void submit(draft)}
-            aria-label="Send message"
-            className="mb-0.5 inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-peach text-ink-strong disabled:bg-ivory-deep"
-          >
-            {busy ? <Loader2 className="size-5 animate-spin" /> : <ArrowUp className="size-5" strokeWidth={2.6} />}
-          </button>
-        </div>
+      </div>
+      <div className="flex min-w-0 items-end gap-1.5 rounded-[22px] border border-line-strong bg-surface-raised px-2 py-1.5 shadow-[var(--shadow-soft)] sm:gap-2 sm:px-2.5">
+        <Link
+          href={filter === "all" ? "/documents/upload" : `/documents/upload?member=${filter}`}
+          aria-label="Attach a document"
+          className="mb-0.5 inline-flex size-11 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-ivory-deep"
+        >
+          <Paperclip className="size-5" />
+        </Link>
+        <textarea
+          ref={inputRef}
+          value={draft}
+          rows={1}
+          disabled={busy}
+          placeholder={ASK_PLACEHOLDER}
+          aria-label={ASK_PLACEHOLDER}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            const action = handleComposerKey({ key: e.key, shiftKey: e.shiftKey, isComposing: e.nativeEvent.isComposing });
+            if (action === "submit") {
+              e.preventDefault();
+              void submit(draft);
+            }
+          }}
+          className="field-sizing-content max-h-28 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent py-2.5 text-[16px] leading-6 tracking-normal text-ink-strong outline-none"
+        />
+        <button
+          type="button"
+          disabled={busy || !draft.trim()}
+          onClick={() => void submit(draft)}
+          aria-label="Send message"
+          className="mb-0.5 inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-peach text-ink-strong disabled:bg-ivory-deep"
+        >
+          {busy ? <Loader2 className="size-5 animate-spin" /> : <ArrowUp className="size-5" strokeWidth={2.6} />}
+        </button>
       </div>
     </div>
   );
 
   return (
-    <Screen width="wide" aside={isWeb ? aside : undefined} footer={composer} className="!max-w-none overflow-x-hidden">
+    <Screen width="wide" aside={isWeb ? aside : undefined} footer={composer} dockComposer className="!max-w-none overflow-x-hidden">
       <div className={cn("mx-auto flex min-h-0 max-w-[760px] flex-col", layout.chat)}>
         <PageHeader title="Ask SMARAN" subtitle={ASK_SUBTITLE} />
         <div className="mb-4 flex gap-2 overflow-x-auto pb-1" aria-label="Family filter">

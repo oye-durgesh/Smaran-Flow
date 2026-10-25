@@ -10,6 +10,7 @@ Focused Ask composer update only. The overlapping brown circular microphone-styl
 - Always-visible heading **Use Wispr Flow for better speech-to-text** and support: “Speak naturally in Wispr Flow. Your words will appear in this box — review and send them to Ask SMARAN.”
 - Clicking the logo focuses the textarea and shows an honest hint: dictate with Wispr Flow on the device; SMARAN does not record audio. No listening state, no fake transcript, no auto-submit.
 - Flex row: attach · textarea · send. Enter submits, Shift+Enter newline. Placeholder unchanged. Draft starts empty.
+- Helper sits above the input card (not inside an overflow-clipped pill). `dockComposer` lifts the footer above the mobile tab bar so the card is not cropped.
 - Chat column, Try asking rail, bubbles, APIs, and other pages unchanged.
 
 ### Commands this pass
